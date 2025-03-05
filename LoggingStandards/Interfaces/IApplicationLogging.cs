@@ -164,6 +164,7 @@ namespace CerberusClientLogging.Interfaces
         Database,
         Queue,
         API,
-        Other
+        Other,
+        None
     }
 }

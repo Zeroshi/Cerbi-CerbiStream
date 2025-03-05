@@ -68,7 +68,7 @@ namespace CerberusClientLogging.Implementations
                 };
 
                 string formattedLog = _jsonConverter.ConvertMessageToJson(entityBase);
-                await _transactionDestination.SendLogAsync(formattedLog, transactionDestinationTypes ?? TransactionDestinationTypes.NotAvailable);
+                await _transactionDestination.SendLogAsync(formattedLog, transactionDestinationTypes ?? TransactionDestinationTypes.None);
 
                 _logger.LogInformation("Log successfully sent to transaction destination.");
                 return true;
