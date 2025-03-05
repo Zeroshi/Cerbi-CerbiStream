@@ -31,77 +31,20 @@ Cerbi is a modern, scalable logging solution designed for distributed systems an
 ### Installation
 
 The CerbiStream logging library is available on NuGet:
-
-```bash
-dotnet add package cerberus-logger-interface
-```
-
 Visit the [NuGet Package](https://www.nuget.org/packages/cerberus-logger-interface/) for details.
 
----
+### Configuration
 
-## 📖 Usage
-
-### **Configuration**
 Add the following to your `appsettings.json`:
+Visit the [NuGet Package](https://www.nuget.org/packages/cerberus-logger-interface/) for details.
 
-```json
-{
-  "Logging": {
-    "ApplicationName": "MyApp",
-    "DestinationType": "Azure_Queue",
-    "LogLevel": "Information",
-    "ConnectionString": "your_connection_string",
-    "QueueName": "myapp-logs",
-    "CloudProvider": "Azure",
-    "Encryption": {
-      "IsEnabled": true,
-      "Algorithm": "AES-256"
-    },
-    "HostType": "Cloud",
-    "Region": "East US"
-  }
-}
-```
+### Configuration
 
-### **Minimal Logging**
-```csharp
-await logger.SendApplicationLogAsync(
-    applicationMessage: "An error occurred.",
-    currentMethod: nameof(MyMethod),
-    logLevel: LogLevel.Error,
-    log: "Detailed log message",
-    hostType: HostType.Cloud,
-    timestamp: DateTime.UtcNow,
-    encryption: new Encryption { IsEnabled = true, Algorithm = "AES-256" },
-    operatingSystem: RuntimeInformation.OSDescription,
-    frameworkVersion: RuntimeInformation.FrameworkDescription
-);
-```
+Add the following to your `appsettings.json`:
+### Usage
 
-### **Full Logging**
-```csharp
-await logger.SendApplicationLogAsync(
-    applicationMessage: "Transaction completed.",
-    currentMethod: nameof(MyMethod),
-    logLevel: LogLevel.Information,
-    log: "Transaction details",
-    hostType: HostType.Cloud,
-    timestamp: DateTime.UtcNow,
-    encryption: new Encryption { IsEnabled = true, Algorithm = "AES-256" },
-    operatingSystem: RuntimeInformation.OSDescription,
-    frameworkVersion: RuntimeInformation.FrameworkDescription,
-    applicationName: "MyApp",
-    platform: "Web",
-    applicationVersion: "1.0.0",
-    cloudProvider: CloudProvider.Azure,
-    region: new Region { RegionName: "East US", Country: "USA" },
-    traceId: Guid.NewGuid().ToString(),
-    destination: new TransactionDestination { Name = "Database", Type = "SQL" },
-    destinationType: TransactionDestinationTypes.Database
-);
-```
-
+#### **Minimal Logging**
+#### **Full Logging**
 ---
 
 ## 🏗️ Architecture Overview
@@ -126,5 +69,12 @@ CerbiStream provides a seamless logging and routing experience. CerbiLogIQ ensur
 
 ---
 
-## 📝 License
-Cerbi is licensed under the MIT License. See `LICENSE` for more information.
+## 🔒 Security and Encryption
+
+Cerbi supports encryption to ensure the security of your logs. You can enable encryption in the configuration:
+### Encryption and Decryption
+
+Cerbi uses AES-256 encryption to secure log messages. Here’s how you can encrypt and decrypt messages:
+
+#### **Encryption**
+#### **Decryption**

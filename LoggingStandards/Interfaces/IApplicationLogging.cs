@@ -125,6 +125,7 @@ namespace CerberusClientLogging.Interfaces
     {
         string Name { get; }
         string Type { get; }
+        Task SendLogAsync(string log, TransactionDestinationTypes destinationType);
     }
 
     public interface IRegion
