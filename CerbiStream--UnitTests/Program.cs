@@ -34,9 +34,15 @@ class Program
         var jsonConverter = serviceProvider.GetRequiredService<ConvertToJson>();
 
         // ✅ Create Logging Instance
-        var logging = new Logging(logger, transactionDestination, jsonConverter);
+        var logging = new Logging(
+            serviceProvider.GetRequiredService<ILogger<Logging>>(),
+            serviceProvider.GetRequiredService<ITransactionDestination>(),
+            serviceProvider.GetRequiredService<ConvertToJson>(),
+            serviceProvider.GetRequiredService<IEncryption>()  // ✅ Now correctly passing encryption
+        );
 
-        // ✅ Execute Log Test
+
+        // ✅ Execute Log Test with all required parameters
         bool result = await logging.SendApplicationLogAsync(
             applicationMessage: "Test log message",
             currentMethod: "Main",
@@ -52,7 +58,12 @@ class Program
             encryption: null,
             environment: null,
             identifiableInformation: null,
-            payload: "Sample payload"
+            payload: "Sample payload",
+            cloudProvider: "Azure",               // ✅ REQUIRED
+            instanceId: "Instance-12345",         // ✅ REQUIRED
+            applicationVersion: "v1.0.0",         // ✅ REQUIRED
+            region: "US-East",                    // ✅ REQUIRED
+            requestId: "Request-ABC123"           // ✅ REQUIRED
         );
 
         Console.WriteLine($"Logging test result: {result}");

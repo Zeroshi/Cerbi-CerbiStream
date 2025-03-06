@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LoggingStandards\CerberusClientLogging.csproj" />
+    <ProjectReference Include="..\LoggingStandards\CerbiStream.csproj" />
   </ItemGroup>
 
 </Project>

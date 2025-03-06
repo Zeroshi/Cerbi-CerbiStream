@@ -112,7 +112,7 @@ namespace CerberusClientLogging.Interfaces
     public interface IEncryption
     {
         bool IsEnabled { get; }
-        string Algorithm { get; }
+        string Encrypt(string input);
     }
 
     public interface IIdentifiableInformation

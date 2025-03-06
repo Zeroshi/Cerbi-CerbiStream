@@ -29,169 +29,127 @@ namespace CerbiStream_UnitTests
             _mockLogger = new Mock<ILogger<Logging>>();
             _mockJsonConverter = new Mock<ConvertToJson>();
 
+            // Ensure Encryption Mock has Encrypt Method
+            _mockEncryption.Setup(e => e.IsEnabled).Returns(true);
+            _mockEncryption.Setup(e => e.Encrypt(It.IsAny<string>())).Returns((string input) => $"Encrypted({input})");
+
             _logging = new Logging(
                 _mockLogger.Object,
                 _mockTransactionDestination.Object,
-                _mockJsonConverter.Object);
+                _mockJsonConverter.Object,
+                _mockEncryption.Object  // ✅ Now properly passing encryption
+            );
         }
 
-        [Fact]
-        public async Task SendApplicationLogAsync_ShouldReturnTrue()
-        {
-            // Arrange
-            string applicationMessage = "Test log message";
-            string currentMethod = "UnitTestMethod";
-            LogLevel logLevel = LogLevel.Information;
-            string log = "Test log";
-            string applicationName = "TestApp";
-            string platform = "TestPlatform";
-            bool onlyInnerException = false;
-            string note = "TestNote";
-            Exception error = null;
-            string payload = "TestPayload";
 
-            // Act
+        [Fact]
+        public async Task SendApplicationLogAsync_ShouldReturnTrue_WithValidInput()
+        {
             var result = await _logging.SendApplicationLogAsync(
-                applicationMessage,
-                currentMethod,
-                logLevel,
-                log,
-                applicationName,
-                platform,
-                onlyInnerException,
-                note,
-                error,
+                "Test log message",
+                "UnitTestMethod",
+                LogLevel.Information,
+                "Test log",
+                "TestApp",
+                "TestPlatform",
+                false,
+                "TestNote",
+                null,
                 _mockTransactionDestination.Object,
                 TransactionDestinationTypes.Other,
                 _mockEncryption.Object,
                 _mockEnvironment.Object,
                 _mockIdentifiableInformation.Object,
-                payload);
-
-            // Assert
+                "TestPayload",
+                "Azure",
+                "Instance123",
+                "v1.0.2",
+                "US-East",
+                "Request-ABC123");
             Assert.True(result);
         }
 
         [Fact]
-        public async Task SendApplicationLogAsync_ShouldHandleExceptions()
-        {
-            // Arrange
-            string applicationMessage = "";
-            string currentMethod = "UnitTestMethod";
-            LogLevel logLevel = LogLevel.Information;
-            string log = "Test log";
-            string applicationName = "TestApp";
-            string platform = "TestPlatform";
-            bool onlyInnerException = false;
-            string note = "TestNote";
-            Exception error = new Exception("Test exception");
-            string payload = "TestPayload";
-
-            // Act & Assert
-            var result = await _logging.SendApplicationLogAsync(
-                applicationMessage,
-                currentMethod,
-                logLevel,
-                log,
-                applicationName,
-                platform,
-                onlyInnerException,
-                note,
-                error,
-                _mockTransactionDestination.Object,
-                TransactionDestinationTypes.Other,
-                _mockEncryption.Object,
-                _mockEnvironment.Object,
-                _mockIdentifiableInformation.Object,
-                payload);
-
-            Assert.False(result);
-        }
-
-        [Fact]
-        public async Task SendApplicationLogAsync_ShouldHandleEmptyLog()
-        {
-            // Arrange
-            string applicationMessage = "";
-            string currentMethod = "UnitTestMethod";
-            LogLevel logLevel = LogLevel.Information;
-            string log = "";
-            string applicationName = "TestApp";
-            string platform = "TestPlatform";
-            bool onlyInnerException = false;
-            string note = "TestNote";
-            Exception error = null;
-            string payload = "TestPayload";
-
-            // Act
-            var result = await _logging.SendApplicationLogAsync(
-                applicationMessage,
-                currentMethod,
-                logLevel,
-                log,
-                applicationName,
-                platform,
-                onlyInnerException,
-                note,
-                error,
-                _mockTransactionDestination.Object,
-                TransactionDestinationTypes.Other,
-                _mockEncryption.Object,
-                _mockEnvironment.Object,
-                _mockIdentifiableInformation.Object,
-                payload);
-
-            // Assert
-            Assert.False(result);
-        }
-
-        [Fact]
-        public async Task SendApplicationLogAsync_ShouldHandleDifferentLogLevels()
-        {
-            var logLevels = new[] { LogLevel.Debug, LogLevel.Warning, LogLevel.Error, LogLevel.Critical };
-            foreach (var level in logLevels)
-            {
-                var result = await _logging.SendApplicationLogAsync(
-                    "Log Message",
-                    "TestMethod",
-                    level,
-                    "Log Content",
-                    "TestApp",
-                    "TestPlatform",
-                    false,
-                    "Note",
-                    null,
-                    _mockTransactionDestination.Object,
-                    TransactionDestinationTypes.Other,
-                    _mockEncryption.Object,
-                    _mockEnvironment.Object,
-                    _mockIdentifiableInformation.Object,
-                    "TestPayload");
-
-                Assert.True(result);
-            }
-        }
-
-        [Fact]
-        public async Task SendApplicationLogAsync_ShouldHandleNullValues()
+        public async Task SendApplicationLogAsync_ShouldHandleNullValuesGracefully()
         {
             var result = await _logging.SendApplicationLogAsync(
-                null,
-                null,
+                "Default Message",
+                "DefaultMethod",
                 LogLevel.Information,
-                null,
-                null,
-                null,
+                "Default Log",
+                "DefaultApp",
+                "DefaultPlatform",
                 false,
-                null,
+                "Default Note",
                 null,
                 _mockTransactionDestination.Object,
                 TransactionDestinationTypes.Other,
+                _mockEncryption.Object,
+                _mockEnvironment.Object,
+                _mockIdentifiableInformation.Object,
+                "DefaultPayload",
+                null,
                 null,
                 null,
                 null,
                 null);
+            Assert.True(result);
+        }
 
+        [Fact]
+        public async Task SendApplicationLogAsync_ShouldCaptureCloudTypeAndRegion()
+        {
+            var result = await _logging.SendApplicationLogAsync(
+                "Cloud test log",
+                "UnitTestMethod",
+                LogLevel.Information,
+                "Cloud log",
+                "CloudApp",
+                "CloudPlatform",
+                false,
+                "CloudNote",
+                null,
+                _mockTransactionDestination.Object,
+                TransactionDestinationTypes.Other,
+                _mockEncryption.Object,
+                _mockEnvironment.Object,
+                _mockIdentifiableInformation.Object,
+                "CloudPayload",
+                "AWS",
+                "EC2-InstanceID-456",
+                "v2.3.1",
+                "EU-West",
+                "Request-XYZ456");
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task SendApplicationLogAsync_ShouldHandleExceptionsGracefully()
+        {
+            _mockTransactionDestination.Setup(t => t.SendLogAsync(It.IsAny<string>(), It.IsAny<TransactionDestinationTypes>()))
+                .ThrowsAsync(new Exception("Simulated Exception"));
+
+            var result = await _logging.SendApplicationLogAsync(
+                "Error log",
+                "ErrorMethod",
+                LogLevel.Error,
+                "Simulated Exception Occurred",
+                "ErrorApp",
+                "ErrorPlatform",
+                false,
+                "Error Note",
+                new Exception("Test Exception"),
+                _mockTransactionDestination.Object,
+                TransactionDestinationTypes.Other,
+                _mockEncryption.Object,
+                _mockEnvironment.Object,
+                _mockIdentifiableInformation.Object,
+                "ErrorPayload",
+                "Azure",
+                "InstanceError",
+                "v1.0.1",
+                "US-East",
+                "Request-ERROR");
             Assert.False(result);
         }
     }

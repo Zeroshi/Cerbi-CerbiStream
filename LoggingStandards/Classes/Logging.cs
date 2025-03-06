@@ -1,10 +1,11 @@
 ﻿using CerberusClientLogging.Classes;
-using CerberusClientLogging.Classes.ClassTypes;
 using CerberusClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace CerberusClientLogging.Implementations
@@ -14,15 +15,55 @@ namespace CerberusClientLogging.Implementations
         private readonly ILogger<Logging> _logger;
         private readonly ITransactionDestination _transactionDestination;
         private readonly ConvertToJson _jsonConverter;
+        private readonly IEncryption _encryption;
+        private readonly bool _enableEncryption;
 
         public Logging(
             ILogger<Logging> logger,
             ITransactionDestination transactionDestination,
-            ConvertToJson jsonConverter)
+            ConvertToJson jsonConverter,
+            IEncryption encryption,
+            bool enableEncryption = true) // Default: Encryption ON
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _transactionDestination = transactionDestination ?? throw new ArgumentNullException(nameof(transactionDestination));
             _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
+            _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
+            _enableEncryption = enableEncryption;
+        }
+
+        public async Task<bool> LogEventAsync(
+            string message,
+            LogLevel logLevel,
+            Dictionary<string, object>? metadata = null)
+        {
+            metadata ??= new Dictionary<string, object>();
+            EnrichMetadata(metadata);
+            if (_enableEncryption) EncryptMetadata(metadata);
+
+            var logEntry = new
+            {
+                TimestampUtc = DateTime.UtcNow,
+                LogLevel = logLevel,
+                Message = message,
+                Metadata = metadata
+            };
+
+            return await SendLog(logEntry);
+        }
+
+        public async Task<bool> LogPerformanceAsync(
+            string eventName,
+            long elapsedMilliseconds,
+            Dictionary<string, object>? metadata = null)
+        {
+            metadata ??= new Dictionary<string, object>
+            {
+                { "Event", eventName },
+                { "ElapsedTimeMs", elapsedMilliseconds }
+            };
+
+            return await LogEventAsync($"Performance: {eventName}", LogLevel.Information, metadata);
         }
 
         public async Task<bool> SendApplicationLogAsync(
@@ -40,9 +81,14 @@ namespace CerberusClientLogging.Implementations
             IEncryption? encryption,
             IEnvironment? environment,
             IIdentifiableInformation? identifiableInformation,
-            string? payload)
+            string? payload,
+            string? cloudProvider,
+            string? instanceId,
+            string? applicationVersion,
+            string? region,
+            string? requestId)
         {
-            if (string.IsNullOrWhiteSpace(applicationMessage) || string.IsNullOrWhiteSpace(currentMethod))
+            if (string.IsNullOrEmpty(applicationMessage) || string.IsNullOrEmpty(currentMethod))
             {
                 _logger.LogWarning("Invalid log message or method name.");
                 return false;
@@ -50,27 +96,59 @@ namespace CerberusClientLogging.Implementations
 
             try
             {
-                var entityBase = new EntityBase
+                var metadata = new Dictionary<string, object>
                 {
-                    MessageId = Guid.NewGuid(),
-                    TimeStamp = DateTime.UtcNow,
-                    LogLevel = logLevel,
-                    Application_Name = applicationName ?? "Unknown",
-                    Log = log ?? "No log provided",
-                    Platform = platform ?? "Unknown Platform",
-                    OnlyInnerException = onlyInnerException ?? false,
-                    Note = note ?? "No note",
-                    Error = error,
-                    Encryption = encryption != null ? ConvertEncryption(encryption) : MetaData.Encryption.Unecrypted,
-                    Environment = environment != null ? ConvertEnvironment(environment) : MetaData.Environment.NotAvailable,
-                    IdentifiableInformation = identifiableInformation != null ? ConvertIdentifiableInformation(identifiableInformation) : null,
-                    Payload = payload ?? "No payload"
+                    { "CloudProvider", cloudProvider ?? GetCloudProvider() },
+                    { "InstanceId", instanceId ?? Environment.MachineName },
+                    { "ApplicationVersion", applicationVersion ?? "Unknown" },
+                    { "Region", region ?? GetRegion() },
+                    { "RequestId", requestId ?? Guid.NewGuid().ToString() },
+                    { "Log", log },
+                    { "Platform", platform ?? "Unknown" },
+                    { "OnlyInnerException", onlyInnerException ?? false },
+                    { "Note", note ?? "No note" },
+                    { "Error", error?.Message ?? "No Error" }
                 };
 
-                string formattedLog = _jsonConverter.ConvertMessageToJson(entityBase);
-                await _transactionDestination.SendLogAsync(formattedLog, transactionDestinationTypes ?? TransactionDestinationTypes.None);
+                EnrichMetadata(metadata);
+                if (_enableEncryption) EncryptMetadata(metadata);
 
-                _logger.LogInformation("Log successfully sent to transaction destination.");
+                return await LogEventAsync(applicationMessage, logLevel, metadata);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Logging failed.");
+                return false;
+            }
+        }
+
+        private void EnrichMetadata(Dictionary<string, object> metadata)
+        {
+            metadata.TryAdd("ApplicationId", "CerbiApp123");
+            metadata.TryAdd("ApplicationVersion", "1.0.0");
+            metadata.TryAdd("DeploymentType", GetDeploymentType());
+            metadata.TryAdd("AppStartTime", GetAppStartTime());
+            metadata.TryAdd("Uptime", GetUptime());
+        }
+
+        private void EncryptMetadata(Dictionary<string, object> metadata)
+        {
+            foreach (var key in metadata.Keys)
+            {
+                if (metadata[key] is string value && !string.IsNullOrWhiteSpace(value))
+                {
+                    metadata[key] = _encryption.Encrypt(value); // ✅ Encrypt all fields
+                }
+            }
+        }
+
+        private async Task<bool> SendLog(object logEntry)
+        {
+            try
+            {
+                string formattedLog = _jsonConverter.ConvertMessageToJson(logEntry);
+                await _transactionDestination.SendLogAsync(formattedLog, TransactionDestinationTypes.Other);
+                _logger.LogInformation($"Log Sent: {formattedLog}");
                 return true;
             }
             catch (Exception ex)
@@ -80,19 +158,20 @@ namespace CerberusClientLogging.Implementations
             }
         }
 
-        private static MetaData.Encryption ConvertEncryption(IEncryption encryption) =>
-            encryption.IsEnabled ? MetaData.Encryption.Encrypted : MetaData.Encryption.Unecrypted;
+        private string GetCloudProvider()
+        {
+            if (Environment.GetEnvironmentVariable("AWS_EXECUTION_ENV") != null)
+                return "AWS";
+            if (Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT") != null)
+                return "GCP";
+            if (Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") != null)
+                return "Azure";
+            return "On-Prem";
+        }
 
-        private static MetaData.Environment ConvertEnvironment(IEnvironment environment) =>
-            Enum.TryParse(environment.GetType().Name, out MetaData.Environment result) ? result : MetaData.Environment.NotAvailable;
-
-        private static MetaData.IdentifiableInformation ConvertIdentifiableInformation(IIdentifiableInformation identifiableInformation) =>
-            identifiableInformation.Identifier switch
-            {
-                "PersonalIdentifiableInformationPii" => MetaData.IdentifiableInformation.PersonalIdentifiableInformationPii,
-                "PersonalFinanceInformationPfi" => MetaData.IdentifiableInformation.PersonalFinanceInformationPfi,
-                "ProtectedHealthInformationPhi" => MetaData.IdentifiableInformation.ProtectedHealthInformationPhi,
-                _ => MetaData.IdentifiableInformation.NotAvailable
-            };
+        private string GetRegion() => "us-east-1";
+        private string GetDeploymentType() => "Cloud";
+        private string GetAppStartTime() => DateTime.UtcNow.AddMinutes(-15).ToString();
+        private string GetUptime() => $"{Environment.TickCount / 1000}s";
     }
 }

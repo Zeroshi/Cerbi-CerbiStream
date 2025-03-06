@@ -14,11 +14,11 @@ namespace CerberusClientLogging.Classes
         /// <typeparam name="T"></typeparam>
         /// <param name="log">The log.</param>
         /// <returns></returns>
-        public string ConvertMessageToJson<T>(T log) where T : IEntityBase
+        public string ConvertMessageToJson<T>(T log)
         {
-            var output = JsonConvert.SerializeObject(log);
-            return output;
+            return JsonConvert.SerializeObject(log);
         }
+
 
         /// <summary>
         /// Converts the application message to json.
