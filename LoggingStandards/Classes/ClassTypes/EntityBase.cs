@@ -1,4 +1,4 @@
-﻿using CerberusClientLogging.Interfaces;
+﻿using CerbiClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
 using CerberusLogging.Interfaces.Objects;
 using Microsoft.Extensions.Logging;
@@ -6,7 +6,7 @@ using System;
 using static CerberusLogging.Classes.Enums.MetaData;
 using Environment = CerberusLogging.Classes.Enums.MetaData.Environment;
 
-namespace CerberusClientLogging.Classes.ClassTypes
+namespace CerbiClientLogging.Classes.ClassTypes
 {
     /// <summary>
     /// Metadata concerning the message

@@ -3,7 +3,7 @@
 //using System.Threading.Tasks;
 //using RabbitMQ.Client;
 
-//namespace CerberusClientLogging.Classes.Queues
+//namespace CerbiClientLogging.Classes.Queues
 //{
 //    public class RabbitMqQueue : IDisposable
 //    {

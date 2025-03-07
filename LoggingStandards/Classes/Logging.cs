@@ -1,14 +1,13 @@
-﻿using CerberusClientLogging.Classes;
-using CerberusClientLogging.Interfaces;
+﻿using CerbiClientLogging.Classes;
+using CerbiClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace CerberusClientLogging.Implementations
+namespace CerbiClientLogging.Implementations
 {
     public class Logging : IBaseLogging
     {
@@ -16,20 +15,17 @@ namespace CerberusClientLogging.Implementations
         private readonly ITransactionDestination _transactionDestination;
         private readonly ConvertToJson _jsonConverter;
         private readonly IEncryption _encryption;
-        private readonly bool _enableEncryption;
 
         public Logging(
             ILogger<Logging> logger,
             ITransactionDestination transactionDestination,
             ConvertToJson jsonConverter,
-            IEncryption encryption,
-            bool enableEncryption = true) // Default: Encryption ON
+            IEncryption encryption)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _transactionDestination = transactionDestination ?? throw new ArgumentNullException(nameof(transactionDestination));
             _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
             _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
-            _enableEncryption = enableEncryption;
         }
 
         public async Task<bool> LogEventAsync(
@@ -39,7 +35,7 @@ namespace CerberusClientLogging.Implementations
         {
             metadata ??= new Dictionary<string, object>();
             EnrichMetadata(metadata);
-            if (_enableEncryption) EncryptMetadata(metadata);
+            EncryptMetadata(metadata);
 
             var logEntry = new
             {
@@ -50,6 +46,62 @@ namespace CerberusClientLogging.Implementations
             };
 
             return await SendLog(logEntry);
+        }
+
+        public async Task<bool> SendApplicationLogAsync(
+            string applicationMessage,
+            string currentMethod,
+            LogLevel logLevel,
+            string log,
+            string? applicationName = null,
+            string? platform = null,
+            bool? onlyInnerException = null,
+            string? note = null,
+            Exception? error = null,
+            ITransactionDestination? transactionDestination = null,
+            TransactionDestinationTypes? transactionDestinationTypes = null,
+            IEncryption? encryption = null,
+            IEnvironment? environment = null,
+            IIdentifiableInformation? identifiableInformation = null,
+            string? payload = null,
+            string? cloudProvider = null,
+            string? instanceId = null,
+            string? applicationVersion = null,
+            string? region = null,
+            string? requestId = null)
+        {
+            if (string.IsNullOrEmpty(applicationMessage) || string.IsNullOrEmpty(currentMethod))
+            {
+                _logger.LogWarning("Invalid log message or method name.");
+                return false;
+            }
+
+            try
+            {
+                var metadata = new Dictionary<string, object>
+                {
+                    { "CloudProvider", cloudProvider ?? ApplicationMetadata.CloudProvider },
+                    { "Region", region ?? ApplicationMetadata.Region },
+                    { "InstanceId", instanceId ?? ApplicationMetadata.InstanceId },
+                    { "ApplicationVersion", applicationVersion ?? ApplicationMetadata.ApplicationVersion },
+                    { "RequestId", requestId ?? Guid.NewGuid().ToString() },
+                    { "Log", log },
+                    { "Platform", platform ?? "Unknown" },
+                    { "OnlyInnerException", onlyInnerException ?? false },
+                    { "Note", note ?? "No note" },
+                    { "Error", error?.Message ?? "No Error" }
+                };
+
+                EnrichMetadata(metadata);
+                EncryptMetadata(metadata);
+
+                return await LogEventAsync(applicationMessage, logLevel, metadata);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Logging failed.");
+                return false;
+            }
         }
 
         public async Task<bool> LogPerformanceAsync(
@@ -63,81 +115,28 @@ namespace CerberusClientLogging.Implementations
                 { "ElapsedTimeMs", elapsedMilliseconds }
             };
 
+            EnrichMetadata(metadata);
+            EncryptMetadata(metadata);
+
             return await LogEventAsync($"Performance: {eventName}", LogLevel.Information, metadata);
-        }
-
-        public async Task<bool> SendApplicationLogAsync(
-            string applicationMessage,
-            string currentMethod,
-            LogLevel logLevel,
-            string log,
-            string? applicationName,
-            string? platform,
-            bool? onlyInnerException,
-            string? note,
-            Exception? error,
-            ITransactionDestination? transactionDestination,
-            TransactionDestinationTypes? transactionDestinationTypes,
-            IEncryption? encryption,
-            IEnvironment? environment,
-            IIdentifiableInformation? identifiableInformation,
-            string? payload,
-            string? cloudProvider,
-            string? instanceId,
-            string? applicationVersion,
-            string? region,
-            string? requestId)
-        {
-            if (string.IsNullOrEmpty(applicationMessage) || string.IsNullOrEmpty(currentMethod))
-            {
-                _logger.LogWarning("Invalid log message or method name.");
-                return false;
-            }
-
-            try
-            {
-                var metadata = new Dictionary<string, object>
-                {
-                    { "CloudProvider", cloudProvider ?? GetCloudProvider() },
-                    { "InstanceId", instanceId ?? Environment.MachineName },
-                    { "ApplicationVersion", applicationVersion ?? "Unknown" },
-                    { "Region", region ?? GetRegion() },
-                    { "RequestId", requestId ?? Guid.NewGuid().ToString() },
-                    { "Log", log },
-                    { "Platform", platform ?? "Unknown" },
-                    { "OnlyInnerException", onlyInnerException ?? false },
-                    { "Note", note ?? "No note" },
-                    { "Error", error?.Message ?? "No Error" }
-                };
-
-                EnrichMetadata(metadata);
-                if (_enableEncryption) EncryptMetadata(metadata);
-
-                return await LogEventAsync(applicationMessage, logLevel, metadata);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Logging failed.");
-                return false;
-            }
         }
 
         private void EnrichMetadata(Dictionary<string, object> metadata)
         {
-            metadata.TryAdd("ApplicationId", "CerbiApp123");
-            metadata.TryAdd("ApplicationVersion", "1.0.0");
-            metadata.TryAdd("DeploymentType", GetDeploymentType());
-            metadata.TryAdd("AppStartTime", GetAppStartTime());
-            metadata.TryAdd("Uptime", GetUptime());
+            metadata.TryAdd("ApplicationId", ApplicationMetadata.ApplicationId);
+            metadata.TryAdd("DeploymentType", "Cloud");
         }
 
         private void EncryptMetadata(Dictionary<string, object> metadata)
         {
-            foreach (var key in metadata.Keys)
+            if (_encryption.IsEnabled)
             {
-                if (metadata[key] is string value && !string.IsNullOrWhiteSpace(value))
+                foreach (var key in new List<string> { "APIKey", "SensitiveField" })
                 {
-                    metadata[key] = _encryption.Encrypt(value); // ✅ Encrypt all fields
+                    if (metadata.ContainsKey(key) && metadata[key] is string value)
+                    {
+                        metadata[key] = _encryption.Encrypt(value);
+                    }
                 }
             }
         }
@@ -157,21 +156,5 @@ namespace CerberusClientLogging.Implementations
                 return false;
             }
         }
-
-        private string GetCloudProvider()
-        {
-            if (Environment.GetEnvironmentVariable("AWS_EXECUTION_ENV") != null)
-                return "AWS";
-            if (Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT") != null)
-                return "GCP";
-            if (Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") != null)
-                return "Azure";
-            return "On-Prem";
-        }
-
-        private string GetRegion() => "us-east-1";
-        private string GetDeploymentType() => "Cloud";
-        private string GetAppStartTime() => DateTime.UtcNow.AddMinutes(-15).ToString();
-        private string GetUptime() => $"{Environment.TickCount / 1000}s";
     }
 }

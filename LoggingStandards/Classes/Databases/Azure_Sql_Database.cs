@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
-using CerberusClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces;
 
-namespace CerberusClientLogging.Classes.Databases
+namespace CerbiClientLogging.Classes.Databases
 {
     public class AzureSqlDatabase : IDatabase
     {

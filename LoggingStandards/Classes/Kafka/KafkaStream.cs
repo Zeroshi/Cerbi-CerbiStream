@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-namespace CerberusClientLogging.Classes.Kafka
+namespace CerbiClientLogging.Classes.Kafka
 {
     internal class StreamSet
     {
@@ -19,7 +19,7 @@ namespace CerberusClientLogging.Classes.Kafka
             var producerTopic = " >> C:\\tmp\\meow-kafka-producer.txt";
             var myTopic = ConfigurationManager.AppSettings["KAFKA-MEOW"];
             var myMessage = ConfigurationManager.AppSettings["KAFKA-MESSAGE"];
-            var externalFile = @"C:\Users\pthakrar\source\repos\Cerberus-logging\Cerberus-logging\TestLogs\LOGS.json";
+            var externalFile = @"C:\Users\pthakrar\source\repos\Cerbi-logging\Cerbi-logging\TestLogs\LOGS.json";
             var jsonLinesFile = File.ReadLines(externalFile);
             var testFile = @"C:\tmp\meow-kafka-producer.txt";
 

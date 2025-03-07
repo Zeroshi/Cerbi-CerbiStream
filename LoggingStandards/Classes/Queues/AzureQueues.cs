@@ -2,10 +2,10 @@
 using System.Text;
 using System.Threading.Tasks;
 using Azure.Storage.Queues;
-using CerberusClientLogging.Interfaces;
-using CerberusClientLogging.Interfaces.SendMessage;
+using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
 
-namespace CerberusClientLogging.Classes.Queues
+namespace CerbiClientLogging.Classes.Queues
 {
     public class AzureQueueStorage : ISendMessage, IQueue
     {

@@ -1,6 +1,6 @@
-﻿using CerberusClientLogging.Classes;
-using CerberusClientLogging.Implementations;
-using CerberusClientLogging.Interfaces;
+﻿using CerbiClientLogging.Classes;
+using CerbiClientLogging.Implementations;
+using CerbiClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -41,7 +41,6 @@ namespace CerbiStream_UnitTests
             );
         }
 
-
         [Fact]
         public async Task SendApplicationLogAsync_ShouldReturnTrue_WithValidInput()
         {
@@ -60,12 +59,9 @@ namespace CerbiStream_UnitTests
                 _mockEncryption.Object,
                 _mockEnvironment.Object,
                 _mockIdentifiableInformation.Object,
-                "TestPayload",
-                "Azure",
-                "Instance123",
-                "v1.0.2",
-                "US-East",
-                "Request-ABC123");
+                "TestPayload"
+            );
+
             Assert.True(result);
         }
 
@@ -87,39 +83,9 @@ namespace CerbiStream_UnitTests
                 _mockEncryption.Object,
                 _mockEnvironment.Object,
                 _mockIdentifiableInformation.Object,
-                "DefaultPayload",
-                null,
-                null,
-                null,
-                null,
-                null);
-            Assert.True(result);
-        }
+                "DefaultPayload"
+            );
 
-        [Fact]
-        public async Task SendApplicationLogAsync_ShouldCaptureCloudTypeAndRegion()
-        {
-            var result = await _logging.SendApplicationLogAsync(
-                "Cloud test log",
-                "UnitTestMethod",
-                LogLevel.Information,
-                "Cloud log",
-                "CloudApp",
-                "CloudPlatform",
-                false,
-                "CloudNote",
-                null,
-                _mockTransactionDestination.Object,
-                TransactionDestinationTypes.Other,
-                _mockEncryption.Object,
-                _mockEnvironment.Object,
-                _mockIdentifiableInformation.Object,
-                "CloudPayload",
-                "AWS",
-                "EC2-InstanceID-456",
-                "v2.3.1",
-                "EU-West",
-                "Request-XYZ456");
             Assert.True(result);
         }
 
@@ -144,12 +110,9 @@ namespace CerbiStream_UnitTests
                 _mockEncryption.Object,
                 _mockEnvironment.Object,
                 _mockIdentifiableInformation.Object,
-                "ErrorPayload",
-                "Azure",
-                "InstanceError",
-                "v1.0.1",
-                "US-East",
-                "Request-ERROR");
+                "ErrorPayload"
+            );
+
             Assert.False(result);
         }
     }

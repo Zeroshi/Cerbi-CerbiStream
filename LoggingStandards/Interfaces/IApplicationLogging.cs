@@ -1,4 +1,4 @@
-﻿using CerberusClientLogging.Interfaces.SendMessage;
+﻿using CerbiClientLogging.Interfaces.SendMessage;
 using System;
 using System.Threading.Tasks;
 using CerberusLogging.Classes.Enums;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using static CerberusLogging.Classes.Enums.MetaData;
 
-namespace CerberusClientLogging.Interfaces
+namespace CerbiClientLogging.Interfaces
 {
     public interface IApplicationLogging : IBaseLogging
     {

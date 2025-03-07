@@ -1,7 +1,7 @@
 ﻿//using System;
 //using System.Threading.Tasks;
 
-//namespace CerberusLogging.Classes.Queues
+//namespace CerbiLogging.Classes.Queues
 //{
 //    internal class SendToQueue
 //    {

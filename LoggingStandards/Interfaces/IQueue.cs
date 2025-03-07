@@ -1,6 +1,6 @@
-﻿using CerberusClientLogging.Interfaces.SendMessage;
+﻿using CerbiClientLogging.Interfaces.SendMessage;
 
-namespace CerberusClientLogging.Interfaces
+namespace CerbiClientLogging.Interfaces
 {
     public interface IQueue : ISendMessage
     {

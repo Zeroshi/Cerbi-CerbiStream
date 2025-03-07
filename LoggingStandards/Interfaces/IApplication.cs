@@ -1,7 +1,7 @@
-﻿using CerberusClientLogging.Classes.ClassTypes;
+﻿using CerbiClientLogging.Classes.ClassTypes;
 using Microsoft.Extensions.Logging;
 
-namespace CerberusClientLogging.Interfaces
+namespace CerbiClientLogging.Interfaces
 {
     interface IApplication
     {

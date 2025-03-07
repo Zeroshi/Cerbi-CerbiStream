@@ -1,7 +1,7 @@
 ﻿using CerberusLogging.Interfaces.Objects;
 using Newtonsoft.Json;
 
-namespace CerberusClientLogging.Classes
+namespace CerbiClientLogging.Classes
 {
     /// <summary>
     /// 

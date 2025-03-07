@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
-namespace CerberusClientLogging.Interfaces
+namespace CerbiClientLogging.Interfaces
 {
     public interface ILogMessageDecoder
     {

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
-using CerberusClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
 
-namespace CerberusClientLogging.Implementations
+namespace CerbiClientLogging.Implementations
 {
     public class TransactionDestinationImplementation : ITransactionDestination
     {

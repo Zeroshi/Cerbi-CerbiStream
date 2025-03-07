@@ -2,10 +2,10 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using CerberusClientLogging.Implementations;
-using CerberusClientLogging.Interfaces;
+using CerbiClientLogging.Implementations;
+using CerbiClientLogging.Interfaces;
 using CerberusLogging.Classes.Enums;
-using CerberusClientLogging.Classes;
+using CerbiClientLogging.Classes;
 
 class Program
 {
@@ -13,34 +13,30 @@ class Program
     {
         Console.WriteLine("Starting manual test for Logging...");
 
-        // ✅ Correct setup of Dependency Injection
+        // ✅ Setup Dependency Injection
         var serviceProvider = new ServiceCollection()
             .AddLogging(loggingBuilder =>
             {
-                loggingBuilder.AddSimpleConsole(options =>  // ✅ This is the new method for .NET 8+
+                loggingBuilder.AddSimpleConsole(options =>
                 {
                     options.IncludeScopes = true;
                     options.SingleLine = true;
                     options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
                 });
             })
-            .AddSingleton<ITransactionDestination, TransactionDestinationImplementation>()  // Replace with your actual implementation
+            .AddSingleton<ITransactionDestination, TransactionDestinationImplementation>()  // ✅ Replace with actual implementation
             .AddSingleton<ConvertToJson>()
+            .AddSingleton<IEncryption, EncryptionImplementation>()  // ✅ Ensure Encryption is properly injected
             .BuildServiceProvider();
 
         // ✅ Resolve dependencies
         var logger = serviceProvider.GetRequiredService<ILogger<Logging>>();
         var transactionDestination = serviceProvider.GetRequiredService<ITransactionDestination>();
         var jsonConverter = serviceProvider.GetRequiredService<ConvertToJson>();
+        var encryption = serviceProvider.GetRequiredService<IEncryption>();  // ✅ Required for encryption
 
         // ✅ Create Logging Instance
-        var logging = new Logging(
-            serviceProvider.GetRequiredService<ILogger<Logging>>(),
-            serviceProvider.GetRequiredService<ITransactionDestination>(),
-            serviceProvider.GetRequiredService<ConvertToJson>(),
-            serviceProvider.GetRequiredService<IEncryption>()  // ✅ Now correctly passing encryption
-        );
-
+        var logging = new Logging(logger, transactionDestination, jsonConverter, encryption);
 
         // ✅ Execute Log Test with all required parameters
         bool result = await logging.SendApplicationLogAsync(
@@ -55,15 +51,15 @@ class Program
             error: null,
             transactionDestination: transactionDestination,
             transactionDestinationTypes: TransactionDestinationTypes.Other,
-            encryption: null,
+            encryption: encryption,              // ✅ Encryption enabled
             environment: null,
             identifiableInformation: null,
             payload: "Sample payload",
-            cloudProvider: "Azure",               // ✅ REQUIRED
-            instanceId: "Instance-12345",         // ✅ REQUIRED
-            applicationVersion: "v1.0.0",         // ✅ REQUIRED
-            region: "US-East",                    // ✅ REQUIRED
-            requestId: "Request-ABC123"           // ✅ REQUIRED
+            cloudProvider: "Azure",              // ✅ REQUIRED
+            instanceId: "Instance-12345",        // ✅ REQUIRED
+            applicationVersion: "v1.0.0",        // ✅ REQUIRED
+            region: "US-East",                   // ✅ REQUIRED
+            requestId: "Request-ABC123"          // ✅ REQUIRED
         );
 
         Console.WriteLine($"Logging test result: {result}");

@@ -1,8 +1,8 @@
-# CerberusClientLogging Library
+# CerbiClientLogging Library
 
 ## Overview
 
-The **CerberusClientLogging** library is designed to provide structured logging with rich metadata collection for cloud-based and on-prem applications. It enables developers to capture logging data efficiently while ensuring security, flexibility, and ease of integration with various logging destinations.
+The **CerbiClientLogging** library is designed to provide structured logging with rich metadata collection for cloud-based and on-prem applications. It enables developers to capture logging data efficiently while ensuring security, flexibility, and ease of integration with various logging destinations.
 
 This library supports **optional encryption**, ensuring that logs can be securely transmitted and stored. The metadata collected can be used for **machine learning (ML) and artificial intelligence (AI) analysis**, helping identify patterns, trends, and system performance insights.
 
@@ -23,7 +23,7 @@ This library supports **optional encryption**, ensuring that logs can be securel
 
 To install the package, add it to your project using:
 
-##dotnet add package CerberusClientLogging
+##dotnet add package CerbiClientLogging
 
 
 Ensure that your application includes the following dependencies:

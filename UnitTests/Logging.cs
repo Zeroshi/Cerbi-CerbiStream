@@ -1,5 +1,5 @@
-﻿//using CerberusClientLogging.Classes;
-//using CerberusClientLogging.Classes.ClassTypes;
+﻿//using CerbiClientLogging.Classes;
+//using CerbiClientLogging.Classes.ClassTypes;
 //using Moq;
 //using Newtonsoft.Json;
 //using NUnit.Framework;
