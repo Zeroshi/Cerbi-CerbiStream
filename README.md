@@ -1,60 +1,31 @@
-# CerbiClientLogging Library
+# Cerbi Logging Library
 
-## Overview
-
-The **CerbiClientLogging** library is designed to provide structured logging with rich metadata collection for cloud-based and on-prem applications. It enables developers to capture logging data efficiently while ensuring security, flexibility, and ease of integration with various logging destinations.
-
-This library supports **optional encryption**, ensuring that logs can be securely transmitted and stored. The metadata collected can be used for **machine learning (ML) and artificial intelligence (AI) analysis**, helping identify patterns, trends, and system performance insights.
+A lightweight and flexible structured logging library for capturing application logs with metadata. Designed for use across cloud and on-prem environments, supporting optional encryption and AI/ML-driven insights.
 
 ---
 
-## Features
+## 📌 Features
 
-- **Structured Logging**: Logs are formatted in JSON for easy parsing.
-- **Flexible Encryption**: Supports full or per-field encryption for security.
-- **Metadata Collection**: Automatically captures cloud provider, instance ID, application version, and more.
-- **Performance Logging**: Tracks event durations and system resource usage.
-- **Configurable Storage**: Logs can be sent to databases, message queues, APIs, or other destinations.
-- **Cross-Platform**: Supports .NET applications, with future implementations planned for Java and Python.
+- **Lightweight** logging with minimal overhead
+- **Automatic metadata enrichment** (e.g., CloudProvider, Region)
+- **Flexible configuration** via environment variables or manual setup
+- **Built-in encryption** (optional, configurable)
+- **Support for multiple logging destinations** (e.g., databases, external logging tools)
+- **AI/ML compatibility** for trend analysis
 
 ---
 
-## Installation
+## 🚀 Installation
 
-To install the package, add it to your project using:
+### Using NuGet
+```sh
+dotnet add package Cerbi.Logging
 
-##dotnet add package CerbiClientLogging
+Manually Adding
+Clone the repository and add the CerbiClientLogging project to your solution.
 
-
-Ensure that your application includes the following dependencies:
-<ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-</ItemGroup>
-
-Configuration
-AppSettings.json Example
-The logging behavior is configured through appsettings.json:
-
-{
-  "Logging": {
-    "EnableEncryption": true,
-    "Destination": "Database",
-    "IncludePerformanceMetrics": false
-  },
-  "Encryption": {
-    "Key": "your-encryption-key-here"
-  }
-}
-
-Environment Variables (Alternative to JSON Config)
-export LOGGING_ENABLE_ENCRYPTION=true
-export LOGGING_DESTINATION=Database
-export ENCRYPTION_KEY="your-encryption-key-here"
-
-##Implementation
-###Step 1: Configure Dependency Injection
-In Program.cs (for ASP.NET Core applications):
+🛠️ Setup
+Dependency Injection Setup (Recommended)
 
 var serviceProvider = new ServiceCollection()
     .AddLogging(loggingBuilder =>
@@ -66,10 +37,9 @@ var serviceProvider = new ServiceCollection()
             options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
         });
     })
-    .AddSingleton<ITransactionDestination, TransactionDestinationImplementation>() 
-    .AddSingleton<IEncryption, EncryptionImplementation>()
+    .AddSingleton<ITransactionDestination, TransactionDestinationImplementation>()  
     .AddSingleton<ConvertToJson>()
-    .AddSingleton<Logging>()
+    .AddSingleton<IEncryption, EncryptionImplementation>()
     .BuildServiceProvider();
 
 var logger = serviceProvider.GetRequiredService<ILogger<Logging>>();
@@ -80,95 +50,85 @@ var encryption = serviceProvider.GetRequiredService<IEncryption>();
 var logging = new Logging(logger, transactionDestination, jsonConverter, encryption);
 
 
-###Step 2: Logging Events
-Basic Event Logging
+📂 Configuration Options
+Set configuration options via app settings or environment variables.
 
-await logging.LogEventAsync("User logged in", LogLevel.Information);
-
-Performance Logging
-await logging.LogPerformanceAsync("API Request", 123); // 123 ms execution time
-
-Detailed Application Logging
-await logging.SendApplicationLogAsync(
-    applicationMessage: "User authentication successful",
-    currentMethod: "Login",
-    logLevel: LogLevel.Information,
-    log: "Authentication passed",
-    applicationName: "MyApp",
-    platform: "Windows",
-    onlyInnerException: false,
-    note: "User authenticated successfully",
-    error: null,
-    transactionDestination: transactionDestination,
-    transactionDestinationTypes: TransactionDestinationTypes.Database,
-    encryption: encryption,
-    environment: null,
-    identifiableInformation: null,
-    payload: "SessionID: abc123",
-    cloudProvider: "AWS",
-    instanceId: "i-123456",
-    applicationVersion: "1.2.3",
-    region: "us-east-1",
-    requestId: Guid.NewGuid().ToString()
-);
-
-Data Flow & Metadata Collection
-| Field Name         | Description                               | Example Value |
-|--------------------|-------------------------------------------|--------------|
-| CloudProvider     | AWS, Azure, GCP, On-Prem                 | AWS          |
-| InstanceId        | Machine or VM Instance ID                | i-123456     |
-| ApplicationVersion| The version of the running application   | 1.2.3        |
-| Region           | Cloud region of deployment               | us-east-1    |
-| RequestId        | Unique request ID for tracking logs      | abc123       |
-| CPUUsage         | Captured if enabled in settings          | 55%          |
-| MemoryUsage      | Captured if enabled in settings          | 1.5GB        |
+Feature	                    Default	        Description
+EnableEncryption	        true	        Encrypt all logs unless explicitly disabled
+IncludePerformanceMetrics	false	        Track CPU/Memory usage
+TransactionDestinationType	Database	    Route logs to a specific destination
 
 
-Encryption Handling
-By default, encryption is enabled.
-
-To disable encryption:
-var logging = new Logging(logger, transactionDestination, jsonConverter, encryption, enableEncryption: false);
-
-
-Decrypting Logs in Downstream Applications
-If another application needs to decrypt logs, use the IEncryption interface:
-
-string decryptedLog = encryption.Decrypt(encryptedLog);
-Console.WriteLine($"Decrypted Log: {decryptedLog}");
-
-If the SaaS product is used, decryption happens automatically within the system.
-
-Optional Features
-
-| Feature                      | Default Setting | Purpose |
-|------------------------------|----------------|---------|
-| EnableEncryption             | true           | Encrypts all logs unless turned off |
-| IncludePerformanceMetrics    | false          | Tracks CPU/Memory Usage |
-| TransactionDestinationType   | Database       | Allows logs to be routed to different storage locations |
-
-
-
-Example Output (JSON Format)
-A fully formatted log entry looks like this:
-
+Example .appsettings.json:
 {
-  "TimestampUtc": "2025-03-05T14:30:00Z",
-  "LogLevel": "Information",
-  "Message": "User authentication successful",
-  "Metadata": {
-    "CloudProvider": "AWS",
-    "InstanceId": "i-123456",
-    "ApplicationVersion": "1.2.3",
-    "Region": "us-east-1",
-    "RequestId": "abc123",
-    "Log": "Authentication passed",
-    "Platform": "Windows",
-    "OnlyInnerException": false,
-    "Note": "User authenticated successfully"
+  "LoggingConfig": {
+    "EnableEncryption": true,
+    "IncludePerformanceMetrics": false,
+    "TransactionDestinationType": "Database"
   }
 }
 
-License
-This project is licensed under the MIT License.
 
+------------------
+
+Logging Methods
+1️ General Event Logging
+
+await logging.LogEventAsync("User logged in", LogLevel.Information);
+
+2️ Performance Logging
+
+await logging.LogPerformanceAsync("API Request", 250);
+
+3️ Structured Application Logging
+
+await logging.SendApplicationLogAsync(
+    applicationMessage: "Order processed",
+    currentMethod: "ProcessOrder",
+    logLevel: LogLevel.Information,
+    log: "Order completed successfully",
+    applicationName: "OrderService",
+    platform: "Linux",
+    onlyInnerException: false,
+    note: "Standard processing",
+    error: null,
+    transactionDestination: transactionDestination,
+    transactionDestinationTypes: TransactionDestinationTypes.Other,
+    encryption: encryption,
+    environment: null,
+    identifiableInformation: null,
+    payload: "OrderID: 12345",
+    cloudProvider: "AWS",
+    instanceId: "i-1234567890",
+    applicationVersion: "v2.1.0",
+    region: "us-east-1",
+    requestId: "req-5678"
+);
+
+Encryption Handling
+How Encryption Works
+By default, all logs are encrypted.
+Developers can disable encryption globally in the config.
+Specific fields can be encrypted selectively.
+Decrypting Logs in Downstream Applications
+If a downstream application does not use the Cerbi SaaS, it can decrypt logs manually using the same encryption key:
+
+var decryptedLog = encryption.Decrypt(encryptedLog);
+
+License
+Cerbi Logging is licensed under the MIT License.
+
+Authors
+Thomas Nelson
+Cerbi
+
+
+
+This README ensures that developers:
+- Understand how to **install** and **set up** logging
+- Know the **config options**
+- Learn **how to log events**
+- Can **decrypt logs** manually if needed
+- See how **metadata is collected** for AI/ML
+
+Let me know if you need modifications! 
