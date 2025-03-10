@@ -161,9 +161,12 @@ namespace CerbiClientLogging.Interfaces
 
     public enum TransactionDestinationTypes
     {
-        Database,
-        Queue,
-        API,
+        Kafka,
+        RabbitMQ,
+        AzureServiceBus,
+        AWS_SQS,
+        AWS_Kinesis,
+        GooglePubSub,
         Other,
         None
     }

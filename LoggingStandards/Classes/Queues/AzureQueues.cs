@@ -2,26 +2,17 @@
 using System.Text;
 using System.Threading.Tasks;
 using Azure.Storage.Queues;
-using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AzureQueueStorage : ISendMessage, IQueue
+    public class AzureQueueStorage : ISendMessage
     {
-        private readonly string _connectionString;
-        private readonly string _queueName;
         private readonly QueueClient _client;
 
         public AzureQueueStorage(string connectionString, string queueName)
         {
-            _connectionString = connectionString;
-            _queueName = queueName;
-
-            // Create a QueueClient instance for the specified queue
-            _client = new QueueClient(_connectionString, _queueName);
-
-            // Create the queue if it does not exist
+            _client = new QueueClient(connectionString, queueName);
             _client.CreateIfNotExists();
         }
 
@@ -29,15 +20,13 @@ namespace CerbiClientLogging.Classes.Queues
         {
             try
             {
-                // Add the message to the queue
                 await _client.SendMessageAsync(Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)));
+                Console.WriteLine($"[Azure Queue] {messageId} was sent.");
                 return true;
-
-                Console.WriteLine(messageId + @" was sent");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($@"{messageId} was not sent. Error: {ex.InnerException}");
+                Console.WriteLine($"[Azure Queue] {messageId} was NOT sent. Error: {ex.Message}");
                 return false;
             }
         }

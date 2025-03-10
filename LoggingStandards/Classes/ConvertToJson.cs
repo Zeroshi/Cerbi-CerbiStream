@@ -1,4 +1,5 @@
 ﻿using CerberusLogging.Interfaces.Objects;
+using CerbiStream.Interfaces;
 using Newtonsoft.Json;
 
 namespace CerbiClientLogging.Classes
@@ -6,7 +7,7 @@ namespace CerbiClientLogging.Classes
     /// <summary>
     /// 
     /// </summary>
-    public class ConvertToJson
+    public class ConvertToJson : IConvertToJson
     {
         /// <summary>
         /// Converts the message to json.
@@ -14,10 +15,11 @@ namespace CerbiClientLogging.Classes
         /// <typeparam name="T"></typeparam>
         /// <param name="log">The log.</param>
         /// <returns></returns>
-        public string ConvertMessageToJson<T>(T log)
+        public virtual string ConvertMessageToJson<T>(T log) // ✅ Add "virtual"
         {
             return JsonConvert.SerializeObject(log);
         }
+
 
 
         /// <summary>

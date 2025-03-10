@@ -1,59 +1,76 @@
-﻿//using System;
-//using System.Text;
-//using System.Threading.Tasks;
-//using RabbitMQ.Client;
+﻿// using CerbiClientLogging.Interfaces.SendMessage;
+// using RabbitMQ.Client;
+// using System;
+// using System.Text;
+// using System.Threading.Tasks;
 
-//namespace CerbiClientLogging.Classes.Queues
-//{
-//    public class RabbitMqQueue : IDisposable
-//    {
-//        private readonly string _queueName;
-//        private readonly IConnection _connection;
-//        private readonly IModel _channel;
+// namespace CerbiClientLogging.Classes.Queues
+// {
+//     /// <summary>
+//     /// Represents a RabbitMQ queue for sending messages.
+//     /// </summary>
+//     public class RabbitMqQueue : ISendMessage
+//     {
+//         private readonly string _hostName;
+//         private readonly string _queueName;
+//         private readonly ConnectionFactory _factory;
 
-//        public RabbitMqQueue(string connectionString, string queueName)
-//        {
-//            _queueName = queueName;
+//         /// <summary>
+//         /// Initializes a new instance of the <see cref="RabbitMqQueue"/> class.
+//         /// </summary>
+//         public RabbitMqQueue(string hostName, string queueName)
+//         {
+//             _hostName = hostName;
+//             _queueName = queueName;
 
-//            // Create RabbitMQ connection
-//            var factory = new ConnectionFactory
-//            {
-//                Uri = new Uri(connectionString)
-//            };
+//             _factory = new ConnectionFactory()
+//             {
+//                 HostName = _hostName
+//                 // Removed DispatchConsumersAsync as it does not exist
+//             };
+//         }
 
-//            // Open connection and create a channel
-//            _connection = factory.CreateConnectionAsync().GetAwaiter().GetResult(); // Fix: Await the task result synchronously
-//            _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult(); // Fix: Await the task result synchronously
+//         /// <summary>
+//         /// Sends a message asynchronously to the RabbitMQ queue.
+//         /// </summary>
+//         public async Task<bool> SendMessageAsync(string message, Guid messageId)
+//         {
+//             try
+//             {
+//                 using var connection = _factory.CreateConnection(); // ✅ Corrected
+//                 using var channel = connection.CreateModel(); // ✅ Corrected
 
-//            // Declare the queue
-//            _channel.QueueDeclare(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
-//        }
+//                 // Declare queue to ensure it exists
+//                 channel.QueueDeclare(
+//                     queue: _queueName,
+//                     durable: true,
+//                     exclusive: false,
+//                     autoDelete: false,
+//                     arguments: null
+//                 );
 
-//        public async Task<bool> SendMessageAsync(string message, Guid messageId)
-//        {
-//            try
-//            {
-//                var body = Encoding.UTF8.GetBytes(message);
+//                 var body = Encoding.UTF8.GetBytes(message);
 
-//                await Task.Run(() =>
-//                    _channel.BasicPublish(exchange: "", routingKey: _queueName, basicProperties: null, body: body)
-//                );
+//                 // ✅ Fix: Use synchronous `CreateBasicProperties()`
+//                 var properties = channel.CreateBasicProperties();
+//                 properties.Persistent = true; // Ensures message durability
 
-//                Console.WriteLine($"{messageId} was sent.");
-//                return true;
-//            }
-//            catch (Exception ex)
-//            {
-//                Console.WriteLine($"{messageId} was not sent. Error: {ex.Message}");
-//                return false;
-//            }
-//        }
+//                 // Publish the message
+//                 channel.BasicPublish(
+//                     exchange: "",
+//                     routingKey: _queueName,
+//                     basicProperties: properties,
+//                     body: body
+//                 );
 
-//        public void Dispose()
-//        {
-//            // Dispose of the channel and connection properly
-//            _channel?.Dispose();
-//            _connection?.Dispose();
-//        }
-//    }
-//}
+//                 Console.WriteLine($"[RabbitMQ] {messageId} was sent.");
+//                 return true;
+//             }
+//             catch (Exception ex)
+//             {
+//                 Console.WriteLine($"[RabbitMQ] {messageId} was NOT sent. Error: {ex.Message}");
+//                 return false;
+//             }
+//         }
+//     }
+// }

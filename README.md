@@ -1,134 +1,60 @@
 # Cerbi Logging Library
 
-A lightweight and flexible structured logging library for capturing application logs with metadata. Designed for use across cloud and on-prem environments, supporting optional encryption and AI/ML-driven insights.
+## Overview
+Cerbi Logging Library is a lightweight, extensible logging system with support for multiple queue integrations (RabbitMQ, Azure Service Bus, Kafka, AWS SQS, Google Pub/Sub, etc.). It now supports **Fluent API-based configuration**, replacing the old config-driven approach.
 
 ---
 
-## 📌 Features
-
-- **Lightweight** logging with minimal overhead
-- **Automatic metadata enrichment** (e.g., CloudProvider, Region)
-- **Flexible configuration** via environment variables or manual setup
-- **Built-in encryption** (optional, configurable)
-- **Support for multiple logging destinations** (e.g., databases, external logging tools)
-- **AI/ML compatibility** for trend analysis
+## New Features in This Update
+- **Fluent API for Queue Configuration**
+  - No more JSON config files. Configure queues directly in the code.
+- **Improved Dependency Injection**
+  - Inject `IQueue` dynamically using dependency injection.
+- **Enhanced Unit Tests**
+  - Improved test coverage for logging behavior, queue selection, and encryption.
+- **Updated Encryption Handling**
+  - Sensitive metadata fields (`APIKey`, `SensitiveField`) are now automatically encrypted if enabled.
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### Using NuGet
-```sh
-dotnet add package Cerbi.Logging
-
-Manually Adding
-Clone the repository and add the CerbiClientLogging project to your solution.
-
-🛠️ Setup
-Dependency Injection Setup (Recommended)
+dotnet add package CerbiClientLogging
+💡 Usage Example (New Fluent API)
+csharp
+Copy
+Edit
+using CerbiClientLogging.Classes;
+using CerbiClientLogging.Implementations;
+using CerbiClientLogging.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 var serviceProvider = new ServiceCollection()
-    .AddLogging(loggingBuilder =>
-    {
-        loggingBuilder.AddSimpleConsole(options =>
-        {
-            options.IncludeScopes = true;
-            options.SingleLine = true;
-            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
-        });
-    })
-    .AddSingleton<ITransactionDestination, TransactionDestinationImplementation>()  
-    .AddSingleton<ConvertToJson>()
+    .AddLogging(logging => logging.AddConsole())
+    .AddSingleton<IQueue, RabbitMqQueue>(provider => new RabbitMqQueue("rabbitmq-host", "queue-name"))
+    .AddSingleton<IConvertToJson, ConvertToJson>()
     .AddSingleton<IEncryption, EncryptionImplementation>()
+    .AddSingleton<IBaseLogging, Logging>()
     .BuildServiceProvider();
 
-var logger = serviceProvider.GetRequiredService<ILogger<Logging>>();
-var transactionDestination = serviceProvider.GetRequiredService<ITransactionDestination>();
-var jsonConverter = serviceProvider.GetRequiredService<ConvertToJson>();
-var encryption = serviceProvider.GetRequiredService<IEncryption>();
+var logger = serviceProvider.GetRequiredService<IBaseLogging>();
+await logger.LogEventAsync("Hello, Fluent Logging!", LogLevel.Information);
 
-var logging = new Logging(logger, transactionDestination, jsonConverter, encryption);
+Fluent API Configuration
+Step 1: Choose a Queue
+csharp
+Copy
+Edit
+var logger = new CerbiLoggerBuilder()
+    .UseRabbitMQ("rabbitmq-connection-string")
+    .EnableEncryption(true)
+    .Build(serviceProvider.GetRequiredService<ILogger<Logging>>(), 
+           new ConvertToJson(), 
+           new EncryptionImplementation());
 
-
-📂 Configuration Options
-Set configuration options via app settings or environment variables.
-
-Feature	                    Default	        Description
-EnableEncryption	        true	        Encrypt all logs unless explicitly disabled
-IncludePerformanceMetrics	false	        Track CPU/Memory usage
-TransactionDestinationType	Database	    Route logs to a specific destination
-
-
-Example .appsettings.json:
-{
-  "LoggingConfig": {
-    "EnableEncryption": true,
-    "IncludePerformanceMetrics": false,
-    "TransactionDestinationType": "Database"
-  }
-}
-
-
-------------------
-
-Logging Methods
-1️ General Event Logging
-
-await logging.LogEventAsync("User logged in", LogLevel.Information);
-
-2️ Performance Logging
-
-await logging.LogPerformanceAsync("API Request", 250);
-
-3️ Structured Application Logging
-
-await logging.SendApplicationLogAsync(
-    applicationMessage: "Order processed",
-    currentMethod: "ProcessOrder",
-    logLevel: LogLevel.Information,
-    log: "Order completed successfully",
-    applicationName: "OrderService",
-    platform: "Linux",
-    onlyInnerException: false,
-    note: "Standard processing",
-    error: null,
-    transactionDestination: transactionDestination,
-    transactionDestinationTypes: TransactionDestinationTypes.Other,
-    encryption: encryption,
-    environment: null,
-    identifiableInformation: null,
-    payload: "OrderID: 12345",
-    cloudProvider: "AWS",
-    instanceId: "i-1234567890",
-    applicationVersion: "v2.1.0",
-    region: "us-east-1",
-    requestId: "req-5678"
-);
-
-Encryption Handling
-How Encryption Works
-By default, all logs are encrypted.
-Developers can disable encryption globally in the config.
-Specific fields can be encrypted selectively.
-Decrypting Logs in Downstream Applications
-If a downstream application does not use the Cerbi SaaS, it can decrypt logs manually using the same encryption key:
-
-var decryptedLog = encryption.Decrypt(encryptedLog);
-
-License
-Cerbi Logging is licensed under the MIT License.
-
-Authors
-Thomas Nelson
-Cerbi
-
-
-
-This README ensures that developers:
-- Understand how to **install** and **set up** logging
-- Know the **config options**
-- Learn **how to log events**
-- Can **decrypt logs** manually if needed
-- See how **metadata is collected** for AI/ML
-
-Let me know if you need modifications! 
+Queue Type	            Fluent API
+RabbitMQ	            .UseRabbitMQ("connectionString")
+Azure Service Bus	    .UseAzureServiceBus("connectionString", "queueName")
+Kafka	                .UseKafka("brokerList", "topic")
+AWS SQS	                .UseSqs("accessKey", "secretKey", "region", "queueUrl")

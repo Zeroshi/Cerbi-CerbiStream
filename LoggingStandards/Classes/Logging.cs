@@ -1,8 +1,7 @@
 ﻿using CerbiClientLogging.Classes;
 using CerbiClientLogging.Interfaces;
-using CerberusLogging.Classes.Enums;
+using CerbiStream.Interfaces;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -12,78 +11,37 @@ namespace CerbiClientLogging.Implementations
     public class Logging : IBaseLogging
     {
         private readonly ILogger<Logging> _logger;
-        private readonly ITransactionDestination _transactionDestination;
+        private readonly IQueue _queue; // ✅ Injected from Fluent API
         private readonly ConvertToJson _jsonConverter;
         private readonly IEncryption _encryption;
 
         public Logging(
             ILogger<Logging> logger,
-            ITransactionDestination transactionDestination,
-            ConvertToJson jsonConverter,
+            IQueue queue,  // ✅ Replace _transactionDestination
+            IConvertToJson jsonConverter,
             IEncryption encryption)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _transactionDestination = transactionDestination ?? throw new ArgumentNullException(nameof(transactionDestination));
-            _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
+            _queue = queue ?? throw new ArgumentNullException(nameof(queue)); // ✅ Uses Fluent API
+            _jsonConverter = (jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter))) as ConvertToJson;
             _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
         }
 
-        public async Task<bool> LogEventAsync(
-            string message,
-            LogLevel logLevel,
-            Dictionary<string, object>? metadata = null)
-        {
-            metadata ??= new Dictionary<string, object>();
-            EnrichMetadata(metadata);
-            EncryptMetadata(metadata);
-
-            var logEntry = new
-            {
-                TimestampUtc = DateTime.UtcNow,
-                LogLevel = logLevel,
-                Message = message,
-                Metadata = metadata
-            };
-
-            return await SendLog(logEntry);
-        }
-
         public async Task<bool> SendApplicationLogAsync(
-            string applicationMessage,
-            string currentMethod,
-            LogLevel logLevel,
-            string log,
-            string? applicationName = null,
-            string? platform = null,
-            bool? onlyInnerException = null,
-            string? note = null,
-            Exception? error = null,
-            ITransactionDestination? transactionDestination = null,
-            TransactionDestinationTypes? transactionDestinationTypes = null,
-            IEncryption? encryption = null,
-            IEnvironment? environment = null,
-            IIdentifiableInformation? identifiableInformation = null,
-            string? payload = null,
-            string? cloudProvider = null,
-            string? instanceId = null,
-            string? applicationVersion = null,
-            string? region = null,
-            string? requestId = null)
+            string applicationMessage, string currentMethod, LogLevel logLevel,
+            string log, string? applicationName, string? platform, bool? onlyInnerException,
+            string? note, Exception? error, ITransactionDestination? transactionDestination,
+            TransactionDestinationTypes? transactionDestinationTypes, IEncryption? encryption,
+            IEnvironment? environment, IIdentifiableInformation? identifiableInformation,
+            string? payload, string? cloudProvider, string? instanceId, string? applicationVersion,
+            string? region, string? requestId)
         {
-            if (string.IsNullOrEmpty(applicationMessage) || string.IsNullOrEmpty(currentMethod))
-            {
-                _logger.LogWarning("Invalid log message or method name.");
-                return false;
-            }
-
-            try
-            {
-                var metadata = new Dictionary<string, object>
+            var metadata = new Dictionary<string, object>
                 {
-                    { "CloudProvider", cloudProvider ?? ApplicationMetadata.CloudProvider },
-                    { "Region", region ?? ApplicationMetadata.Region },
-                    { "InstanceId", instanceId ?? ApplicationMetadata.InstanceId },
-                    { "ApplicationVersion", applicationVersion ?? ApplicationMetadata.ApplicationVersion },
+                    { "CloudProvider", cloudProvider ?? "Unknown" },
+                    { "Region", region ?? "Unknown" },
+                    { "InstanceId", instanceId ?? "Unknown" },
+                    { "ApplicationVersion", applicationVersion ?? "Unknown" },
                     { "RequestId", requestId ?? Guid.NewGuid().ToString() },
                     { "Log", log },
                     { "Platform", platform ?? "Unknown" },
@@ -92,10 +50,26 @@ namespace CerbiClientLogging.Implementations
                     { "Error", error?.Message ?? "No Error" }
                 };
 
-                EnrichMetadata(metadata);
-                EncryptMetadata(metadata);
+            return await SendLog(new
+            {
+                ApplicationMessage = applicationMessage,
+                CurrentMethod = currentMethod,
+                LogLevel = logLevel,
+                Metadata = metadata
+            });
+        }
 
-                return await LogEventAsync(applicationMessage, logLevel, metadata);
+        private async Task<bool> SendLog(object logEntry)
+        {
+            try
+            {
+                string formattedLog = _jsonConverter.ConvertMessageToJson(logEntry);
+
+                // ✅ Send directly to the chosen queue
+                await _queue.SendMessageAsync(formattedLog, Guid.NewGuid());
+
+                _logger.LogInformation($"[{_queue.GetType().Name}] Log Sent.");
+                return true;
             }
             catch (Exception ex)
             {
@@ -104,27 +78,9 @@ namespace CerbiClientLogging.Implementations
             }
         }
 
-        public async Task<bool> LogPerformanceAsync(
-            string eventName,
-            long elapsedMilliseconds,
-            Dictionary<string, object>? metadata = null)
-        {
-            metadata ??= new Dictionary<string, object>
-            {
-                { "Event", eventName },
-                { "ElapsedTimeMs", elapsedMilliseconds }
-            };
-
-            EnrichMetadata(metadata);
-            EncryptMetadata(metadata);
-
-            return await LogEventAsync($"Performance: {eventName}", LogLevel.Information, metadata);
-        }
-
         private void EnrichMetadata(Dictionary<string, object> metadata)
         {
-            metadata.TryAdd("ApplicationId", ApplicationMetadata.ApplicationId);
-            metadata.TryAdd("DeploymentType", "Cloud");
+            metadata.TryAdd("TimestampUtc", DateTime.UtcNow);
         }
 
         private void EncryptMetadata(Dictionary<string, object> metadata)
@@ -141,14 +97,39 @@ namespace CerbiClientLogging.Implementations
             }
         }
 
-        private async Task<bool> SendLog(object logEntry)
+        public async Task<bool> LogEventAsync(string message, LogLevel logLevel)
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    _logger.LogWarning("Log message is empty or null.");
+                    return false;
+                }
+
+                var logEntry = new
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    LogLevel = logLevel,
+                    Message = message
+                };
+
                 string formattedLog = _jsonConverter.ConvertMessageToJson(logEntry);
-                await _transactionDestination.SendLogAsync(formattedLog, TransactionDestinationTypes.Other);
-                _logger.LogInformation($"Log Sent: {formattedLog}");
-                return true;
+
+                if (_queue == null)
+                {
+                    _logger.LogError("Queue is null. Cannot send log.");
+                    return false;
+                }
+
+                bool result = await _queue.SendMessageAsync(formattedLog, Guid.NewGuid());
+
+                if (!result)
+                {
+                    _logger.LogError("Queue failed to send message.");
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -156,5 +137,98 @@ namespace CerbiClientLogging.Implementations
                 return false;
             }
         }
+
+
+        public async Task<bool> LogPerformanceAsync(string eventName, long elapsedMilliseconds, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(eventName) || elapsedMilliseconds < 0)
+                {
+                    _logger.LogWarning("Invalid performance log parameters.");
+                    return false;
+                }
+
+                metadata ??= new Dictionary<string, object>();
+                metadata["ElapsedMilliseconds"] = elapsedMilliseconds;
+                metadata["EventName"] = eventName;
+
+                var logEntry = new
+                {
+                    EventName = eventName,
+                    ElapsedMilliseconds = elapsedMilliseconds,
+                    Metadata = metadata
+                };
+
+                string formattedLog = _jsonConverter.ConvertMessageToJson(logEntry);
+
+                if (_queue == null)
+                {
+                    _logger.LogError("Queue is null. Cannot send performance log.");
+                    return false;
+                }
+
+                bool result = await _queue.SendMessageAsync(formattedLog, Guid.NewGuid());
+
+                if (!result)
+                {
+                    _logger.LogError("Failed to log performance data.");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Performance logging failed.");
+                return false;
+            }
+        }
+
+
+
+        public async Task<bool> LogEventAsync(string message, LogLevel logLevel, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    _logger.LogWarning("Log message is empty or null.");
+                    return false;
+                }
+
+                metadata ??= new Dictionary<string, object>();
+                metadata["TimestampUtc"] = DateTime.UtcNow;
+                metadata["LogLevel"] = logLevel.ToString();
+
+                var logEntry = new
+                {
+                    Message = message,
+                    Metadata = metadata
+                };
+
+                string formattedLog = _jsonConverter.ConvertMessageToJson(logEntry);
+
+                if (_queue == null)
+                {
+                    _logger.LogError("Queue is null. Cannot send log.");
+                    return false;
+                }
+
+                bool result = await _queue.SendMessageAsync(formattedLog, Guid.NewGuid());
+
+                if (!result)
+                {
+                    _logger.LogError("Queue failed to send message.");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Logging failed.");
+                return false;
+            }
+        }
+
     }
 }

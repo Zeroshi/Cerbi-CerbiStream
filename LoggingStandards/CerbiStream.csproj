@@ -5,27 +5,28 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>CerbiStream</Title>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Authors>$(AssemblyName), Thomas Nelson</Authors>
-<Description>
-    Cerberus Client Logging: Secure and Versatile Logging Library for C#
+    <Description>
+      Cerberus Client Logging: Secure and Versatile Logging Library for C#
 
-    Cerberus Client Logging is a comprehensive and robust logging library specifically designed to provide secure and flexible logging capabilities for C# applications. With Cerberus, you can establish logging standards based on parameters, ensuring consistent and high-quality logging practices across small and enterprise projects. Additionally, Cerberus Client Logging encrypts and efficiently passes payloads to multiple pathways, including Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, and upcoming support for databases.
+      Cerberus Client Logging is a comprehensive and robust logging library specifically designed to provide secure and flexible logging capabilities for C# applications. With Cerberus, you can establish logging standards based on parameters, ensuring consistent and high-quality logging practices across small and enterprise projects. Additionally, Cerberus Client Logging encrypts and efficiently passes payloads to multiple pathways, including Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, and upcoming support for databases.
 
-    Key Features:
-    - Parameter-based Logging Standards: Cerberus Client Logging enables developers to define and enforce logging standards based on customizable parameters. This ensures uniformity and ease of understanding throughout the codebase, facilitating collaboration and maintainability.
+      Key Features:
+      - Parameter-based Logging Standards: Cerberus Client Logging enables developers to define and enforce logging standards based on customizable parameters. This ensures uniformity and ease of understanding throughout the codebase, facilitating collaboration and maintainability.
 
-    - Payload Encryption: Cerberus prioritizes the security of your sensitive data by offering built-in payload encryption. By encrypting payloads before transmission, Cerberus ensures the confidentiality and integrity of your application's information.
+      - Payload Encryption: Cerberus prioritizes the security of your sensitive data by offering built-in payload encryption. By encrypting payloads before transmission, Cerberus ensures the confidentiality and integrity of your application's information.
 
-    - Multi-Pathway Support: Cerberus empowers developers to transmit logs through various pathways. Whether you choose to utilize Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, or plan to incorporate databases in the future, Cerberus seamlessly integrates with these technologies, granting you the freedom to select the optimal pathway for your project.
+      - Multi-Pathway Support: Cerberus empowers developers to transmit logs through various pathways. Whether you choose to utilize Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, or plan to incorporate databases in the future, Cerberus seamlessly integrates with these technologies, granting you the freedom to select the optimal pathway for your project.
 
-    - Scalable for Any Project Size: From small-scale applications to large enterprise systems, Cerberus adapts effortlessly to accommodate projects of any size. Its flexible architecture and efficient design enable consistent logging performance and scalability, regardless of the application's complexity.
+      - Scalable for Any Project Size: From small-scale applications to large enterprise systems, Cerberus adapts effortlessly to accommodate projects of any size. Its flexible architecture and efficient design enable consistent logging performance and scalability, regardless of the application's complexity.
 
-    - Customizable Logging Parameters: Cerberus understands each project has unique logging requirements. Therefore, it provides extensive parameter customization options, allowing developers to fine-tune logging behavior and tailor it to their needs.
+      - Customizable Logging Parameters: Cerberus understands each project has unique logging requirements. Therefore, it provides extensive parameter customization options, allowing developers to fine-tune logging behavior and tailor it to their needs.
 
-    - Easy Integration: Cerberus Client Logging integrates seamlessly with existing C# projects, minimizing the implementation effort and enabling developers to adopt it quickly without disrupting their development workflow.
+      - Easy Integration: Cerberus Client Logging integrates seamlessly with existing C# projects, minimizing the implementation effort and enabling developers to adopt it quickly without disrupting their development workflow.
 
-    Use Cerberus Client Logging to establish secure, standardized logging practices in your C# projects. Boost your team's productivity and ensure the integrity of your application's logs while seamlessly integrating with popular technologies. Begin using Cerberus Client Logging today and experience the power of a comprehensive and versatile logging solution.
-</Description>
+      Use Cerberus Client Logging to establish secure, standardized logging practices in your C# projects. Boost your team's productivity and ensure the integrity of your application's logs while seamlessly integrating with popular technologies. Begin using Cerberus Client Logging today and experience the power of a comprehensive and versatile logging solution.
+    </Description>
     <PackageProjectUrl>https://github.com/Zeroshi/Cerberus-Client-Logging-Library</PackageProjectUrl>
     <PackageIcon></PackageIcon>
     <RepositoryUrl>https://github.com/Zeroshi/Cerberus-Client-Logging-Library</RepositoryUrl>
@@ -39,25 +40,37 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="appsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.Kinesis" Version="3.7.402.86" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.7.400.109" />
     <PackageReference Include="Azure.Core" Version="1.45.0" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.4" />
     <PackageReference Include="Azure.Storage.Common" Version="12.23.0-beta.1" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.22.0-beta.1" />
     <PackageReference Include="cerberus-logger-interface" Version="1.0.26" />
+    <PackageReference Include="Google.Cloud.PubSub.V1" Version="3.21.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.30.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="NETCore.RabbitMQKit" Version="2.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NUnit" Version="4.3.2" />
-    <PackageReference Include="RabbitMQ.Client" Version="7.1.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.4.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.1.25080.5" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Classes\AzureApplicationInsights\" />
     <Folder Include="Classes\Enums\" />
   </ItemGroup>
 
