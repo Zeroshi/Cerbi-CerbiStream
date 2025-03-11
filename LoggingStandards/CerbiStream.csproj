@@ -59,6 +59,7 @@
     <PackageReference Include="cerberus-logger-interface" Version="1.0.26" />
     <PackageReference Include="Google.Cloud.PubSub.V1" Version="3.21.0" />
     <PackageReference Include="Google.Protobuf" Version="3.30.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="Moq" Version="4.20.72" />
@@ -68,10 +69,6 @@
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.1.25080.5" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Classes\Enums\" />
   </ItemGroup>
 
   <ItemGroup>

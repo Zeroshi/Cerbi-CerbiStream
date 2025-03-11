@@ -1,16 +1,17 @@
-﻿using System;
+﻿using Azure.Storage.Queues;
+using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
+using System;
 using System.Text;
 using System.Threading.Tasks;
-using Azure.Storage.Queues;
-using CerbiClientLogging.Interfaces.SendMessage;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AzureQueueStorage : ISendMessage
+    public class AzureQueues : ISendMessage, IQueue
     {
         private readonly QueueClient _client;
 
-        public AzureQueueStorage(string connectionString, string queueName)
+        public AzureQueues(string connectionString, string queueName)
         {
             _client = new QueueClient(connectionString, queueName);
             _client.CreateIfNotExists();

@@ -1,13 +1,14 @@
-﻿using System;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
 using Google.Cloud.PubSub.V1;
 using Google.Protobuf;
-using CerbiClientLogging.Interfaces.SendMessage;
+using System;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class GooglePubSubQueue : ISendMessage
+    public class GooglePubSubQueue : ISendMessage, IQueue
     {
         private readonly string _projectId;
         private readonly string _topicId;

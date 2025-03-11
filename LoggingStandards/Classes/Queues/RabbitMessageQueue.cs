@@ -1,3 +1,4 @@
+using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
 using RabbitMQ.Client;
 using System;
@@ -9,7 +10,7 @@ namespace CerberClientLogging.Classes.Queues
     /// <summary>
     /// Represents a RabbitMQ queue for sending messages.
     /// </summary>
-    public class RabbitMessageQueue : ISendMessage
+    public class RabbitMessageQueue : ISendMessage, IQueue
     {
         private readonly string _hostName;
         private readonly string _queueName;

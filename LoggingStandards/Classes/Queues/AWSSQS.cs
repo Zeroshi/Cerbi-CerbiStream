@@ -1,13 +1,14 @@
-﻿using System;
+﻿using Amazon.SQS;
+using Amazon.SQS.Model;
+using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
+using System;
 using System.Text;
 using System.Threading.Tasks;
-using Amazon.SQS;
-using Amazon.SQS.Model;
-using CerbiClientLogging.Interfaces.SendMessage;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AwsSqsQueue : ISendMessage
+    public class AwsSqsQueue : ISendMessage, IQueue
     {
         private readonly AmazonSQSClient _sqsClient;
         private readonly string _queueUrl;

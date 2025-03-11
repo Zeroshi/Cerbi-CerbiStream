@@ -1,27 +1,68 @@
-﻿using System;
+﻿using CerbiStream.Enums;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Reflection;
 
 namespace CerbiStream.Configuration
 {
-    public enum LoggingDestination
-    {
-        Kafka,
-        RabbitMQ,
-        AzureServiceBus,
-        AWS_SQS,          // ✅ Amazon SQS
-        AWS_Kinesis,      // ✅ Amazon Kinesis
-        GooglePubSub,     // ✅ Google Pub/Sub
-        None              // ✅ Default: No logging
-    }
-
     public class CerbiStreamConfig
     {
-        public bool DevModeEnabled { get; set; } = true;  // ✅ Default: True for local debugging
-        public LoggingDestination Destination { get; set; } = LoggingDestination.None; // ✅ Default: No logging
+        // ✅ Cloud & Environment Metadata (Auto-Detected)
+        public string CloudProvider { get; private set; }
+        public string Region { get; private set; }
+        public string Environment { get; private set; }
+        public string ApplicationVersion { get; private set; }
 
-        // ✅ Essential Metadata (Minimal, NPI-Free)
-        public string CloudProvider { get; set; } = "Unknown";
-        public string Region { get; set; } = "Unknown";
-        public string InstanceId { get; set; } = "Unknown";
-        public string ApplicationVersion { get; set; } = "1.0.0";
+        // ✅ Logging Behavior
+        public bool EnableDevMode { get; set; } = true;
+        public bool EnableEncryption { get; set; } = true;
+        public bool IncludeAdvancedMetadata { get; set; } = false;
+        public bool IncludeSecurityMetadata { get; set; } = false;
+        public bool ApplicationInsightsEnabled { get; set; } = false;
+
+        // ✅ Queue & Destination Settings
+        public string QueueType { get; set; } = "RabbitMQ";
+        public string QueueConnectionString { get; set; } = "";
+        public string QueueName { get; set; } = "default-queue";
+        public LoggingDestination Destination { get; set; } = LoggingDestination.None;
+
+        // 🔹 **Constructor for Initializing Auto-Detection**
+        public CerbiStreamConfig()
+        {
+            CloudProvider = DetectCloudProvider();
+            Region = DetectRegion();
+            Environment = DetectEnvironment();
+            ApplicationVersion = GetApplicationVersion();
+        }
+
+        // 🔹 **Auto-Detection Methods**
+        private string DetectCloudProvider()
+        {
+            if (System.Environment.GetEnvironmentVariable("AWS_EXECUTION_ENV") != null)
+                return "AWS";
+            if (System.Environment.GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT") != null)
+                return "GCP";
+            if (System.Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") != null)
+                return "Azure";
+            return "On-Prem";
+        }
+
+        private string DetectRegion()
+        {
+            return System.Environment.GetEnvironmentVariable("AWS_REGION")
+                ?? System.Environment.GetEnvironmentVariable("AZURE_REGION")
+                ?? System.Environment.GetEnvironmentVariable("GOOGLE_CLOUD_REGION")
+                ?? "Unknown";
+        }
+
+        private string DetectEnvironment()
+        {
+            return System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+        }
+
+        private string GetApplicationVersion()
+        {
+            return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
+        }
     }
 }

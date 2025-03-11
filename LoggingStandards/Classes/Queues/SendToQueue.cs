@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using CerbiClientLogging.Interfaces;
 using CerbiStream.Configuration;
+using CerbiStream.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace CerbiClientLogging.Classes.Queues
@@ -26,7 +27,9 @@ namespace CerbiClientLogging.Classes.Queues
         {
             try
             {
-                switch (_config.Destination)
+                LoggingDestination destination = _config.Destination;
+
+                switch (destination)
                 {
                     case LoggingDestination.Kafka:
                         await _transactionDestination.SendLogAsync(formattedLog, TransactionDestinationTypes.Kafka);
@@ -63,7 +66,7 @@ namespace CerbiClientLogging.Classes.Queues
                         return false;
 
                     default:
-                        _logger.LogWarning("Invalid logging destination configured.");
+                        _logger.LogWarning($"Unsupported logging destination: {destination}");
                         return false;
                 }
 

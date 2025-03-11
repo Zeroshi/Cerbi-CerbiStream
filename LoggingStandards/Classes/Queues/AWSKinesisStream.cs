@@ -1,13 +1,14 @@
-﻿using System;
+﻿using Amazon.Kinesis;
+using Amazon.Kinesis.Model;
+using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
+using System;
 using System.Text;
 using System.Threading.Tasks;
-using Amazon.Kinesis;
-using Amazon.Kinesis.Model;
-using CerbiClientLogging.Interfaces.SendMessage;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AWSKinesisStream : ISendMessage
+    public class AWSKinesisStream : ISendMessage, IQueue
     {
         private readonly string _streamName;
         private readonly AmazonKinesisClient _client;

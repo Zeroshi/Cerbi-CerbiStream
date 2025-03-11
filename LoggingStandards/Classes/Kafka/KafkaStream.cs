@@ -1,11 +1,12 @@
-﻿using System;
+﻿using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using CerbiClientLogging.Interfaces.SendMessage;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class KafkaStream : ISendMessage
+    public class KafkaStream : ISendMessage, IQueue
     {
         private readonly string _bootstrapServers;
         private readonly string _topic;
