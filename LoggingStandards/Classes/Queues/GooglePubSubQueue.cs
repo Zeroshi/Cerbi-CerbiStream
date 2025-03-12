@@ -3,7 +3,6 @@ using CerbiClientLogging.Interfaces.SendMessage;
 using Google.Cloud.PubSub.V1;
 using Google.Protobuf;
 using System;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues

@@ -4,40 +4,44 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>CerbiStream</Title>
+    <Title>CerbiStream.Logging</Title>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Authors>$(AssemblyName), Thomas Nelson</Authors>
+    <Authors>Thomas Nelson, Cerbi</Authors>
     <Description>
-      Cerberus Client Logging: Secure and Versatile Logging Library for C#
+      CerbiStream.Logging - Secure, Scalable, and Standardized Logging for Modern Applications.
 
-      Cerberus Client Logging is a comprehensive and robust logging library specifically designed to provide secure and flexible logging capabilities for C# applications. With Cerberus, you can establish logging standards based on parameters, ensuring consistent and high-quality logging practices across small and enterprise projects. Additionally, Cerberus Client Logging encrypts and efficiently passes payloads to multiple pathways, including Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, and upcoming support for databases.
+      CerbiStream.Logging is a next-generation logging library designed for **enterprise-grade**, **secure**, and **standardized** logging. It enforces structured logging signatures across teams, ensuring **consistent log data** for analysis while seamlessly integrating with **major cloud and on-prem logging platforms**.
 
-      Key Features:
-      - Parameter-based Logging Standards: Cerberus Client Logging enables developers to define and enforce logging standards based on customizable parameters. This ensures uniformity and ease of understanding throughout the codebase, facilitating collaboration and maintainability.
+      🌟 **Key Features:**
+      - **Standardized Logging Signatures**: Set and enforce structured log formats across all teams.
+      - **Secure and Encrypted Logs**: Built-in encryption for sensitive metadata.
+      - **Multi-Destination Support**: Route logs to **Azure Queues, Service Bus, RabbitMQ, Kafka, AWS SQS, Kinesis, Google PubSub,** or any database.
+      - **SaaS-Connected**: Optional **CerbiIQ SaaS** routes and enriches logs with **ML/AI insights**.
+      - **DevMode**: Prevent logs from being sent during local debugging.
+      - **Minimal Setup**: One-liner configuration to get started in seconds.
 
-      - Payload Encryption: Cerberus prioritizes the security of your sensitive data by offering built-in payload encryption. By encrypting payloads before transmission, Cerberus ensures the confidentiality and integrity of your application's information.
+      🚀 **Why CerbiStream?**
+      Unlike traditional loggers, **CerbiStream.Logging** goes beyond simple log collection—it **routes, encrypts, and standardizes logs** while allowing **meta-analysis of global patterns** when integrated with **CerbiIQ**.
 
-      - Multi-Pathway Support: Cerberus empowers developers to transmit logs through various pathways. Whether you choose to utilize Azure Queues, Azure Service Bus, RabbitMQ Queues, RabbitMQ Topics, Kafka Streams, or plan to incorporate databases in the future, Cerberus seamlessly integrates with these technologies, granting you the freedom to select the optimal pathway for your project.
-
-      - Scalable for Any Project Size: From small-scale applications to large enterprise systems, Cerberus adapts effortlessly to accommodate projects of any size. Its flexible architecture and efficient design enable consistent logging performance and scalability, regardless of the application's complexity.
-
-      - Customizable Logging Parameters: Cerberus understands each project has unique logging requirements. Therefore, it provides extensive parameter customization options, allowing developers to fine-tune logging behavior and tailor it to their needs.
-
-      - Easy Integration: Cerberus Client Logging integrates seamlessly with existing C# projects, minimizing the implementation effort and enabling developers to adopt it quickly without disrupting their development workflow.
-
-      Use Cerberus Client Logging to establish secure, standardized logging practices in your C# projects. Boost your team's productivity and ensure the integrity of your application's logs while seamlessly integrating with popular technologies. Begin using Cerberus Client Logging today and experience the power of a comprehensive and versatile logging solution.
+      🔥 **Start Today!**
+      - **GitHub:** https://github.com/Zeroshi/CerbiStream
+      - **NuGet Package:** CerbiStream.Logging
     </Description>
-    <PackageProjectUrl>https://github.com/Zeroshi/Cerberus-Client-Logging-Library</PackageProjectUrl>
-    <PackageIcon></PackageIcon>
-    <RepositoryUrl>https://github.com/Zeroshi/Cerberus-Client-Logging-Library</RepositoryUrl>
+
+    <PackageProjectUrl>https://github.com/Zeroshi/CerbiStream</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Zeroshi/CerbiStream</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>CerbiStream; Simple Logging; Secure Logging; C#; Enterprise; Startup; Cerbi; CerbiStream; Logging Library; Logging Standards; Payload Encryption; Azure; RabbitMQ; Kafka; Multi-Pathway Logging; .NET; Logging Framework; Cloud Logging; Logging Tools</PackageTags>
+    <PackageIcon></PackageIcon>
+    <!-- Add an actual icon for NuGet branding -->
+
+    <PackageTags>CerbiStream; Logging; Secure Logging; Enterprise Logging; Cloud Logging; Logging Standards; ML/AI Logging; Standardized Logs; Azure; RabbitMQ; Kafka; AWS SQS; Google PubSub; .NET Logging; Logging Library</PackageTags>
+
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackAsTool>False</PackAsTool>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <Version>1.0.1</Version>
   </PropertyGroup>
+
 
   <ItemGroup>
     <None Remove="appsettings.json" />
@@ -61,9 +65,8 @@
     <PackageReference Include="Google.Protobuf" Version="3.30.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0-preview.1.25080.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-preview.1.25080.5" />
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="RabbitMQ.Client" Version="6.4.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.0-preview.1.25080.5" />

@@ -3,7 +3,6 @@ using Amazon.SQS.Model;
 using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
 using System;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues

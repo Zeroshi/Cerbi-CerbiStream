@@ -1,10 +1,6 @@
-﻿using CerbiClientLogging.Interfaces;
-using CerberusLogging.Classes.Enums;
-using CerberusLogging.Interfaces.Objects;
+﻿using CerberusLogging.Classes.Enums;
 using Microsoft.Extensions.Logging;
 using System;
-using static CerberusLogging.Classes.Enums.MetaData;
-using Environment = CerberusLogging.Classes.Enums.MetaData.Environment;
 
 namespace CerbiClientLogging.Classes.ClassTypes
 {

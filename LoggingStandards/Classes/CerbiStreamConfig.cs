@@ -1,6 +1,4 @@
 ﻿using CerbiStream.Enums;
-using Microsoft.Extensions.Configuration;
-using System;
 using System.Reflection;
 
 namespace CerbiStream.Configuration

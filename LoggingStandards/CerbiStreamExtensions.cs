@@ -1,22 +1,29 @@
-﻿using CerbiClientLogging.Classes;
-using CerbiClientLogging.Implementations;
-using CerbiClientLogging.Interfaces;
-using CerbiStream.Configuration;
-using CerbiStream.Interfaces;
+﻿using CerbiStream.Configuration;
+using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging; // Explicitly use only one namespace
+using System;
 
-namespace CerbiStream
+namespace CerbiStream.Logging.Extensions
 {
     public static class CerbiStreamExtensions
     {
-        public static IServiceCollection UseCerbiStream(this IServiceCollection services, CerbiStreamConfig config)
+        /// <summary>
+        /// Adds CerbiStream logging to the application's logging pipeline.
+        /// </summary>
+        public static Microsoft.Extensions.Logging.ILoggingBuilder AddCerbiStream(
+            this Microsoft.Extensions.Logging.ILoggingBuilder builder,
+            Action<CerbiStreamOptions> configureOptions)
         {
-            return services
-                .AddSingleton(config) // ✅ Store the config object in DI
-                .AddSingleton<IQueue>(provider => QueueFactory.CreateQueue(config)) // ✅ Create queue based on config
-                .AddSingleton<IConvertToJson, ConvertToJson>()
-                .AddSingleton<IEncryption, EncryptionImplementation>()
-                .AddSingleton<IBaseLogging, Logging>();
+            var options = new CerbiStreamOptions();
+            configureOptions(options);
+
+            builder.Services.AddSingleton(options);
+            builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
+
+            return builder;
         }
     }
 }
+
+

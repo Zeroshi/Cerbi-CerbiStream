@@ -1,5 +1,4 @@
-﻿using CerbiClientLogging.Classes;
-using CerbiClientLogging.Implementations;
+﻿using CerbiClientLogging.Implementations;
 using CerbiClientLogging.Interfaces;
 using CerbiStream.Interfaces;
 using Microsoft.Extensions.Logging;

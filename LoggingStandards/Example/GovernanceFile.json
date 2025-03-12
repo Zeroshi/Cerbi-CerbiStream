@@ -1,0 +1,12 @@
+{
+  "LoggingProfiles": {
+    "Standard": {
+      "RequiredFields": [ "TimestampUtc", "LogLevel", "ApplicationName", "TransactionType" ],
+      "OptionalFields": [ "CloudProvider", "Region" ]
+    },
+    "Security": {
+      "RequiredFields": [ "TimestampUtc", "UserId_Hashed", "AuthType" ],
+      "OptionalFields": [ "SessionId_Hashed", "Role" ]
+    }
+  }
+}

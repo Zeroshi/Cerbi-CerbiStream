@@ -1,7 +1,7 @@
-﻿using System;
+﻿using CerbiClientLogging.Interfaces;
+using System;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
-using CerbiClientLogging.Interfaces;
 
 namespace CerbiClientLogging.Classes.Databases
 {

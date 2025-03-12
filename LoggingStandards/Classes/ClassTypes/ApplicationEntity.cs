@@ -1,5 +1,5 @@
-﻿using System;
-using CerberusLogging.Interfaces.Objects;
+﻿using CerberusLogging.Interfaces.Objects;
+using System;
 
 namespace CerbiClientLogging.Classes.ClassTypes
 {

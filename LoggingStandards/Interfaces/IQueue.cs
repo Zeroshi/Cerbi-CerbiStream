@@ -1,5 +1,4 @@
-﻿using CerbiClientLogging.Interfaces.SendMessage;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Interfaces

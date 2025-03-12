@@ -1,9 +1,9 @@
-﻿using System;
-using System.Threading.Tasks;
-using CerbiClientLogging.Interfaces;
+﻿using CerbiClientLogging.Interfaces;
 using CerbiStream.Configuration;
 using CerbiStream.Enums;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {

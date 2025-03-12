@@ -1,6 +1,5 @@
 ﻿using Azure.Messaging.ServiceBus;
 using CerbiClientLogging.Interfaces;
-using CerbiClientLogging.Interfaces.SendMessage;
 using System;
 using System.Text;
 using System.Threading.Tasks;

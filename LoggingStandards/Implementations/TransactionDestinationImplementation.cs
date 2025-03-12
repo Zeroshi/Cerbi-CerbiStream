@@ -1,7 +1,6 @@
-﻿using System;
+﻿using CerbiClientLogging.Interfaces;
+using System;
 using System.Threading.Tasks;
-using CerbiClientLogging.Interfaces;
-using CerberusLogging.Classes.Enums;
 
 namespace CerbiClientLogging.Implementations
 {
