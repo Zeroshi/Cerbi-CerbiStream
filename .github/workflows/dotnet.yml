@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -22,7 +23,7 @@ jobs:
           echo "Found project: $PROJECT_PATH"
           VERSION="1.0.${{ github.run_number }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
+          xmlstarlet ed -L -u "//Project/PropertyGroup/Version" -v "$VERSION" $PROJECT_PATH
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
@@ -36,7 +37,21 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Pack NuGet Package
-        run: dotnet pack --configuration Release --no-build --output nupkgs
+        run: dotnet pack --configuration Release --no-build --output ${{ github.workspace }}/nupkgs
+
+      - name: Verify NuGet Package Exists
+        run: |
+          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
+
+      - name: Test NuGet API Key
+        run: |
+          echo "Testing API Key..."
+          if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
+            echo "❌ NuGet API Key is missing!"
+            exit 1
+          else
+            echo "✅ NuGet API Key found."
+          fi
 
       - name: Push to NuGet
-        run: dotnet nuget push "nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
