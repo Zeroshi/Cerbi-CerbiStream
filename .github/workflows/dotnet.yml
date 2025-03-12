@@ -2,43 +2,56 @@ name: .NET CI/CD - NuGet Publish
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.calc-version.outputs.version }}  # Define output for this job
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Calculate version
-        id: calc-version
-        run: echo "::set-output name=version::1.0.${{ github.run_number }}"
+      - name: Locate Project File
+        run: find . -name "*.csproj"
 
-      - name: Update version in csproj
+      - name: Set Version in .csproj
+        id: versioning
         run: |
-          sed -i 's|<Version>.*</Version>|<Version>${{ steps.calc-version.outputs.version }}</Version>|g' ./LoggingStandards/CerberusClientLogging.csproj
+          PROJECT_PATH=$(find . -name "*.csproj" | head -n 1)
+          echo "Found project: $PROJECT_PATH"
+          VERSION="1.0.${{ github.run_number }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          xmlstarlet ed -L -u "//Project/PropertyGroup/Version" -v "$VERSION" $PROJECT_PATH
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 8.0.x
 
-      - name: Build
-        run: dotnet build --configuration Release
+      - name: Restore Dependencies
+        run: dotnet restore
 
-      - name: Pack
-        run: dotnet pack --no-restore --verbosity normal --output ./nupkgs --configuration Release
+      - name: Build Project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Pack NuGet Package
+        run: dotnet pack --configuration Release --no-build --output ${{ github.workspace }}/nupkgs
+
+      - name: Verify NuGet Package Exists
+        run: |
+          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
+
+      - name: Test NuGet API Key
+        run: |
+          echo "Testing API Key..."
+          if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
+            echo "❌ NuGet API Key is missing!"
+            exit 1
+          else
+            echo "✅ NuGet API Key found."
+          fi
 
       - name: Push to NuGet
-        id: nuget-push
-        run: dotnet nuget push ./nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
-
-      - name: Check NuGet Push Result
-        run: |
-          if [ ${{ steps.nuget-push.exit-code }} -ne 0 ]; then
-            echo "NuGet package push failed."
-            exit 1
-          fi
+        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
