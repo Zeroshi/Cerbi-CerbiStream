@@ -1,20 +1,28 @@
 # CerbiStream Logging Library
 
-CerbiStream provides a seamless, low-config logging solution that integrates directly into your app with minimal setup. It supports structured logs, queue-based log routing, governance enforcement, and optional metadata sharing to improve observability across cloud and on-prem environments.
+CerbiStream is a **next-generation** logging solution built for **structured logs, governance enforcement, and multi-destination routing**. It ensures secure, consistent, and high-performance logging for **cloud, on-prem, and hybrid environments**.
 
-## What's New?
-- **Fluid API Setup** – No complex configurations, just pass details during initialization.
+## 🚀 What's New?
 - **Governance Enforcement** – Define and enforce structured logging standards across teams.
+- **Fluid API Setup** – No complex configurations, just pass details during initialization.
 - **Plug-and-Play Cloud Detection** – Auto-detects environment (AWS, Azure, GCP, On-Prem).
-- **No External Dependencies Required** – Handles queue setup internally.
 - **Dev Mode** – Prevents logs from being sent to external queues while debugging.
 - **Secure & NPI-Free Data Collection** – Captures useful metadata without storing sensitive user data.
+- **Governance Analyzer** – Uses **Roslyn** to validate logs at **build time**, improving performance.
 
-## Quick Start (Minimal Setup)
+## 📦 Installation
 
-With the Fluid API, you only need to inject CerbiStream into your app.
+Install **CerbiStream** from NuGet:
 
-```csharp
+dotnet add package CerbiStream
+If you want Governance Enforcement, also install:
+
+
+dotnet add package CerbiStream.GovernanceAnalyzer
+⚡ Quick Start (Minimal Setup)
+With CerbiStream, you can integrate logging in seconds.
+
+
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -46,15 +54,9 @@ class Program
     }
 }
 
-## Fluid API Structure
-Method	                            Description	                            Example Usage
-LogEventAsync(message, level)	    Logs a general event	                await logger.LogEventAsync("Something happened", LogLevel.Information);
-SendApplicationLogAsync(...)	    Sends structured logs with metadata	    await logger.SendApplicationLogAsync("User logged in", "AuthController.Login", LogLevel.Info);
-LogPerformanceAsync(event, time)	Tracks execution time of tasks	        await logger.LogPerformanceAsync("DB Query", 320);
+🛠️ Advanced Configuration
 
-
-## Advanced Configuration (Optional)
-If you need more control, you can pass additional configurations.
+If you need more control, you can configure CerbiStream dynamically.
 
 var config = new CerbiStreamOptions();
 config.SetQueue("Kafka", "kafka://broker-url", "app-logs");
@@ -63,34 +65,31 @@ config.EnableGovernance();
 config.IncludeAdvancedMetadata();
 
 var logger = new CerbiStreamLogger(config);
-
-## Supported Logging Destinations
-Queue Type	            Example Usage
-RabbitMQ	            QueueType = "RabbitMQ"
-Kafka	                QueueType = "Kafka"
-Azure Queue	            QueueType = "AzureQueue"
-Azure ServiceBus	    QueueType = "AzureServiceBus"
-AWS SQS	                QueueType = "AWS_SQS"
-AWS Kinesis	            QueueType = "AWS_Kinesis"
-Google Pub/Sub	        QueueType = "GooglePubSub"
-
-## Automatic Metadata (No Setup Required)
-Metadata Field	        Auto-Detected?	        Example Value
-CloudProvider	        Yes	                    AWS, Azure, GCP, On-Prem
-Region	                Yes	                    us-east-1, eu-west-2
-Environment	            Yes	                    Development, Staging, Production
-ApplicationVersion	    Yes	                    v1.2.3
-RequestId	            Yes (Generated)	        abc123
-TransactionType	        No (Developer Sets)	    REST, gRPC, Kafka
-TransactionStatus	    No (Developer Sets)	    Success, Failed
-
-## Governance & Structured Logging
+🌐 Supported Logging Destinations
+Queue Type	Example Usage
+RabbitMQ	QueueType = "RabbitMQ"
+Kafka	QueueType = "Kafka"
+Azure Queue Storage	QueueType = "AzureQueue"
+Azure Service Bus	QueueType = "AzureServiceBus"
+AWS SQS	QueueType = "AWS_SQS"
+AWS Kinesis	QueueType = "AWS_Kinesis"
+Google Pub/Sub	QueueType = "GooglePubSub"
+🔍 Automatic Metadata (No Setup Required)
+Metadata Field	Auto-Detected?	Example Value
+CloudProvider	✅ Yes	AWS, Azure, GCP, On-Prem
+Region	✅ Yes	us-east-1, eu-west-2
+Environment	✅ Yes	Development, Production
+ApplicationVersion	✅ Yes	v1.2.3
+RequestId	✅ Yes (Generated)	abc123
+TransactionType	❌ Developer Sets	REST, gRPC, Kafka
+TransactionStatus	❌ Developer Sets	Success, Failed
+🔐 Governance & Structured Logging
 Governance allows organizations to enforce structured logging signatures.
-This ensures that logs contain consistent metadata for debugging, security, and AI-driven analytics.
 
-Enforce Required Fields (e.g., every log must include UserId, RequestId, etc.).
-Allow Optional Fields (Developers can extend the logs dynamically).
-Flexible Governance (Uses cerbi_governance.json for dynamic policy updates).
+✔ Enforce Required Fields (e.g., every log must include UserId, RequestId, etc.).
+✔ Allow Optional Fields (Developers can extend the logs dynamically).
+✔ Flexible Governance (Uses cerbi_governance.json for dynamic policy updates).
+
 Example Governance JSON:
 
 {
@@ -108,19 +107,23 @@ Example Governance JSON:
 
 If GovernanceEnabled = true, logs must match the configured structure.
 
-## Debug Mode (Local Development)
+✅ Governance Analyzer (Build-Time Validation)
 
-CerbiStream prevents queue logging while debugging. This is enabled by default (EnableDevMode = true).
+CerbiStream GovernanceAnalyzer uses Roslyn to validate log compliance at build time.
+This ensures structured logs without runtime overhead.
+
+🛠 Debug Mode (Local Development)
+CerbiStream prevents queue logging while debugging.
+This is enabled by default (EnableDevMode = true).
 
 var config = new CerbiStreamOptions();
 config.EnableDevMode();
 
 var logger = new CerbiStreamLogger(config);
 await logger.LogEventAsync("Debugging locally", LogLevel.Debug);
-
-## Meta Data Sharing (Opt-In)
+📊 Meta Data Sharing (Opt-In)
 CerbiStream collects aggregate trends across applications for AI-powered insights.
-No Personally Identifiable Information (PII) is stored.
+✅ No Personally Identifiable Information (PII) is stored.
 
 If enabled, your logs contribute to global analytics (Error Trends, Cloud Performance, API Response Issues).
 If disabled, your logs remain 100% private.
@@ -128,14 +131,12 @@ If disabled, your logs remain 100% private.
 var config = new CerbiStreamOptions();
 config.IncludeAdvancedMetadata();
 config.IncludeSecurityMetadata();
+🔥 Why Use CerbiStream?
+✔ No External Dependencies – Just install & log.
+✔ Optimized Performance – Logs lightweight metadata automatically.
+✔ Security First – Encrypts fields, ensures NPI-free logging.
+✔ Global Insights – See patterns across industries (if opted-in).
+✔ Minimal Setup – Works out-of-the-box with simple constructor injection.
 
-## Why Use CerbiStream?
-
-No External Dependencies – Just install & log.
-Optimized Performance – Logs lightweight metadata automatically.
-Security First – Encrypts fields, ensures NPI-free logging.
-Global Insights – See patterns across multiple industries (if opted-in).
-Minimal Setup – Works out-of-the-box with simple constructor injection.
-
-## License
+📜 License
 CerbiStream is open-source and available under the MIT License.
