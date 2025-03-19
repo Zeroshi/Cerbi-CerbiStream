@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Newtonsoft.Json; // Ensure Newtonsoft.Json is referenced
+using CerbiStream.GovernanceAnalyzer;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -60,9 +61,8 @@ namespace CerbiStream.Logging.Configuration
 
             if (!File.Exists(filePath))
             {
-                Console.WriteLine("🔹 No governance file found. Proceeding without governance enforcement.");
-                GovernanceEnabled = false;
-                return;
+                Console.WriteLine("🔹 No governance file found. Proceeding with default governance.");
+                return; // ✅ Governance stays enabled even if file is missing
             }
 
             try
@@ -73,28 +73,17 @@ namespace CerbiStream.Logging.Configuration
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ Error loading governance: {ex.Message}. Governance disabled.");
-                GovernanceEnabled = false;
+                Console.WriteLine($"⚠️ Error loading governance: {ex.Message}. Proceeding with default governance.");
             }
         }
 
         // ✅ Validate Logs Against Governance Rules
         public bool ValidateLog(string profileName, Dictionary<string, object> logData)
         {
-            if (!GovernanceEnabled || GovernanceData == null || !GovernanceData.LoggingProfiles.ContainsKey(profileName))
-                return true;
+            if (!GovernanceEnabled) return true;
 
-            var profile = GovernanceData.LoggingProfiles[profileName];
-            foreach (var requiredField in profile.RequiredFields)
-            {
-                if (!logData.ContainsKey(requiredField))
-                {
-                    Console.WriteLine($"❌ Missing required field: {requiredField}");
-                    return false;
-                }
-            }
-
-            return true;
+            return GovernanceAnalyzer.GovernanceAnalyzer.Validate(profileName, logData);
         }
+
     }
 }
