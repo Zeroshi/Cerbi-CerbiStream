@@ -162,6 +162,13 @@ config.IncludeAdvancedMetadata();
 config.IncludeSecurityMetadata();
 ```
 
+## Architecture Overview
+
+Below is the high-level architecture of **CerbiStream**, illustrating how logs are processed, routed, and stored across multiple platforms.
+
+![CerbiStream Architecture](https://github.com/Zeroshi/Cerbi-CerbiStream/blob/fab486e8a83b2ced21ea975a85f50852b7947a54/Cerbi-updated.png)
+
+
 ## 🔥 Why Use CerbiStream?
 
 - ✔ **No External Dependencies** – Just install & log.
