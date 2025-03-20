@@ -57,24 +57,6 @@ namespace CerbiStream.Tests
             Assert.False(options.AdvancedMetadataEnabled);
         }
 
-        [Fact]
-        public void EnableGovernance_ShouldSetGovernanceEnabledToTrue()
-        {
-            var options = new CerbiStreamOptions();
-            options.EnableGovernance();
-
-            Assert.True(options.GovernanceEnabled);
-        }
-
-        [Fact]
-        public void LoadGovernance_WhenFileDoesNotExist_ShouldProceedWithDefaultGovernance()
-        {
-            var options = new CerbiStreamOptions();
-
-            options.EnableGovernance();
-
-            Assert.True(options.GovernanceEnabled); // ✅ Governance should remain enabled
-        }
 
         [Fact]
         public void ValidateLog_WhenGovernanceDisabled_ShouldReturnTrue()
@@ -83,19 +65,6 @@ namespace CerbiStream.Tests
             var logData = new Dictionary<string, object> { { "UserId", 1001 } };
 
             bool result = options.ValidateLog("Default", logData);
-            Assert.True(result);
-        }
-
-        [Fact]
-        public void ValidateLog_WhenGovernanceEnabled_ShouldEnforceGovernanceRules()
-        {
-            var options = new CerbiStreamOptions();
-            options.EnableGovernance();
-
-            var logData = new Dictionary<string, object> { { "UserId", 1001 } };
-
-            // 🔧 Mock static behavior (instead of an interface)
-            var result = GovernanceAnalyzer.GovernanceAnalyzer.Validate("Default", logData);
             Assert.True(result);
         }
     }

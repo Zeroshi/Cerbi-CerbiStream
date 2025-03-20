@@ -1,23 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using Newtonsoft.Json; // Ensure Newtonsoft.Json is referenced
 using CerbiStream.GovernanceAnalyzer;
 
 namespace CerbiStream.Logging.Configuration
 {
-    public class CerbiGovernance
-    {
-        public Dictionary<string, LogProfile> LoggingProfiles { get; set; } = new();
-    }
-
-    public class LogProfile
-    {
-        public List<string> RequiredFields { get; set; } = new();
-        public List<string> OptionalFields { get; set; } = new();
-    }
-
     public class CerbiStreamOptions
     {
         public string QueueType { get; private set; } = "RabbitMQ";
@@ -27,8 +13,6 @@ namespace CerbiStream.Logging.Configuration
         public bool AdvancedMetadataEnabled { get; private set; } = false;
         public bool SecurityMetadataEnabled { get; private set; } = false;
         public bool GovernanceEnabled { get; private set; } = false;
-
-        private CerbiGovernance? GovernanceData;
 
         // ✅ Set Queue Configuration
         public void SetQueue(string queueType, string queueHost, string queueName)
@@ -48,35 +32,6 @@ namespace CerbiStream.Logging.Configuration
         public void IncludeSecurityMetadata() => SecurityMetadataEnabled = true;
         public void ExcludeSecurityMetadata() => SecurityMetadataEnabled = false;
 
-        // ✅ Enable Governance (Optional JSON File)
-        public void EnableGovernance()
-        {
-            GovernanceEnabled = true;
-            LoadGovernance();
-        }
-
-        private void LoadGovernance()
-        {
-            string filePath = "cerbi_governance.json";
-
-            if (!File.Exists(filePath))
-            {
-                Console.WriteLine("🔹 No governance file found. Proceeding with default governance.");
-                return; // ✅ Governance stays enabled even if file is missing
-            }
-
-            try
-            {
-                string json = File.ReadAllText(filePath);
-                GovernanceData = JsonConvert.DeserializeObject<CerbiGovernance>(json);
-                Console.WriteLine("✅ Governance JSON Loaded.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"⚠️ Error loading governance: {ex.Message}. Proceeding with default governance.");
-            }
-        }
-
         // ✅ Validate Logs Against Governance Rules
         public bool ValidateLog(string profileName, Dictionary<string, object> logData)
         {
@@ -84,6 +39,5 @@ namespace CerbiStream.Logging.Configuration
 
             return GovernanceAnalyzer.GovernanceAnalyzer.Validate(profileName, logData);
         }
-
     }
 }
