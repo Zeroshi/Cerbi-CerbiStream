@@ -1,6 +1,7 @@
-﻿using System;
+﻿using CerbiStream.GovernanceAnalyzer;
+using CerbiStream.Interfaces;
+using System;
 using System.Collections.Generic;
-using CerbiStream.GovernanceAnalyzer;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -21,6 +22,17 @@ namespace CerbiStream.Logging.Configuration
             QueueHost = queueHost;
             QueueName = queueName;
         }
+
+        //telemetry provider
+        public ITelemetryProvider? TelemetryProvider { get; private set; }
+        public bool AlsoSendToTelemetry { get; private set; } = false;
+
+        public void SetTelemetryProvider(ITelemetryProvider provider)
+        {
+            TelemetryProvider = provider;
+        }
+        public void EnableTelemetryLogging() => AlsoSendToTelemetry = true;
+
 
         // ✅ Toggle Dev Mode
         public void EnableDevMode() => DevModeEnabled = true;

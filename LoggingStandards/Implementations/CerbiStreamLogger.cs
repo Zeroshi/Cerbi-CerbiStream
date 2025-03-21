@@ -1,6 +1,7 @@
 ﻿using CerbiStream.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -30,5 +31,17 @@ namespace CerbiStream.Logging.Configuration
             // TODO: Implement actual logic to send log to queues
             Console.WriteLine($"[{_options.QueueType}] {logLevel}: {formatter(state, exception)}");
         }
+
+        public void LogEvent(string message, LogLevel level, Dictionary<string, string> metadata)
+        {
+            Console.WriteLine($"{level}: {message}"); // Standard Console Log
+
+            if (_options.AlsoSendToTelemetry && _options.TelemetryProvider != null)
+            {
+                _options.TelemetryProvider.TrackEvent("LogEvent", metadata);
+            }
+        }
+
+
     }
 }

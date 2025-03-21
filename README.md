@@ -5,15 +5,13 @@ CerbiStream is a **next-generation** logging solution built for **structured log
 ---
 
 ## 🚀 What's New?  
-- **Governance Enforcement** – Define and enforce structured logging standards dynamically.  
-- **Governance Analyzer** – Uses **Roslyn** to validate logs at **build time**, reducing runtime validation overhead.  
-- **Dynamic Governance Reload** – Governance rules can now **reload in real time** when the JSON config changes.  
-- **Log Level Enforcement** – Restrict logging to allowed levels for better control.  
-- **Plug-and-Play Cloud Detection** – Auto-detects environment (AWS, Azure, GCP, On-Prem).  
-- **Dev Mode** – Prevents logs from being sent to external queues while debugging.  
-- **Secure & NPI-Free Data Collection** – Captures useful metadata without storing sensitive user data.  
+- **Telemetry Support** – Seamless integration with **AWS CloudWatch, GCP Cloud Trace, Azure Application Insights, and Datadog** for distributed tracing.  
+- **Configurable Telemetry Providers** – Choose **which telemetry provider to use** or disable telemetry entirely.  
+- **Optimized Telemetry** – Exclude noisy events (`DebugLog`, `HealthCheck`, etc.) and control **sampling rates** for cost optimization.  
+- **Multi-Cloud Telemetry** – Route logs and traces to **multiple cloud providers** based on your architecture.  
 
 ---
+
 
 If you want Governance Enforcement, also install:
 
@@ -170,6 +168,173 @@ var config = new CerbiStreamOptions();
 config.IncludeAdvancedMetadata();
 config.IncludeSecurityMetadata();
 ```
+
+## 📊 Telemetry Support (Optional)
+CerbiStream now supports **distributed tracing and application performance monitoring** through multiple telemetry providers.
+
+### **Supported Telemetry Providers**
+| Provider                      | Status       |
+|--------------------------------|-------------|
+| **Azure Application Insights** | ✅ Supported |
+| **AWS CloudWatch**             | ✅ Supported |
+| **Google Cloud Trace**         | ✅ Supported |
+| **Datadog**                    | ✅ Supported |
+| **OpenTelemetry** (default)    | ✅ Supported |
+
+---
+
+## 🛠 **Configuring Telemetry in CerbiStream**
+To enable telemetry, **specify a provider** in the `CerbiStreamOptions` configuration:
+
+```csharp
+var config = new CerbiStreamOptions();
+config.SetTelemetryProvider(new AppInsightsTelemetryProvider()); // Choose from AppInsights, AWS, GCP, Datadog, etc.
+config.SetQueue("RabbitMQ", "localhost", "logs-queue");
+config.EnableGovernance();
+
+var logger = new CerbiStreamLogger(config);
+```
+
+## 🌍 Multi-Cloud Telemetry Routing  
+You can route different types of logs to different telemetry providers for better visibility.
+
+| **Log Type**               | **Default Destination**         |
+|----------------------------|--------------------------------|
+| **Application Logs**       | Google Cloud Trace            |
+| **Infrastructure Logs**    | AWS CloudWatch                |
+| **Security & Audit Logs**  | Azure Application Insights    |
+| **Performance Metrics**    | Datadog                        |
+
+To customize this, configure the routing rules in your governance JSON file:
+
+```csharp
+{
+  "TelemetryRouting": {
+    "ApplicationLogs": "GoogleCloud",
+    "InfraLogs": "AWS",
+    "SecurityLogs": "Azure",
+    "PerformanceMetrics": "Datadog"
+  }
+}
+```
+
+## ⚡ Optimized Telemetry Collection  
+CerbiStream minimizes unnecessary logging noise while ensuring critical events are captured.  
+
+- ✅ **Event Sampling** – Configurable rate limiting to balance cost & observability.  
+- ✅ **Noise Reduction** – Filters out low-priority logs like `HealthCheck` & `DebugLog`.  
+- ✅ **Auto-Enabled for Supported Providers** – Telemetry is automatically enabled when a supported provider is detected (AWS, GCP, Azure).  
+
+## 🔄 Auto-Enabled Telemetry Providers  
+CerbiStream detects and configures telemetry based on your cloud environment.
+
+| **Cloud Provider** | **Auto-Enabled Telemetry Service**   |
+|--------------------|--------------------------------------|
+| **AWS**           | CloudWatch                           |
+| **Azure**         | Application Insights                |
+| **Google Cloud**  | Stackdriver Trace                   |
+| **On-Prem**       | OpenTelemetry (Custom Configuration) |
+
+Developers can override these settings to manually specify their preferred telemetry provider.  
+
+## 🔌 Multi-Telemetry Provider Setup  
+CerbiStream allows you to integrate **multiple telemetry providers** for better observability across cloud environments.  
+
+### 🚀 Example: Using OptimizedTelemetryProvider, AWS CloudWatch & Azure Application Insights  
+
+```csharp
+using CerbiStream.Configuration;
+using CerbiStream.Interfaces;
+using CerbiStream.Classes.OpenTelemetry;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+class Program
+{
+    static void Main()
+    {
+        var serviceProvider = new ServiceCollection()
+            .AddLogging(builder =>
+            {
+                builder.AddConsole();
+                builder.AddCerbiStream(options =>
+                {
+                    options.SetQueue("RabbitMQ", "localhost", "logs-queue");
+                    options.EnableDevMode();
+                    options.EnableGovernance();
+
+                    // ✅ Optimized telemetry provider (efficient tracing with sampling)
+                    options.AddTelemetryProvider(new OptimizedTelemetryProvider(samplingRate: 0.5));  
+
+                    // ✅ Add multiple telemetry providers
+                    options.AddTelemetryProvider(new CloudWatchTelemetryProvider());  
+                    options.AddTelemetryProvider(new AppInsightsTelemetryProvider());  
+                });
+            })
+            .BuildServiceProvider();
+
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("Application started successfully!");
+        logger.LogError("Critical error detected in system.");
+    }
+}
+```
+
+You can enable, disable, or prioritize telemetry providers as needed.
+```csharp
+
+options.EnableTelemetry(); // Enable all auto-detected telemetry providers  
+options.DisableTelemetry(); // Disable all telemetry tracking  
+options.SetTelemetrySamplingRate(0.3); // 30% sampling for cost optimization  
+```
+
+Example: Using OptimizedTelemetryProvider
+
+```csharp
+options.AddTelemetryProvider(new OptimizedTelemetryProvider(samplingRate: 0.5));
+```
+
+-------------
+
+## 📈 Rollup & Multi-Project Visibility
+
+CerbiStream supports **centralized telemetry aggregation**, allowing you to visualize logs, metrics, and traces from **multiple services or microservices** in one place.
+
+This is especially useful for:
+
+- 🚀 **Microservices Architectures**  
+- 🧩 **Distributed Systems**  
+- 🛠️ **Multi-Environment Monitoring (Dev / QA / Prod)**
+
+### 🧭 Example: Using Application Insights for Rollups
+
+With Azure Application Insights, all telemetry (from different apps) can be **grouped under a single Application Map**:
+
+```csharp
+options.AddTelemetryProvider(new AppInsightsTelemetryProvider());
+```
+
+Be sure to:
+
+Use the same Instrumentation Key or Connection String across services.
+Tag logs with AppName, Environment, or Component for grouping:
+
+```csharp
+var metadata = new Dictionary<string, string>
+{
+    { "AppName", "CheckoutService" },
+    { "Environment", "Production" },
+    { "Component", "PaymentProcessor" }
+};
+
+logger.LogEvent("Payment failed", LogLevel.Error, metadata);
+```
+
+
+-----
+
+
 ## 🔥 Why Use CerbiStream?
 
 - ✅ **No External Dependencies** – Just install & start logging.
