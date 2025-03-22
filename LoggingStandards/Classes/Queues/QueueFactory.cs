@@ -4,7 +4,7 @@ using CerbiClientLogging.Interfaces;
 using CerbiStream.Configuration;
 using System;
 
-namespace CerbiClientLogging.Classes
+namespace CerbiStream.Classes.Queues
 {
     public static class QueueFactory
     {

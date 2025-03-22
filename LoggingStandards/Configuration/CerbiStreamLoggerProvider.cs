@@ -1,10 +1,9 @@
-﻿using CerbiStream.Configuration;
-using CerbiStream.Logging.Configuration;
+﻿using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 
-namespace CerbiStream.Logging
+namespace CerbiStream.Configuration
 {
     public class CerbiStreamLoggerProvider : ILoggerProvider
     {

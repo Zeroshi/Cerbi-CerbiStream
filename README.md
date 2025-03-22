@@ -5,10 +5,12 @@ CerbiStream is a **next-generation** logging solution built for **structured log
 ---
 
 ## 🚀 What's New?  
-- **Telemetry Support** – Seamless integration with **AWS CloudWatch, GCP Cloud Trace, Azure Application Insights, and Datadog** for distributed tracing.  
-- **Configurable Telemetry Providers** – Choose **which telemetry provider to use** or disable telemetry entirely.  
-- **Optimized Telemetry** – Exclude noisy events (`DebugLog`, `HealthCheck`, etc.) and control **sampling rates** for cost optimization.  
-- **Multi-Cloud Telemetry** – Route logs and traces to **multiple cloud providers** based on your architecture.  
+- **Telemetry Context Enrichment** – Automatically include metadata like `ServiceName`, `OriginApp`, `UserType`, `Feature`, `IsRetry`, and `RetryAttempt`.
+- **Static Enrichment** – All telemetry context fields are set once and injected into logs automatically.
+- **Retry Metadata** – Integrated with Polly and middleware to track retries at the log level.
+- **Telemetry Support** – Seamless integration with **AWS CloudWatch, GCP Cloud Trace, Azure Application Insights, and Datadog**.
+- **Configurable Telemetry Providers** – Easily plug in multiple providers.
+- **Optimized Telemetry** – Exclude noisy events (e.g., `DebugLog`, `HealthCheck`) and enable **sampling** for cost control.
 
 ---
 
@@ -54,24 +56,25 @@ class Program
     static void Main()
     {
         var serviceProvider = new ServiceCollection()
-            .AddLogging(builder =>
-            {
-                builder.AddConsole();
-                builder.AddCerbiStream(options =>
-                {
-                    options.SetQueue("RabbitMQ", "localhost", "logs-queue");
-                    options.EnableDevMode();
-                    options.EnableGovernance();
-                });
-            })
-            .BuildServiceProvider();
+        .AddLogging(builder =>
+    {
+        builder.AddConsole();
+        builder.AddCerbiStream(options =>
+        {
+            options.SetQueue("RabbitMQ", "localhost", "logs-queue");
+            options.EnableDevMode();
+            options.EnableGovernance();
 
-        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+            // Set once, reused for all logs
+            TelemetryContext.ServiceName = "CheckoutService";
+            TelemetryContext.OriginApp = "MyFrontendApp";
+            TelemetryContext.UserType = "InternalUser"; // System | ApiConsumer | Guest
+        });
+    })
+    .BuildServiceProvider();
 
-        logger.LogInformation("Application started successfully!");
-        logger.LogError("This is a test error log.");
-        logger.LogWarning("Potential issue detected.");
-        logger.LogCritical("Critical failure occurred!");
+var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("App started");
     }
 }
 ```
@@ -114,6 +117,57 @@ var logger = new CerbiStreamLogger(config);
 | **RequestId**        | ✅ Yes (Generated) | abc123 |
 | **TransactionType**  | ❌ Developer Sets | REST, gRPC, Kafka |
 | **TransactionStatus** | ❌ Developer Sets | Success, Failed |
+
+---
+
+## ✅ Telemetry Context Fields (Auto-Enriched)
+
+- Field	Description
+- ServiceName	- Logical name of the service
+- OriginApp	- Source app triggering the log
+- UserType - System, ApiConsumer, etc.
+- Feature -	Business context like Checkout
+- IsRetry -	true if retrying the operation
+- RetryAttempt - Number of retry attempts
+
+---
+
+## 🧩 Feature & Business Area Enum
+
+Use a shared enum for consistency:
+
+```csharp
+Always show details
+
+Copy
+public enum FeatureArea
+{
+    Checkout,
+    Login,
+    Search,
+    DataExport,
+    Onboarding
+}
+```
+Set it before logging:
+```csharp   
+TelemetryContext.Feature = FeatureArea.Checkout.ToString();
+logger.LogInformation("Item added to cart");
+```
+
+---
+
+## 🔁 Retry Metadata (e.g., Polly Integration)
+
+```csharp
+Policy
+  .Handle<Exception>()
+  .WaitAndRetry(3, _ => TimeSpan.FromSeconds(1), (ex, _, attempt, _) =>
+  {
+      TelemetryContext.IsRetry = true;
+      TelemetryContext.RetryAttempt = attempt;
+  });
+  ```
 
 ---
 
@@ -217,6 +271,9 @@ To customize this, configure the routing rules in your governance JSON file:
   }
 }
 ```
+
+---
+
 
 ## ⚡ Optimized Telemetry Collection  
 CerbiStream minimizes unnecessary logging noise while ensuring critical events are captured.  
@@ -334,14 +391,36 @@ logger.LogEvent("Payment failed", LogLevel.Error, metadata);
 
 -----
 
+## 🧠 Global Observability (Optional) (coming soon)
+With IncludeAdvancedMetadata(), your logs can contribute (without PII) to:
+
+Industry-wide error trends
+
+ML-driven root cause patterns
+
+Performance benchmarking across cloud platforms
+
+```csharp
+config.IncludeAdvancedMetadata();
+```
+
+
+---
 
 ## 🔥 Why Use CerbiStream?
 
+## 🔥 Why Use CerbiStream?
+
+- ✅ **Structured Logs by Default** – Consistent schema with contextual metadata like `Feature`, `ServiceName`, and `RetryAttempt`.
+- ✅ **Multi-Cloud Ready** – Route telemetry to Azure, AWS, GCP, Datadog, or OpenTelemetry.
+- ✅ **NPI-Free Insights** – Built from the ground up to exclude personally identifiable information.
+- ✅ **Business-Aware Logging** – Capture `UserType`, `OriginApp`, and `FeatureArea` for analytics and ML without leaking sensitive data.
+- ✅ **Central Rollups Across Microservices** – Logs can be grouped by service, app, or feature to enable intelligent visualization and trend detection.
 - ✅ **No External Dependencies** – Just install & start logging.
-- 🚀 **Optimized Performance** – Logs lightweight metadata automatically.
-- 🔒 **Security First** – Encrypts fields and ensures **NPI-free** logging.
-- 🌍 **Global Insights** – Identify patterns across industries *(if opted-in)*.
-- ⚡ **Minimal Setup** – Works **out-of-the-box** with simple constructor injection.
+- 🚀 **Optimized Performance** – Uses static enrichment and telemetry sampling to reduce overhead.
+- 🔒 **Security First** – Optional field-level encryption and governance enforcement.
+- 🌍 **Global Insights** – Enables anonymized, cross-client trend discovery (if opted-in).
+- ⚡ **Minimal Setup** – Works out-of-the-box with simple constructor injection.
 
 
 📜 License

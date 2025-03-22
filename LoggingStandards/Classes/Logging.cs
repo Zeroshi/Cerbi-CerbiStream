@@ -47,7 +47,8 @@ namespace CerbiClientLogging.Implementations
                     { "Platform", platform ?? "Unknown" },
                     { "OnlyInnerException", onlyInnerException ?? false },
                     { "Note", note ?? "No note" },
-                    { "Error", error?.Message ?? "No Error" }
+                    { "Error", error?.Message ?? "No Error" },
+
                 };
 
             return await SendLog(new

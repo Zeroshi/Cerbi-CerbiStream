@@ -1,4 +1,6 @@
-﻿using CerbiStream.Configuration;
+﻿using CerbiStream.Classes.OpenTelemetry;
+using CerbiStream.Configuration;
+using CerbiStream.Telemetry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -28,13 +30,15 @@ namespace CerbiStream.Logging.Configuration
                 return;
             }
 
-            // TODO: Implement actual logic to send log to queues
             Console.WriteLine($"[{_options.QueueType}] {logLevel}: {formatter(state, exception)}");
         }
 
         public void LogEvent(string message, LogLevel level, Dictionary<string, string> metadata)
         {
-            Console.WriteLine($"{level}: {message}"); // Standard Console Log
+            Console.WriteLine($"{level}: {message}");
+
+            // ✅ Centralized enrichment
+            EnrichWithTelemetryContext(metadata);
 
             if (_options.AlsoSendToTelemetry && _options.TelemetryProvider != null)
             {
@@ -42,6 +46,14 @@ namespace CerbiStream.Logging.Configuration
             }
         }
 
-
+        // ✅ Private helper for enriching metadata from TelemetryContext
+        private static void EnrichWithTelemetryContext(Dictionary<string, string> metadata)
+        {
+            foreach (var kvp in TelemetryContext.Snapshot())
+            {
+                if (!metadata.ContainsKey(kvp.Key))
+                    metadata[kvp.Key] = kvp.Value?.ToString() ?? "null";
+            }
+        }
     }
 }
