@@ -1,10 +1,21 @@
 # CerbiStream Logging Library
 
+![NuGet](https://img.shields.io/nuget/v/CerbiStream?style=flat-square)
+![NuGet Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=flat-square)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)
+![.NET](https://img.shields.io/badge/.NET-8.0-blue?style=flat-square)
+
+
+
+
 CerbiStream is a **next-generation** logging solution built for **structured logs, governance enforcement, and multi-destination routing**. It ensures secure, consistent, and high-performance logging for **cloud, on-prem, and hybrid environments**.
 
 ---
 
 ## 🚀 What's New?  
+- Readme Update only 
+
+## Updates included from previous version:
 - **Telemetry Context Enrichment** – Automatically include metadata like `ServiceName`, `OriginApp`, `UserType`, `Feature`, `IsRetry`, and `RetryAttempt`.
 - **Static Enrichment** – All telemetry context fields are set once and injected into logs automatically.
 - **Retry Metadata** – Integrated with Polly and middleware to track retries at the log level.
@@ -15,9 +26,23 @@ CerbiStream is a **next-generation** logging solution built for **structured log
 ---
 
 
-If you want Governance Enforcement, also install:
+## 🧰 Getting Started
 
-dotnet add package CerbiStream.GovernanceAnalyzer
+CerbiStream works out-of-the-box. Install, configure, and start logging:
+
+1. Install the NuGet package
+2. Set your queue and enrichment metadata
+3. Start logging with `ILogger<T>`
+
+→ For governance enforcement, install the [GovernanceAnalyzer](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer).
+
+## 🧠 High-Level Architecture
+
+CerbiStream is designed to separate concerns between:
+- ✅ **Logging** (CerbiStream)
+- ✅ **Governance** (GovernanceAnalyzer)
+- ✅ **Telemetry Routing** (via optional config or CerbIQ  (coming soon))
+
 
 
 ## 📦 Installation  
@@ -29,14 +54,10 @@ dotnet add package CerbiStream
 ```
 
 
-## 📦 Installation
-
-Install **CerbiStream** from NuGet:
-
-```sh
-dotnet add package CerbiStream
-```
 If you want Governance Enforcement, also install:
+
+[![GovernanceAnalyzer NuGet](https://img.shields.io/nuget/v/CerbiStream.GovernanceAnalyzer)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer)
+
 
 ```sh
 dotnet add package CerbiStream.GovernanceAnalyzer
@@ -409,8 +430,6 @@ config.IncludeAdvancedMetadata();
 
 ## 🔥 Why Use CerbiStream?
 
-## 🔥 Why Use CerbiStream?
-
 - ✅ **Structured Logs by Default** – Consistent schema with contextual metadata like `Feature`, `ServiceName`, and `RetryAttempt`.
 - ✅ **Multi-Cloud Ready** – Route telemetry to Azure, AWS, GCP, Datadog, or OpenTelemetry.
 - ✅ **NPI-Free Insights** – Built from the ground up to exclude personally identifiable information.
@@ -425,3 +444,12 @@ config.IncludeAdvancedMetadata();
 
 📜 License
 CerbiStream is open-source and available under the MIT License.
+
+---
+
+📣 **Want to contribute?**  
+Star the repo ⭐, open an issue 🐛, or suggest a feature 🧠!
+
+[![Cerbi Homepage](https://img.shields.io/badge/website-cerbi-blue?style=flat-square)](https://zeroshi.github.io)
+
+🧑‍💻 Created by [@Zeroshi](https://github.com/Zeroshi)
