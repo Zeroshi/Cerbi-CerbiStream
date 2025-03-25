@@ -8,31 +8,24 @@
 ![Governance Enforced](https://img.shields.io/badge/governance-enforced-red?style=flat-square)
 ![CI/CD](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/dotnet.yml/badge.svg?style=flat-square)
 
-
-
-
-
-
-
-
-
 CerbiStream is a **next-generation** logging solution built for **structured logs, governance enforcement, and multi-destination routing**. It ensures secure, consistent, and high-performance logging for **cloud, on-prem, and hybrid environments**.
 
 ---
 
-## 🚀 What's New?  
-- Readme Update only 
+## 🚀 What's New?
 
-## Updates included from previous version:
-- **Telemetry Context Enrichment** – Automatically include metadata like `ServiceName`, `OriginApp`, `UserType`, `Feature`, `IsRetry`, and `RetryAttempt`.
-- **Static Enrichment** – All telemetry context fields are set once and injected into logs automatically.
-- **Retry Metadata** – Integrated with Polly and middleware to track retries at the log level.
-- **Telemetry Support** – Seamless integration with **AWS CloudWatch, GCP Cloud Trace, Azure Application Insights, and Datadog**.
-- **Configurable Telemetry Providers** – Easily plug in multiple providers.
-- **Optimized Telemetry** – Exclude noisy events (e.g., `DebugLog`, `HealthCheck`) and enable **sampling** for cost control.
+CerbiStream v1.0.9 introduces a modernized, simplified configuration model designed for speed, clarity, and real-world use cases.
+
+### 🔧 Major Improvements
+- **New Preset Configuration Modes** – Easily switch between `DeveloperModeWithTelemetry`, `MinimalMode`, or `BenchmarkMode` without manually toggling settings.
+- **Cleaner Developer Experience** – Legacy `EnableDevMode()` removed in favor of intuitive preset APIs.
+- **Fine-Grained Controls** – New methods like `DisableConsoleOutput()`, `DisableGovernanceChecks()`, and `DisableMetadataInjection()` provide precise control.
+- **Better Benchmarking** – `BenchmarkMode()` disables everything unnecessary for micro-benchmark testing.
+- **Telemetry Separation** – Decouple telemetry tracking from core logging logic with `EnableTelemetryLogging()`.
+
+These improvements reflect feedback from real production and OSS usage—balancing governance enforcement with performance and flexibility.
 
 ---
-
 
 ## 🧰 Getting Started
 
@@ -44,72 +37,57 @@ CerbiStream works out-of-the-box. Install, configure, and start logging:
 
 → For governance enforcement, install the [GovernanceAnalyzer](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer).
 
-## 🧠 High-Level Architecture
+---
 
-CerbiStream is designed to separate concerns between:
-- ✅ **Logging** (CerbiStream)
-- ✅ **Governance** (GovernanceAnalyzer)
-- ✅ **Telemetry Routing** (via optional config or CerbIQ  (coming soon))
+## 📦 Installation
 
-
-
-## 📦 Installation  
-
-Install **CerbiStream** from NuGet:  
+Install CerbiStream from NuGet:
 
 ```sh
 dotnet add package CerbiStream
 ```
 
-
-If you want Governance Enforcement, also install:
-
-[![GovernanceAnalyzer NuGet](https://img.shields.io/nuget/v/CerbiStream.GovernanceAnalyzer)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer)
-
+To enable governance validation:
 
 ```sh
 dotnet add package CerbiStream.GovernanceAnalyzer
 ```
-⚡ Quick Start (Minimal Setup)
-With CerbiStream, you can integrate logging in seconds.
 
-```csharp
-using System;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using CerbiStream.Logging.Extensions;
+---
 
-```csharp
-class Program
-{
-    static void Main()
-    {
-        var serviceProvider = new ServiceCollection()
-        .AddLogging(builder =>
-    {
-        builder.AddConsole();
-        builder.AddCerbiStream(options =>
-        {
-            options.SetQueue("RabbitMQ", "localhost", "logs-queue");
-            options.EnableDevMode();
-            options.EnableGovernance();
+## ⚙️ Preset Config Modes
 
-            // Set once, reused for all logs
-            TelemetryContext.ServiceName = "CheckoutService";
-            TelemetryContext.OriginApp = "MyFrontendApp";
-            TelemetryContext.UserType = "InternalUser"; // System | ApiConsumer | Guest
-        });
-    })
-    .BuildServiceProvider();
+CerbiStream provides ready-to-use configuration presets:
 
-var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("App started");
-    }
-}
-```
+| Method                                | Description                                                              |
+|--------------------------------------|--------------------------------------------------------------------------|
+| `EnableDeveloperModeWithTelemetry()` | Console + metadata + telemetry (for dev/test)                            |
+| `EnableDeveloperModeWithoutTelemetry()` | Console + metadata, no telemetry (clean dev logs)                       |
+| `EnableDevModeMinimal()`             | Console only (no metadata or telemetry) for benchmarks or POCs           |
+| `EnableBenchmarkMode()`              | All silent — disables output, telemetry, metadata, and governance        |
 
-## ⚡ Optional Dev Shortcut
-CerbiStream provides a simplified helper method for quick dev/test setup. This is great for local development, benchmarks, or proof-of-concept apps.
+---
+
+## 🔧 Individual Configuration Options
+
+For full control over behavior, you can toggle each capability manually:
+
+| Option                      | Description                                                              |
+|-----------------------------|--------------------------------------------------------------------------|
+| `DisableConsoleOutput()`    | Prevents log messages from appearing in local console                    |
+| `DisableTelemetryEnrichment()` | Disables automatic telemetry context injection (e.g., ServiceName, etc.) |
+| `DisableMetadataInjection()` | Skips adding common metadata fields (e.g., user type, retry count)       |
+| `DisableGovernanceChecks()` | Bypasses governance schema validation on log structure                   |
+| `IncludeAdvancedMetadata()` | Adds environment/cloud-specific fields like region, version, etc.        |
+| `IncludeSecurityMetadata()` | Adds security context fields, if applicable                              |
+| `SetTelemetryProvider()`    | Manually inject a telemetry routing provider                             |
+| `EnableTelemetryLogging()`  | Sends logs to telemetry independently of main log queue                  |
+
+Use these when building custom setups or combining multiple concerns.
+
+---
+
+## ⚡ Quick Start
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
@@ -120,104 +98,74 @@ var serviceProvider = new ServiceCollection()
     .AddLogging(builder =>
     {
         builder.AddConsole();
-        builder.AddDevLogging(); // ⬅️ sets dev mode + telemetry context
+        builder.AddCerbiStream(options =>
+        {
+            options.SetQueue("RabbitMQ", "localhost", "logs-queue");
+            options.EnableDeveloperModeWithoutTelemetry();
+
+            TelemetryContext.ServiceName = "CheckoutService";
+            TelemetryContext.OriginApp = "MyFrontendApp";
+            TelemetryContext.UserType = "InternalUser";
+        });
     })
     .BuildServiceProvider();
 
 var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("Quick dev log message");
+logger.LogInformation("App started");
 ```
 
-This is equivalent to:
-```csharp
-builder.AddCerbiStream(options =>
-{
-    options.EnableDevMode();
-    TelemetryContext.ServiceName = "DevApp";
-    TelemetryContext.OriginApp = "Local";
-    TelemetryContext.UserType = "Developer";
-});
-```
+---
 
-🛠️ Advanced Configuration
-
-If you need more control, you can configure CerbiStream dynamically.
+## 🔧 Dev Helper Shortcut
 
 ```csharp
-var config = new CerbiStreamOptions();
-config.SetQueue("Kafka", "kafka://broker-url", "app-logs");
-config.DisableDevMode();
-config.EnableGovernance();
-config.IncludeAdvancedMetadata();
-
-var logger = new CerbiStreamLogger(config);
+builder.AddDevLogging(); // applies EnableDeveloperModeWithoutTelemetry + telemetry context
 ```
+
+---
+
 ## 🌐 Supported Logging Destinations
 
-| Queue Type         | Example Usage        |
-|--------------------|---------------------|
-| **RabbitMQ**       | `QueueType = "RabbitMQ"` |
-| **Kafka**         | `QueueType = "Kafka"` |
-| **Azure Queue Storage** | `QueueType = "AzureQueue"` |
-| **Azure Service Bus**   | `QueueType = "AzureServiceBus"` |
-| **AWS SQS**       | `QueueType = "AWS_SQS"` |
-| **AWS Kinesis**   | `QueueType = "AWS_Kinesis"` |
-| **Google Pub/Sub** | `QueueType = "GooglePubSub"` |
+| Queue Type            | Example Value         |
+|----------------------|-----------------------|
+| RabbitMQ             | "RabbitMQ"            |
+| Kafka                | "Kafka"               |
+| Azure Queue Storage  | "AzureQueue"          |
+| Azure Service Bus    | "AzureServiceBus"     |
+| AWS SQS              | "AWS_SQS"             |
+| AWS Kinesis          | "AWS_Kinesis"         |
+| Google Pub/Sub       | "GooglePubSub"        |
 
 ---
 
-## 🔍 Automatic Metadata (No Setup Required)
+## 🔍 Automatic Metadata Fields
 
-| Metadata Field        | Auto-Detected? | Example Value         |
-|-----------------------|---------------|----------------------|
-| **CloudProvider**     | ✅ Yes        | AWS, Azure, GCP, On-Prem |
-| **Region**           | ✅ Yes        | us-east-1, eu-west-2 |
-| **Environment**      | ✅ Yes        | Development, Production |
-| **ApplicationVersion** | ✅ Yes        | v1.2.3 |
-| **RequestId**        | ✅ Yes (Generated) | abc123 |
-| **TransactionType**  | ❌ Developer Sets | REST, gRPC, Kafka |
-| **TransactionStatus** | ❌ Developer Sets | Success, Failed |
-
----
-
-## ✅ Telemetry Context Fields (Auto-Enriched)
-
-- Field	Description
-- ServiceName	- Logical name of the service
-- OriginApp	- Source app triggering the log
-- UserType - System, ApiConsumer, etc.
-- Feature -	Business context like Checkout
-- IsRetry -	true if retrying the operation
-- RetryAttempt - Number of retry attempts
+| Field                | Auto-Detected? | Example       |
+|----------------------|----------------|---------------|
+| CloudProvider        | ✅             | Azure         |
+| Region               | ✅             | us-east-1     |
+| Environment          | ✅             | Production    |
+| ApplicationVersion   | ✅             | v1.2.3        |
+| RequestId            | ✅             | abc123        |
+| TransactionType      | ❌             | REST          |
+| TransactionStatus    | ❌             | Success       |
 
 ---
 
-## 🧩 Feature & Business Area Enum
+## ✅ Telemetry Context Fields
 
-Use a shared enum for consistency:
+- `ServiceName`
+- `OriginApp`
+- `UserType`
+- `Feature`
+- `IsRetry`
+- `RetryAttempt`
 
-```csharp
-Always show details
-
-Copy
-public enum FeatureArea
-{
-    Checkout,
-    Login,
-    Search,
-    DataExport,
-    Onboarding
-}
-```
-Set it before logging:
-```csharp   
-TelemetryContext.Feature = FeatureArea.Checkout.ToString();
-logger.LogInformation("Item added to cart");
-```
+Set them once and they’ll enrich all logs.
 
 ---
 
-## 🔁 Retry Metadata (e.g., Polly Integration)
+## 🔁 Retry Tracking Example
 
 ```csharp
 Policy
@@ -227,24 +175,17 @@ Policy
       TelemetryContext.IsRetry = true;
       TelemetryContext.RetryAttempt = attempt;
   });
-  ```
+```
 
 ---
 
-## 🔐 Governance & Structured Logging
+## 🔐 Governance Enforcement
 
-Governance allows organizations to enforce **structured logging signatures** by:
-- ✅ **Defining required fields** (e.g., every log must include `UserId`, `RequestId`, etc.).
-- ✅ **Allowing optional fields** that developers can extend dynamically.
-- ✅ **Using a governance configuration file** (`cerbi_governance.json`) for dynamic updates.
-Example Governance JSON:
-```csharp
+CerbiStream supports structured logging enforcement via JSON rules. If governance is enabled, logs must match the schema.
+
+```json
 {
   "LoggingProfiles": {
-    "TransactionLog": {
-      "RequiredFields": ["TransactionId", "UserId", "Amount"],
-      "OptionalFields": ["DiscountCode"]
-    },
     "SecurityLog": {
       "RequiredFields": ["UserId", "IPAddress"],
       "OptionalFields": ["DeviceType"]
@@ -252,243 +193,58 @@ Example Governance JSON:
   }
 }
 ```
-If GovernanceEnabled = true, logs must match the configured structure.
 
-✅ Governance Analyzer (Build-Time Validation)
-
-CerbiStream GovernanceAnalyzer uses Roslyn to validate log compliance at build time.
-This ensures structured logs without runtime overhead.
-
-🛠 Debug Mode (Local Development)
-CerbiStream prevents queue logging while debugging.
-This is enabled by default (EnableDevMode = true).
-```csharp
-var config = new CerbiStreamOptions();
-config.EnableDevMode();
-
-var logger = new CerbiStreamLogger(config);
-await logger.LogEventAsync("Debugging locally", LogLevel.Debug);
-```
-📊 Meta Data Sharing (Opt-In)
-
-CerbiStream collects aggregate trends across applications for AI-powered insights.
-✅ No Personally Identifiable Information (PII) is stored.
-
-If enabled, your logs contribute to global analytics (Error Trends, Cloud Performance, API Response Issues).
-If disabled, your logs remain 100% private.
-
-```csharp
-var config = new CerbiStreamOptions();
-config.IncludeAdvancedMetadata();
-config.IncludeSecurityMetadata();
-```
-
-## 📊 Telemetry Support (Optional)
-CerbiStream now supports **distributed tracing and application performance monitoring** through multiple telemetry providers.
-
-### **Supported Telemetry Providers**
-| Provider                      | Status       |
-|--------------------------------|-------------|
-| **Azure Application Insights** | ✅ Supported |
-| **AWS CloudWatch**             | ✅ Supported |
-| **Google Cloud Trace**         | ✅ Supported |
-| **Datadog**                    | ✅ Supported |
-| **OpenTelemetry** (default)    | ✅ Supported |
+Use [GovernanceAnalyzer](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer) to validate rules at build time.
 
 ---
 
-## 🛠 **Configuring Telemetry in CerbiStream**
-To enable telemetry, **specify a provider** in the `CerbiStreamOptions` configuration:
+## 📊 Telemetry Provider Support
+
+| Provider                  | Supported? |
+|--------------------------|------------|
+| Azure App Insights       | ✅         |
+| AWS CloudWatch           | ✅         |
+| GCP Trace                | ✅         |
+| Datadog                  | ✅         |
+| OpenTelemetry (default)  | ✅         |
+
+Enable them via:
 
 ```csharp
-var config = new CerbiStreamOptions();
-config.SetTelemetryProvider(new AppInsightsTelemetryProvider()); // Choose from AppInsights, AWS, GCP, Datadog, etc.
-config.SetQueue("RabbitMQ", "localhost", "logs-queue");
-config.EnableGovernance();
-
-var logger = new CerbiStreamLogger(config);
+options.SetTelemetryProvider(new AppInsightsTelemetryProvider());
 ```
 
-## 🌍 Multi-Cloud Telemetry Routing  
-You can route different types of logs to different telemetry providers for better visibility.
+---
 
-| **Log Type**               | **Default Destination**         |
-|----------------------------|--------------------------------|
-| **Application Logs**       | Google Cloud Trace            |
-| **Infrastructure Logs**    | AWS CloudWatch                |
-| **Security & Audit Logs**  | Azure Application Insights    |
-| **Performance Metrics**    | Datadog                        |
+## 🔌 Multi-Telemetry Routing
 
-To customize this, configure the routing rules in your governance JSON file:
+Route different logs to different providers with governance config or custom logic:
 
-```csharp
+```json
 {
   "TelemetryRouting": {
-    "ApplicationLogs": "GoogleCloud",
-    "InfraLogs": "AWS",
     "SecurityLogs": "Azure",
-    "PerformanceMetrics": "Datadog"
+    "InfraLogs": "AWS"
   }
 }
 ```
 
 ---
 
+## 🧠 Why Use CerbiStream?
 
-## ⚡ Optimized Telemetry Collection  
-CerbiStream minimizes unnecessary logging noise while ensuring critical events are captured.  
-
-- ✅ **Event Sampling** – Configurable rate limiting to balance cost & observability.  
-- ✅ **Noise Reduction** – Filters out low-priority logs like `HealthCheck` & `DebugLog`.  
-- ✅ **Auto-Enabled for Supported Providers** – Telemetry is automatically enabled when a supported provider is detected (AWS, GCP, Azure).  
-
-## 🔄 Auto-Enabled Telemetry Providers  
-CerbiStream detects and configures telemetry based on your cloud environment.
-
-| **Cloud Provider** | **Auto-Enabled Telemetry Service**   |
-|--------------------|--------------------------------------|
-| **AWS**           | CloudWatch                           |
-| **Azure**         | Application Insights                |
-| **Google Cloud**  | Stackdriver Trace                   |
-| **On-Prem**       | OpenTelemetry (Custom Configuration) |
-
-Developers can override these settings to manually specify their preferred telemetry provider.  
-
-## 🔌 Multi-Telemetry Provider Setup  
-CerbiStream allows you to integrate **multiple telemetry providers** for better observability across cloud environments.  
-
-### 🚀 Example: Using OptimizedTelemetryProvider, AWS CloudWatch & Azure Application Insights  
-
-```csharp
-using CerbiStream.Configuration;
-using CerbiStream.Interfaces;
-using CerbiStream.Classes.OpenTelemetry;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-
-class Program
-{
-    static void Main()
-    {
-        var serviceProvider = new ServiceCollection()
-            .AddLogging(builder =>
-            {
-                builder.AddConsole();
-                builder.AddCerbiStream(options =>
-                {
-                    options.SetQueue("RabbitMQ", "localhost", "logs-queue");
-                    options.EnableDevMode();
-                    options.EnableGovernance();
-
-                    // ✅ Optimized telemetry provider (efficient tracing with sampling)
-                    options.AddTelemetryProvider(new OptimizedTelemetryProvider(samplingRate: 0.5));  
-
-                    // ✅ Add multiple telemetry providers
-                    options.AddTelemetryProvider(new CloudWatchTelemetryProvider());  
-                    options.AddTelemetryProvider(new AppInsightsTelemetryProvider());  
-                });
-            })
-            .BuildServiceProvider();
-
-        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-
-        logger.LogInformation("Application started successfully!");
-        logger.LogError("Critical error detected in system.");
-    }
-}
-```
-
-You can enable, disable, or prioritize telemetry providers as needed.
-```csharp
-
-options.EnableTelemetry(); // Enable all auto-detected telemetry providers  
-options.DisableTelemetry(); // Disable all telemetry tracking  
-options.SetTelemetrySamplingRate(0.3); // 30% sampling for cost optimization  
-```
-
-Example: Using OptimizedTelemetryProvider
-
-```csharp
-options.AddTelemetryProvider(new OptimizedTelemetryProvider(samplingRate: 0.5));
-```
-
--------------
-
-## 📈 Rollup & Multi-Project Visibility
-
-CerbiStream supports **centralized telemetry aggregation**, allowing you to visualize logs, metrics, and traces from **multiple services or microservices** in one place.
-
-This is especially useful for:
-
-- 🚀 **Microservices Architectures**  
-- 🧩 **Distributed Systems**  
-- 🛠️ **Multi-Environment Monitoring (Dev / QA / Prod)**
-
-### 🧭 Example: Using Application Insights for Rollups
-
-With Azure Application Insights, all telemetry (from different apps) can be **grouped under a single Application Map**:
-
-```csharp
-options.AddTelemetryProvider(new AppInsightsTelemetryProvider());
-```
-
-Be sure to:
-
-Use the same Instrumentation Key or Connection String across services.
-Tag logs with AppName, Environment, or Component for grouping:
-
-```csharp
-var metadata = new Dictionary<string, string>
-{
-    { "AppName", "CheckoutService" },
-    { "Environment", "Production" },
-    { "Component", "PaymentProcessor" }
-};
-
-logger.LogEvent("Payment failed", LogLevel.Error, metadata);
-```
-
-
------
-
-## 🧠 Global Observability (Optional) (coming soon)
-With IncludeAdvancedMetadata(), your logs can contribute (without PII) to:
-
-Industry-wide error trends
-
-ML-driven root cause patterns
-
-Performance benchmarking across cloud platforms
-
-```csharp
-config.IncludeAdvancedMetadata();
-```
-
+- ✅ Structured logging & telemetry
+- ✅ No PII, ML/AI friendly
+- ✅ Preset modes for dev/test/benchmarks
+- ✅ Multi-cloud support
+- ✅ Enforced governance (optional)
+- ✅ Works with `ILogger<T>`
 
 ---
 
-## 🔥 Why Use CerbiStream?
+📜 **License**: MIT
 
-- ✅ **Structured Logs by Default** – Consistent schema with contextual metadata like `Feature`, `ServiceName`, and `RetryAttempt`.
-- ✅ **Multi-Cloud Ready** – Route telemetry to Azure, AWS, GCP, Datadog, or OpenTelemetry.
-- ✅ **NPI-Free Insights** – Built from the ground up to exclude personally identifiable information.
-- ✅ **Business-Aware Logging** – Capture `UserType`, `OriginApp`, and `FeatureArea` for analytics and ML without leaking sensitive data.
-- ✅ **Central Rollups Across Microservices** – Logs can be grouped by service, app, or feature to enable intelligent visualization and trend detection.
-- ✅ **No External Dependencies** – Just install & start logging.
-- 🚀 **Optimized Performance** – Uses static enrichment and telemetry sampling to reduce overhead.
-- 🔒 **Security First** – Optional field-level encryption and governance enforcement.
-- 🌍 **Global Insights** – Enables anonymized, cross-client trend discovery (if opted-in).
-- ⚡ **Minimal Setup** – Works out-of-the-box with simple constructor injection.
-
-
-📜 License
-CerbiStream is open-source and available under the MIT License.
-
----
-
-📣 **Want to contribute?**  
-Star the repo ⭐, open an issue 🐛, or suggest a feature 🧠!
-
-[![Cerbi Homepage](https://img.shields.io/badge/website-cerbi-blue?style=flat-square)](https://zeroshi.github.io)
+📣 **Want to contribute?** Star the repo ⭐, open an issue 🐛, or suggest a feature 🧠!
 
 🧑‍💻 Created by [@Zeroshi](https://github.com/Zeroshi)
+

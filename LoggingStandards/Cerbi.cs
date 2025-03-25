@@ -9,7 +9,7 @@ namespace CerbiStream
         {
             return builder.AddCerbiStream(options =>
             {
-                options.EnableDevMode();
+                options.EnableDeveloperModeWithoutTelemetry();
                 TelemetryContext.ServiceName = "DevApp";
                 TelemetryContext.OriginApp = "Local";
                 TelemetryContext.UserType = "Developer";

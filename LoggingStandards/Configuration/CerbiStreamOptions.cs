@@ -10,10 +10,17 @@ namespace CerbiStream.Logging.Configuration
         public string QueueType { get; private set; } = "RabbitMQ";
         public string QueueHost { get; private set; } = "localhost";
         public string QueueName { get; private set; } = "logs-queue";
-        public bool DevModeEnabled { get; private set; } = true;
         public bool AdvancedMetadataEnabled { get; private set; } = false;
         public bool SecurityMetadataEnabled { get; private set; } = false;
         public bool GovernanceEnabled { get; private set; } = false;
+        public bool EnableConsoleOutput { get; private set; } = true;
+        public bool EnableTelemetryEnrichment { get; private set; } = true;
+        public bool EnableMetadataInjection { get; private set; } = true;
+        public bool EnableGovernanceChecks { get; private set; } = true;
+        public void DisableConsoleOutput() => EnableConsoleOutput = false;
+        public void DisableTelemetryEnrichment() => EnableTelemetryEnrichment = false;
+        public void DisableMetadataInjection() => EnableMetadataInjection = false;
+        public void DisableGovernanceChecks() => EnableGovernanceChecks = false;
 
         // ✅ Set Queue Configuration
         public void SetQueue(string queueType, string queueHost, string queueName)
@@ -22,6 +29,44 @@ namespace CerbiStream.Logging.Configuration
             QueueHost = queueHost;
             QueueName = queueName;
         }
+
+        public void EnableBenchmarkMode()
+        {
+            DisableConsoleOutput();
+            DisableTelemetryEnrichment();
+            DisableMetadataInjection();
+            DisableGovernanceChecks();
+        }
+
+        public void EnableDeveloperModeWithTelemetry()
+        {
+            EnableConsoleOutput = true;
+            EnableTelemetryEnrichment = true;
+            EnableMetadataInjection = true;
+            EnableGovernanceChecks = false;
+            AlsoSendToTelemetry = true;
+        }
+
+        public void EnableDeveloperModeWithoutTelemetry()
+        {
+            EnableConsoleOutput = true;
+            EnableTelemetryEnrichment = false;
+            EnableMetadataInjection = true;
+            EnableGovernanceChecks = false;
+            AlsoSendToTelemetry = false;
+        }
+
+        public void EnableDevModeMinimal()
+        {
+            EnableConsoleOutput = true;
+            EnableTelemetryEnrichment = false;
+            EnableMetadataInjection = false;
+            EnableGovernanceChecks = false;
+            AlsoSendToTelemetry = false;
+        }
+
+
+
 
         //telemetry provider
         public ITelemetryProvider? TelemetryProvider { get; private set; }
@@ -32,11 +77,6 @@ namespace CerbiStream.Logging.Configuration
             TelemetryProvider = provider;
         }
         public void EnableTelemetryLogging() => AlsoSendToTelemetry = true;
-
-
-        // ✅ Toggle Dev Mode
-        public void EnableDevMode() => DevModeEnabled = true;
-        public void DisableDevMode() => DevModeEnabled = false;
 
         // ✅ Enable Metadata Capture
         public void IncludeAdvancedMetadata() => AdvancedMetadataEnabled = true;

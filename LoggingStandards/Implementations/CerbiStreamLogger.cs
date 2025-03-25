@@ -24,9 +24,9 @@ namespace CerbiStream.Logging.Configuration
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            if (_options.DevModeEnabled)
+            if (_options.EnableConsoleOutput)
             {
-                Console.WriteLine($"[DevMode] {logLevel}: {formatter(state, exception)}");
+                Console.WriteLine($"[Dev] {logLevel}: {formatter(state, exception)}");
                 return;
             }
 
