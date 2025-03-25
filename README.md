@@ -4,6 +4,14 @@
 ![NuGet Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)
 ![.NET](https://img.shields.io/badge/.NET-8.0-blue?style=flat-square)
+![Dev Friendly](https://img.shields.io/badge/dev--friendly-%E2%9C%94%EF%B8%8F-brightgreen?style=flat-square)
+![Governance Enforced](https://img.shields.io/badge/governance-enforced-red?style=flat-square)
+![CI/CD](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/dotnet.yml/badge.svg?style=flat-square)
+
+
+
+
+
 
 
 
@@ -98,6 +106,37 @@ var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("App started");
     }
 }
+```
+
+## ⚡ Optional Dev Shortcut
+CerbiStream provides a simplified helper method for quick dev/test setup. This is great for local development, benchmarks, or proof-of-concept apps.
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using CerbiStream;
+
+var serviceProvider = new ServiceCollection()
+    .AddLogging(builder =>
+    {
+        builder.AddConsole();
+        builder.AddDevLogging(); // ⬅️ sets dev mode + telemetry context
+    })
+    .BuildServiceProvider();
+
+var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Quick dev log message");
+```
+
+This is equivalent to:
+```csharp
+builder.AddCerbiStream(options =>
+{
+    options.EnableDevMode();
+    TelemetryContext.ServiceName = "DevApp";
+    TelemetryContext.OriginApp = "Local";
+    TelemetryContext.UserType = "Developer";
+});
 ```
 
 🛠️ Advanced Configuration
