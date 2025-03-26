@@ -46,10 +46,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-
-      # OPTIONAL: Add this block only if you want Mend Bolt scan logs shown in CI
-      # - name: Mend Bolt Scan
-      #   uses: mend/bolt-action@v2.0.0
+      - name: Snyk Open Source Scan
+        uses: snyk/actions/dotnet@v1
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=${{ secrets.SNYK_ORG_ID }} --severity-threshold=high
 
       - name: Build Project
         run: dotnet build --configuration Release --no-restore
