@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CerbiStream.Interfaces;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 namespace CerbiClientLogging.Interfaces
 {
@@ -110,7 +112,10 @@ namespace CerbiClientLogging.Interfaces
     {
         bool IsEnabled { get; }
         string Encrypt(string input);
+        string Decrypt(string input);
+        IEncryptionTypeProvider.EncryptionType EncryptionMethod { get; }
     }
+
 
     public interface IIdentifiableInformation
     {

@@ -2,6 +2,7 @@
 using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
+using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -10,86 +11,154 @@ namespace CerbiStream.Logging.Configuration
         public string QueueType { get; private set; } = "RabbitMQ";
         public string QueueHost { get; private set; } = "localhost";
         public string QueueName { get; private set; } = "logs-queue";
+
         public bool AdvancedMetadataEnabled { get; private set; } = false;
         public bool SecurityMetadataEnabled { get; private set; } = false;
-        public bool GovernanceEnabled { get; private set; } = false;
         public bool EnableConsoleOutput { get; private set; } = true;
         public bool EnableTelemetryEnrichment { get; private set; } = true;
         public bool EnableMetadataInjection { get; private set; } = true;
         public bool EnableGovernanceChecks { get; private set; } = true;
-        public void DisableConsoleOutput() => EnableConsoleOutput = false;
-        public void DisableTelemetryEnrichment() => EnableTelemetryEnrichment = false;
-        public void DisableMetadataInjection() => EnableMetadataInjection = false;
-        public void DisableGovernanceChecks() => EnableGovernanceChecks = false;
+        public bool DisableQueueSending { get; private set; } = false;
 
-        // ✅ Set Queue Configuration
-        public void SetQueue(string queueType, string queueHost, string queueName)
-        {
-            QueueType = queueType;
-            QueueHost = queueHost;
-            QueueName = queueName;
-        }
-
-        public void EnableBenchmarkMode()
-        {
-            DisableConsoleOutput();
-            DisableTelemetryEnrichment();
-            DisableMetadataInjection();
-            DisableGovernanceChecks();
-        }
-
-        public void EnableDeveloperModeWithTelemetry()
-        {
-            EnableConsoleOutput = true;
-            EnableTelemetryEnrichment = true;
-            EnableMetadataInjection = true;
-            EnableGovernanceChecks = false;
-            AlsoSendToTelemetry = true;
-        }
-
-        public void EnableDeveloperModeWithoutTelemetry()
-        {
-            EnableConsoleOutput = true;
-            EnableTelemetryEnrichment = false;
-            EnableMetadataInjection = true;
-            EnableGovernanceChecks = false;
-            AlsoSendToTelemetry = false;
-        }
-
-        public void EnableDevModeMinimal()
-        {
-            EnableConsoleOutput = true;
-            EnableTelemetryEnrichment = false;
-            EnableMetadataInjection = false;
-            EnableGovernanceChecks = false;
-            AlsoSendToTelemetry = false;
-        }
-
-
-
-
-        //telemetry provider
         public ITelemetryProvider? TelemetryProvider { get; private set; }
         public bool AlsoSendToTelemetry { get; private set; } = false;
+        public EncryptionType EncryptionMode { get; private set; } = EncryptionType.Base64; // default fallback
 
-        public void SetTelemetryProvider(ITelemetryProvider provider)
+        public CerbiStreamOptions WithEncryptionMode(EncryptionType type)
+        {
+            EncryptionMode = type;
+            return this;
+        }
+
+        public CerbiStreamOptions WithQueue(string type, string host, string name)
+        {
+            QueueType = type;
+            QueueHost = host;
+            QueueName = name;
+            return this;
+        }
+
+        public CerbiStreamOptions WithTelemetryProvider(ITelemetryProvider provider)
         {
             TelemetryProvider = provider;
+            return this;
         }
-        public void EnableTelemetryLogging() => AlsoSendToTelemetry = true;
 
-        // ✅ Enable Metadata Capture
-        public void IncludeAdvancedMetadata() => AdvancedMetadataEnabled = true;
-        public void ExcludeAdvancedMetadata() => AdvancedMetadataEnabled = false;
-        public void IncludeSecurityMetadata() => SecurityMetadataEnabled = true;
-        public void ExcludeSecurityMetadata() => SecurityMetadataEnabled = false;
+        public CerbiStreamOptions WithAdvancedMetadata(bool enabled = true)
+        {
+            AdvancedMetadataEnabled = enabled;
+            return this;
+        }
 
-        // ✅ Validate Logs Against Governance Rules
+        public CerbiStreamOptions WithSecurityMetadata(bool enabled = true)
+        {
+            SecurityMetadataEnabled = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithConsoleOutput(bool enabled = true)
+        {
+            EnableConsoleOutput = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithTelemetryEnrichment(bool enabled = true)
+        {
+            EnableTelemetryEnrichment = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithMetadataInjection(bool enabled = true)
+        {
+            EnableMetadataInjection = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithTelemetryLogging(bool enabled = true)
+        {
+            AlsoSendToTelemetry = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithGovernanceChecks(bool enabled = true)
+        {
+            EnableGovernanceChecks = enabled;
+            return this;
+        }
+
+        public CerbiStreamOptions WithDisableQueue(bool disabled = true)
+        {
+            DisableQueueSending = disabled;
+            return this;
+        }
+
+        public CerbiStreamOptions EnableBenchmarkMode()
+        {
+            return WithConsoleOutput(false)
+                .WithTelemetryEnrichment(false)
+                .WithMetadataInjection(false)
+                .WithGovernanceChecks(false)
+                .WithDisableQueue(true);
+        }
+
+        public CerbiStreamOptions EnableDeveloperModeWithTelemetry()
+        {
+            return WithTelemetryLogging(true)
+                .WithConsoleOutput(true)
+                .WithTelemetryEnrichment(true)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(false);
+        }
+
+        public CerbiStreamOptions EnableDeveloperModeWithoutTelemetry()
+        {
+            return WithTelemetryLogging(false)
+                .WithConsoleOutput(true)
+                .WithTelemetryEnrichment(false)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(false);
+        }
+
+        public CerbiStreamOptions EnableDevModeMinimal()
+        {
+            return WithTelemetryLogging(false)
+                .WithConsoleOutput(true)
+                .WithTelemetryEnrichment(false)
+                .WithMetadataInjection(false)
+                .WithGovernanceChecks(false);
+        }
+
         public bool ValidateLog(string profileName, Dictionary<string, object> logData)
         {
-            if (!GovernanceEnabled) return true;
-
+            if (!EnableGovernanceChecks) return true;
             return GovernanceAnalyzer.GovernanceAnalyzer.Validate(profileName, logData);
         }
+
+        public bool ShouldSkipQueueSend() => DisableQueueSending;
+
+        public bool IsBenchmarkMode =>
+            !EnableConsoleOutput &&
+            !EnableTelemetryEnrichment &&
+            !EnableMetadataInjection &&
+            !EnableGovernanceChecks &&
+            DisableQueueSending;
+
+        public bool IsMinimalMode =>
+            EnableConsoleOutput &&
+            !EnableTelemetryEnrichment &&
+            !EnableMetadataInjection &&
+            !EnableGovernanceChecks;
+
+        public bool IsDevWithTelemetry =>
+            EnableConsoleOutput &&
+            EnableTelemetryEnrichment &&
+            EnableMetadataInjection &&
+            !EnableGovernanceChecks;
+
+        public bool IsDevWithoutTelemetry =>
+            EnableConsoleOutput &&
+            !EnableTelemetryEnrichment &&
+            EnableMetadataInjection &&
+            !EnableGovernanceChecks;
     }
 }

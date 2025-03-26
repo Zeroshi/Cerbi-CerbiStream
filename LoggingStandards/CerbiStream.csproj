@@ -4,9 +4,12 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>CerbiStream.Logging</Title>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Authors>Thomas Nelson, Cerbi</Authors>
+
+    <Title>CerbiStream.Logging</Title>
+    <Authors>Thomas Nelson; Cerbi</Authors>
+    <Company>Cerbi</Company>
+
     <Description>
       CerbiStream.Logging - Secure, Scalable, and Standardized Logging for Modern Applications.
 
@@ -22,26 +25,26 @@
 
       🚀 **Why CerbiStream?**
       Unlike traditional loggers, **CerbiStream.Logging** goes beyond simple log collection—it **routes, encrypts, and standardizes logs** while allowing **meta-analysis of global patterns** when integrated with **CerbiIQ**.
-
-      🔥 **Start Today!**
-      - **GitHub:** https://github.com/Zeroshi/CerbiStream
-      - **NuGet Package:** CerbiStream.Logging
     </Description>
 
-    <PackageProjectUrl>https://github.com/Zeroshi/CerbiStream</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Zeroshi/CerbiStream</RepositoryUrl>
+    <PackageProjectUrl>https://cerbi.systems</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Zeroshi/Cerbi-CerbiStream</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageIcon></PackageIcon>
-    <!-- Add an actual icon for NuGet branding -->
 
-    <PackageTags>CerbiStream; Logging; Secure Logging; Enterprise Logging; Cloud Logging; Logging Standards; ML/AI Logging; Standardized Logs; Azure; RabbitMQ; Kafka; AWS SQS; Google PubSub; .NET Logging; Logging Library</PackageTags>
+    <PackageTags>
+      CerbiStream; Logging; Structured Logging; Secure Logging; Cloud Logging; Enterprise Logging;
+      Governance; Observability; Telemetry; .NET Logging; Logging Framework; Performance Logging;
+      OpenTelemetry; Azure Logging; RabbitMQ; Kafka; AWS SQS; Google PubSub; Message Queue;
+      Logging Library; Logging Standard; Compliance Logging; ML Logging; AI-ready; Benchmark Logging;
+      DevOps; Microservices; Distributed Systems; ILogger; Logging Middleware; Log Enrichment
+
+    </PackageTags>
 
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.10</Version>
+    <Version>1.0.11</Version>
   </PropertyGroup>
-
 
   <ItemGroup>
     <None Remove="appsettings.json" />
@@ -82,14 +85,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
+    <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

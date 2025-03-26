@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
+
 public class ExtendedLoggingTests
 {
     private readonly Mock<ILogger<Logging>> _mockLogger;
@@ -34,44 +35,6 @@ public class ExtendedLoggingTests
 
         _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
     }
-
-    //  [Fact]
-    //    public async Task Should_Use_Correct_Queue_When_Requested()
-    //   {
-    // Arrange
-    //       var mockRabbitQueue = new Mock<IQueue>();
-    //       var mockAzureQueue = new Mock<IQueue>();
-    //       var mockKafkaQueue = new Mock<IQueue>();
-
-    //       mockRabbitQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()))
-    //                      .ReturnsAsync(true);
-    //       mockAzureQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()))
-    //                     .ReturnsAsync(true);
-    //       mockKafkaQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()))
-    //                    .ReturnsAsync(true);
-
-    //       var loggingRabbit = new Logging(_mockLogger.Object, mockRabbitQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
-    //       var loggingAzure = new Logging(_mockLogger.Object, mockAzureQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
-    //       var loggingKafka = new Logging(_mockLogger.Object, mockKafkaQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
-
-    // Act
-    //       bool rabbitResult = await loggingRabbit.LogEventAsync("RabbitMQ Log", LogLevel.Information);
-    //       bool azureResult = await loggingAzure.LogEventAsync("Azure Log", LogLevel.Information);
-    //       bool kafkaResult = await loggingKafka.LogEventAsync("Kafka Log", LogLevel.Information);
-
-    // Assert
-    //       Assert.True(rabbitResult, "RabbitMQ logging should succeed.");
-    //       Assert.True(azureResult, "Azure logging should succeed.");
-    //       Assert.True(kafkaResult, "Kafka logging should succeed.");
-
-    // ✅ Verify each queue was used once
-    //       mockRabbitQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()), Times.Once, "RabbitMQ should receive one message.");
-    //      mockAzureQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()), Times.Once, "Azure Service Bus should receive one message.");
-    //       mockKafkaQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()), Times.Once, "Kafka should receive one message.");
-    //  }
-
-
-
 
 
     [Fact]
@@ -120,56 +83,4 @@ public class ExtendedLoggingTests
         bool result = await _logging.LogEventAsync("", LogLevel.Information);
         Assert.False(result);
     }
-
-    //   [Fact]
-    //   public async Task Should_Log_Performance_Data_Correctly()
-    //   {
-    // Arrange
-    //       string eventName = "PerformanceTest";
-    //       long elapsedMilliseconds = 500;
-    //       var expectedMetadataKey = "ElapsedMilliseconds";
-
-    //       _mockQueue.Setup(q => q.SendMessageAsync(It.Is<string>(msg => msg.Contains(expectedMetadataKey)), It.IsAny<Guid>()))
-    //                 .ReturnsAsync(true);
-
-    // Act
-    //       bool result = await _logging.LogPerformanceAsync(eventName, elapsedMilliseconds);
-
-    // ✅ Ensure the function returns `true`
-    //       Assert.True(result, "LogPerformanceAsync should return true when logging succeeds.");
-
-    // ✅ Verify that the queue received a message with the correct metadata
-    //       _mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(msg => msg.Contains(expectedMetadataKey)), It.IsAny<Guid>()),
-    //                         Times.Once, "Log should include ElapsedMilliseconds.");
-    //}
-
-
-
-    //    [Fact]
-    //    public async Task Should_Log_Performance_Data_With_Metadata_Correctly()
-    //    {
-    //        string eventName = "PerformanceTest";
-    //       long elapsedMilliseconds = 500;
-    //        var expectedMetadataKey = "ElapsedMilliseconds";
-
-    //        _mockQueue.Setup(q => q.SendMessageAsync(It.Is<string>(msg => msg.Contains(expectedMetadataKey)), It.IsAny<Guid>()))
-    //                 .ReturnsAsync(true);
-
-    //       bool result = await _logging.LogPerformanceAsync(eventName, elapsedMilliseconds);
-
-    //       Assert.True(result, "LogPerformanceAsync should return true when logging succeeds.");
-
-    //      _mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(msg => msg.Contains(expectedMetadataKey)), It.IsAny<Guid>()),
-    //                        Times.Once, "Log should include ElapsedMilliseconds.");
-    //  }
-
-
-
-    //   [Fact]
-    //   public void Should_Correctly_Convert_To_Json()
-    //    {
-    //        var testObject = new { Name = "Test", Value = 123 };
-    //        string result = _mockJsonConverter.Object.ConvertMessageToJson(testObject);
-    //        Assert.Equal("{}", result);
-    //    }
 }

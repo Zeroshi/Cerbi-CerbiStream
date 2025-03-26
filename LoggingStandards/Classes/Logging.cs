@@ -11,7 +11,7 @@ namespace CerbiClientLogging.Implementations
     public class Logging : IBaseLogging
     {
         private readonly ILogger<Logging> _logger;
-        private readonly IQueue _queue; // ✅ Injected from Fluent API
+        private readonly IQueue _queue;
         private readonly ConvertToJson _jsonConverter;
         private readonly IEncryption _encryption;
 
