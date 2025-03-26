@@ -1,4 +1,4 @@
-name: .NET CI/CD - NuGet Publish + DevSecOps
+name: Cerbi CI
 
 on:
   push:
