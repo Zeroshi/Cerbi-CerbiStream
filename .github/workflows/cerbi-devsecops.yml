@@ -37,12 +37,15 @@ jobs:
         run: dotnet test --no-restore --verbosity normal
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
           projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=Zeroshi_Cerbi-CerbiStream
+            -Dsonar.organization=zeroshi
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
+
 
       # OPTIONAL: Add this block only if you want Mend Bolt scan logs shown in CI
       # - name: Mend Bolt Scan
