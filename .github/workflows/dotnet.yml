@@ -1,4 +1,4 @@
-name: .NET CI/CD - NuGet Publish
+name: .NET CI/CD - NuGet Publish + DevSecOps
 
 on:
   push:
@@ -25,7 +25,6 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
 
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
@@ -33,6 +32,21 @@ jobs:
 
       - name: Restore Dependencies
         run: dotnet restore
+
+      - name: Run Unit Tests
+        run: dotnet test --no-restore --verbosity normal
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      # OPTIONAL: Add this block only if you want Mend Bolt scan logs shown in CI
+      # - name: Mend Bolt Scan
+      #   uses: mend/bolt-action@v2.0.0
 
       - name: Build Project
         run: dotnet build --configuration Release --no-restore
