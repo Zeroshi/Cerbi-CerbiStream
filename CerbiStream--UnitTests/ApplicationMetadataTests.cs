@@ -1,4 +1,4 @@
-﻿using CerbiClientLogging.Classes;
+﻿using CerbiStream.Classes;
 using System;
 using Xunit;
 

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace CerbiClientLogging.Classes
+namespace CerbiStream.Classes
 {
     public static class ApplicationMetadata
     {

@@ -3,6 +3,7 @@ using CerbiClientLogging.Implementations;
 using CerbiClientLogging.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
+using NSubstitute;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -166,4 +167,28 @@ public class LoggingTests
         Assert.Equal("encrypted-data", metadata["APIKey"]);
         Assert.Equal("encrypted-data", metadata["SensitiveField"]);
     }
+
+    [Fact]
+    public async Task LogEventAsync_ShouldFallbackGracefully_WhenTelemetryProviderMissing()
+    {
+        // Arrange
+        var mockLogger = Substitute.For<ILogger<Logging>>();
+
+        var mockQueue = Substitute.For<IQueue>();
+        mockQueue.SendMessageAsync(Arg.Any<string>(), Arg.Any<Guid>())
+                 .Returns(Task.FromResult(true)); // ✅ Simulate successful log send
+
+        var logger = new Logging(
+            mockLogger,
+            mockQueue,
+            new ConvertToJson(),
+            new NoOpEncryption());
+
+        // Act
+        var result = await logger.LogEventAsync("test", LogLevel.Information);
+
+        // Assert
+        Assert.True(result); // ✅ Should pass now
+    }
+
 }

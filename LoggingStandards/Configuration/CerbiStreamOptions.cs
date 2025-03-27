@@ -2,6 +2,7 @@
 using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
+using static CerberusLogging.Classes.Enums.MetaData;
 using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 namespace CerbiStream.Logging.Configuration
@@ -11,7 +12,6 @@ namespace CerbiStream.Logging.Configuration
         public string QueueType { get; private set; } = "RabbitMQ";
         public string QueueHost { get; private set; } = "localhost";
         public string QueueName { get; private set; } = "logs-queue";
-
         public bool AdvancedMetadataEnabled { get; private set; } = false;
         public bool SecurityMetadataEnabled { get; private set; } = false;
         public bool EnableConsoleOutput { get; private set; } = true;
@@ -23,6 +23,33 @@ namespace CerbiStream.Logging.Configuration
         public ITelemetryProvider? TelemetryProvider { get; private set; }
         public bool AlsoSendToTelemetry { get; private set; } = false;
         public EncryptionType EncryptionMode { get; private set; } = EncryptionType.Base64; // default fallback
+        public byte[]? EncryptionKey { get; private set; }
+        public byte[]? EncryptionIV { get; private set; }
+
+        public void DumpConfiguration()
+        {
+            Console.WriteLine("=== CerbiStream Configuration ===");
+            Console.WriteLine($"QueueType: {QueueType}");
+            Console.WriteLine($"QueueHost: {QueueHost}");
+            Console.WriteLine($"QueueName: {QueueName}");
+            Console.WriteLine($"Console Output: {EnableConsoleOutput}");
+            Console.WriteLine($"Telemetry Enrichment: {EnableTelemetryEnrichment}");
+            Console.WriteLine($"Metadata Injection: {EnableMetadataInjection}");
+            Console.WriteLine($"Governance Checks: {EnableGovernanceChecks}");
+            Console.WriteLine($"Queue Disabled: {DisableQueueSending}");
+            Console.WriteLine($"Telemetry Logging: {AlsoSendToTelemetry}");
+            Console.WriteLine($"Encryption Mode: {EncryptionMode}");
+            Console.WriteLine($"Encryption Enabled: {(EncryptionKey != null && EncryptionIV != null)}");
+            Console.WriteLine("=================================");
+        }
+
+
+        public CerbiStreamOptions WithEncryptionKey(byte[] key, byte[] iv)
+        {
+            EncryptionKey = key;
+            EncryptionIV = iv;
+            return this;
+        }
 
         public CerbiStreamOptions WithEncryptionMode(EncryptionType type)
         {

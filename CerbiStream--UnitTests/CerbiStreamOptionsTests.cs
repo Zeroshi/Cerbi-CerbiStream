@@ -89,5 +89,15 @@ namespace CerbiStream.Tests
             var logData = new Dictionary<string, object> { { "Key", "Value" } };
             Assert.True(options.ValidateLog("Profile", logData));
         }
+
+        [Fact]
+        public void EnableBenchmarkMode_ShouldDisableAllNonEssentialFeatures()
+        {
+            var options = new CerbiStreamOptions().EnableBenchmarkMode();
+
+            Assert.True(options.IsBenchmarkMode);
+            Assert.True(options.ShouldSkipQueueSend());
+            Assert.False(options.EnableConsoleOutput);
+        }
     }
 }
