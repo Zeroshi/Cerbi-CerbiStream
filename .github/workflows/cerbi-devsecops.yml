@@ -37,20 +37,12 @@ jobs:
         run: dotnet test --no-restore --verbosity normal
 
       - name: Run Tests with Coverage
-        run: |
-          dotnet test --no-restore --collect:"XPlat Code Coverage" --results-directory ./coverage
-
-      - name: Install Report Generator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
-
-      - name: Generate Cobertura Report
-        run: reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Cobertura
+        run: dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=coverage/
 
       - name: Upload Coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: coveragereport/Cobertura.xml
+          path-to-lcov: coverage/coverage.cobertura.xml
           format: cobertura
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
