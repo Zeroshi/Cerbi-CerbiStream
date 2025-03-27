@@ -37,7 +37,22 @@ jobs:
         run: dotnet test --no-restore --verbosity normal
 
       - name: Run Tests with Coverage
-        run: dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=coverage/
+        run: |
+          dotnet test --no-build --verbosity normal \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura \
+            /p:CoverletOutput=coverage/ \
+            /p:ExcludeByFile="**/Migrations/*"
+
+      - name: Confirm Coverage File Exists
+        run: |
+          if [ ! -f "coverage/coverage.cobertura.xml" ]; then
+            echo "❌ Coverage file not found!"
+            exit 1
+          else
+            echo "✅ Coverage file found!"
+            ls -l coverage/coverage.cobertura.xml
+          fi
 
       - name: Upload Coverage to Coveralls
         uses: coverallsapp/github-action@v2
@@ -73,7 +88,7 @@ jobs:
 
       - name: Verify NuGet Package Exists
         run: |
-          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
+          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "❌ No NuGet packages found!" && exit 1)
 
       - name: Test NuGet API Key
         run: |
