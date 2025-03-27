@@ -36,6 +36,25 @@ jobs:
       - name: Run Unit Tests
         run: dotnet test --no-restore --verbosity normal
 
+      - name: Run Tests with Coverage
+        run: |
+          dotnet test --no-restore --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Install Report Generator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate Cobertura Report
+        run: reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Cobertura
+
+      - name: Upload Coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: coveragereport/Cobertura.xml
+          format: cobertura
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
