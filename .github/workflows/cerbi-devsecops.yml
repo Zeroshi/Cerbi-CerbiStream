@@ -36,23 +36,6 @@ jobs:
       - name: Run Unit Tests
         run: dotnet test --no-restore --verbosity normal
 
-      - name: Run Tests with Coverage
-        run: |
-          mkdir -p coverage
-          dotnet test \
-            --no-restore \
-            --collect:"XPlat Code Coverage" \
-            /p:CoverletOutput=coverage/ \
-            /p:CoverletOutputFormat=cobertura
-
-      - name: Upload Coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          path-to-lcov: coverage/coverage.cobertura.xml
-          format: cobertura
-        env:
-          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
-
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
