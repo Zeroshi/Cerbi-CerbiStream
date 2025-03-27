@@ -1,4 +1,4 @@
-name: .NET CI/CD - NuGet Publish
+name: Cerbi CI
 
 on:
   push:
@@ -25,7 +25,6 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
 
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
@@ -33,6 +32,27 @@ jobs:
 
       - name: Restore Dependencies
         run: dotnet restore
+
+      - name: Run Unit Tests
+        run: dotnet test --no-restore --verbosity normal
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=Zeroshi_Cerbi-CerbiStream
+            -Dsonar.organization=zeroshi
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Snyk Open Source Scan
+        uses: snyk/actions/dotnet@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=${{ secrets.SNYK_ORG_ID }} --severity-threshold=high
 
       - name: Build Project
         run: dotnet build --configuration Release --no-restore
