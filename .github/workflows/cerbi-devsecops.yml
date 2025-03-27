@@ -38,21 +38,12 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          dotnet test --no-build --verbosity normal \
-            /p:CollectCoverage=true \
-            /p:CoverletOutputFormat=cobertura \
+          mkdir -p coverage
+          dotnet test \
+            --no-restore \
+            --collect:"XPlat Code Coverage" \
             /p:CoverletOutput=coverage/ \
-            /p:ExcludeByFile="**/Migrations/*"
-
-      - name: Confirm Coverage File Exists
-        run: |
-          if [ ! -f "coverage/coverage.cobertura.xml" ]; then
-            echo "❌ Coverage file not found!"
-            exit 1
-          else
-            echo "✅ Coverage file found!"
-            ls -l coverage/coverage.cobertura.xml
-          fi
+            /p:CoverletOutputFormat=cobertura
 
       - name: Upload Coverage to Coveralls
         uses: coverallsapp/github-action@v2
@@ -60,7 +51,7 @@ jobs:
           path-to-lcov: coverage/coverage.cobertura.xml
           format: cobertura
         env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
@@ -88,7 +79,7 @@ jobs:
 
       - name: Verify NuGet Package Exists
         run: |
-          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "❌ No NuGet packages found!" && exit 1)
+          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
 
       - name: Test NuGet API Key
         run: |
