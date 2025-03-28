@@ -24,6 +24,7 @@
 - Supports RabbitMQ, Kafka, Azure, AWS, GCP queues
 - Flexible encryption (None, Base64, AES)
 - Schema enforcement with GovernanceAnalyzer
+- 🔁 Queue-first architecture (sink-agnostic)
 
 ---
 
@@ -181,6 +182,24 @@ Assert.True(result);
 
 ---
 
+## 🧵 Queue-First Logging (Sink-Agnostic)
+
+CerbiStream **does not directly send logs to sinks** like Splunk, Elastic, or Blob.
+
+Instead:
+- 🔁 Logs are emitted to **queues only** (Kafka, RabbitMQ, Azure, etc.)
+- 🧠 CerbIQ reads from these queues and sends logs to sinks
+- ✅ Keeps log generation decoupled from log delivery
+
+This design gives you:
+- Better performance
+- Retry-friendly resilience
+- Pluggable downstream integrations
+
+➡️ Add CerbIQ to handle routing and sink delivery.
+
+---
+
 ## 🔐 Governance Enforcement (Optional)
 
 ```json
@@ -205,4 +224,3 @@ MIT
 Star the repo ⭐ — Contribute 🔧 — File issues 🐛
 
 Created by [@Zeroshi](https://github.com/Zeroshi)
-
