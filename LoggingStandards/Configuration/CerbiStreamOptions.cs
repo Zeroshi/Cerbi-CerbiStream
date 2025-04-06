@@ -1,5 +1,4 @@
-﻿using CerbiStream.GovernanceAnalyzer;
-using CerbiStream.Interfaces;
+﻿using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
 using static CerberusLogging.Classes.Enums.MetaData;
@@ -22,9 +21,11 @@ namespace CerbiStream.Logging.Configuration
 
         public ITelemetryProvider? TelemetryProvider { get; private set; }
         public bool AlsoSendToTelemetry { get; private set; } = false;
-        public EncryptionType EncryptionMode { get; private set; } = EncryptionType.Base64; // default fallback
+        public EncryptionType EncryptionMode { get; private set; } = EncryptionType.Base64;
         public byte[]? EncryptionKey { get; private set; }
         public byte[]? EncryptionIV { get; private set; }
+
+        public Func<string, Dictionary<string, object>, bool>? ExternalGovernanceValidator { get; private set; }
 
         public void DumpConfiguration()
         {
@@ -42,7 +43,6 @@ namespace CerbiStream.Logging.Configuration
             Console.WriteLine($"Encryption Enabled: {(EncryptionKey != null && EncryptionIV != null)}");
             Console.WriteLine("=================================");
         }
-
 
         public CerbiStreamOptions WithEncryptionKey(byte[] key, byte[] iv)
         {
@@ -119,6 +119,12 @@ namespace CerbiStream.Logging.Configuration
             return this;
         }
 
+        public CerbiStreamOptions WithGovernanceValidator(Func<string, Dictionary<string, object>, bool> validator)
+        {
+            ExternalGovernanceValidator = validator;
+            return this;
+        }
+
         public CerbiStreamOptions EnableBenchmarkMode()
         {
             return WithConsoleOutput(false)
@@ -157,8 +163,10 @@ namespace CerbiStream.Logging.Configuration
 
         public bool ValidateLog(string profileName, Dictionary<string, object> logData)
         {
-            if (!EnableGovernanceChecks) return true;
-            return GovernanceAnalyzer.GovernanceAnalyzer.Validate(profileName, logData);
+            if (!EnableGovernanceChecks || ExternalGovernanceValidator == null)
+                return true;
+
+            return ExternalGovernanceValidator.Invoke(profileName, logData);
         }
 
         public bool ShouldSkipQueueSend() => DisableQueueSending;

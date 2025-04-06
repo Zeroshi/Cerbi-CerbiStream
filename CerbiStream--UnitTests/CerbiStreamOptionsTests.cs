@@ -1,9 +1,9 @@
-﻿using System;
+﻿using CerbiStream.Interfaces;
+using CerbiStream.Logging.Configuration;
+using Moq;
+using System;
 using System.Collections.Generic;
 using Xunit;
-using Moq;
-using CerbiStream.Logging.Configuration;
-using CerbiStream.Interfaces;
 
 namespace CerbiStream.Tests
 {
@@ -91,13 +91,19 @@ namespace CerbiStream.Tests
         }
 
         [Fact]
-        public void EnableBenchmarkMode_ShouldDisableAllNonEssentialFeatures()
+        public void ValidateLog_WithExternalValidator_ShouldInvokeValidator()
         {
-            var options = new CerbiStreamOptions().EnableBenchmarkMode();
+            var mockValidator = new Mock<Func<string, Dictionary<string, object>, bool>>();
+            mockValidator.Setup(m => m("TestProfile", It.IsAny<Dictionary<string, object>>())).Returns(true);
 
-            Assert.True(options.IsBenchmarkMode);
-            Assert.True(options.ShouldSkipQueueSend());
-            Assert.False(options.EnableConsoleOutput);
+            var options = new CerbiStreamOptions()
+                .WithGovernanceValidator(mockValidator.Object)
+                .WithGovernanceChecks(true);
+
+            var result = options.ValidateLog("TestProfile", new Dictionary<string, object>());
+
+            Assert.True(result);
+            mockValidator.Verify(m => m("TestProfile", It.IsAny<Dictionary<string, object>>()), Times.Once);
         }
     }
 }

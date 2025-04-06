@@ -19,12 +19,28 @@
 
 ## ✅ Highlights
 
-- Works with `ILogger<T>`
-- Structured logging enforcement
-- Supports RabbitMQ, Kafka, Azure, AWS, GCP queues
-- Flexible encryption (None, Base64, AES)
-- Schema enforcement with GovernanceAnalyzer
-- 🔁 Queue-first architecture (sink-agnostic)
+- Works with `ILogger<T>` out of the box
+- Structured logging enforcement via CerbiStream or GovernanceAnalyzer
+- Fully supports RabbitMQ, Kafka, Azure Service Bus, AWS SQS/Kinesis, GCP Pub/Sub
+- Flexible encryption: None, Base64, AES (configurable)
+- Optional Roslyn-based GovernanceAnalyzer or external validator hook
+- 🔁 Queue-first architecture (sink-agnostic, logs route through CerbIQ if desired)
+- Entity Framework and Blazor-friendly via external governance validator option
+
+
+---
+
+🔄 External Governance Hook
+If you're not using the CerbiStream.GovernanceAnalyzer package (e.g., to avoid Roslyn dependency issues with Entity Framework or Blazor), you can provide your own governance validation logic:
+```csharp
+options.WithGovernanceValidator((profile, data) =>
+{
+    // Custom governance validation logic
+    return data.ContainsKey("UserId") && data.ContainsKey("IPAddress");
+});
+```
+
+This lets you enforce structure without referencing Roslyn, making CerbiStream fully compatible with EF Core and other analyzers.
 
 ---
 
