@@ -78,6 +78,162 @@ builder.Logging.AddCerbiStreamWithRouting(options =>
 
 ---
 
+# Configuration Setup Guide
+
+CerbiStream is a structured logging framework designed for observability, telemetry enrichment, and governance enforcement. This guide demonstrates how to configure `CerbiStreamOptions` using the available setup methods.
+
+## 🔧 Basic Setup
+
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+    options.EnableDevModeMinimal(); // Logs only to console, minimal metadata
+});
+```
+
+## ⚙️ Available Preset Modes
+
+### ✅ `EnableDevModeMinimal()`
+Minimal output, console only, no metadata injection, ideal for simple development scenarios.
+```csharp
+options.EnableDevModeMinimal();
+```
+
+### ✅ `EnableDeveloperModeWithoutTelemetry()`
+Includes basic metadata injection but skips telemetry logging.
+```csharp
+options.EnableDeveloperModeWithoutTelemetry();
+```
+
+### ✅ `EnableDeveloperModeWithTelemetry()`
+Enables metadata injection, console output, and sends to telemetry.
+```csharp
+options.EnableDeveloperModeWithTelemetry();
+```
+
+### ✅ `EnableBenchmarkMode()`
+Disables all outputs and features for benchmarking.
+```csharp
+options.EnableBenchmarkMode();
+```
+
+## 🛠 Custom Configuration
+
+### Set Custom Queue
+```csharp
+options.WithQueue("RabbitMQ", "localhost", "my-logs");
+```
+
+### Set Encryption Mode
+```csharp
+options.WithEncryptionMode(EncryptionType.Base64);
+options.WithEncryptionKey(keyBytes, ivBytes);
+```
+
+### Enable or Disable Features
+```csharp
+options.WithTelemetryLogging(true);
+options.WithConsoleOutput(true);
+options.WithMetadataInjection(true);
+options.WithTelemetryEnrichment(true);
+options.WithGovernanceChecks(true);
+options.WithDisableQueue(false);
+```
+
+## 🧠 Add Advanced Metadata
+
+```csharp
+options.WithAdvancedMetadata(true);
+options.WithSecurityMetadata(true);
+```
+
+## 🧪 External Governance Validator
+
+```csharp
+options.WithGovernanceValidator((profile, log) =>
+{
+    // Custom validation logic
+    return log.ContainsKey("requiredKey");
+});
+```
+
+## 🔍 Mode Detection
+You can check the runtime mode using:
+```csharp
+bool isMinimal = options.IsMinimalMode;
+bool isBenchmark = options.IsBenchmarkMode;
+```
+
+---
+
+📌 **Note:** These methods are chainable, allowing fluent configuration:
+
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+    options.WithQueue("RabbitMQ", "localhost", "audit-logs")
+           .WithConsoleOutput(true)
+           .WithGovernanceChecks(true);
+});
+```
+
+
+### 🔹 `EnableDevModeMinimal()`
+**Purpose:** Quickly enables console logging with minimal features for local development or container diagnostics.
+- ✅ Console Output: `true`
+- ❌ Telemetry Enrichment: `false`
+- ❌ Metadata Injection: `false`
+- ❌ Governance Checks: `false`
+- ❌ Queue Sending: `enabled`
+- ✅ Best for: Minimal test containers, low-overhead logging in dev
+
+**Example:**
+```csharp
+builder.Logging.AddCerbiStream(options => options.EnableDevModeMinimal());
+```
+
+
+### 🔹 `EnableDeveloperModeWithoutTelemetry()`
+**Purpose:** Enables local developer logging without external telemetry.
+- ✅ Console Output: `true`
+- ✅ Metadata Injection: `true`
+- ❌ Telemetry Enrichment: `false`
+- ❌ Governance Checks: `false`
+
+**Example:**
+```csharp
+builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithoutTelemetry());
+```
+
+
+### 🔹 `EnableDeveloperModeWithTelemetry()`
+**Purpose:** Enables all developer logging features including telemetry, for full context during dev work.
+- ✅ Console Output: `true`
+- ✅ Metadata Injection: `true`
+- ✅ Telemetry Enrichment: `true`
+- ❌ Governance Checks: `false`
+
+**Example:**
+```csharp
+builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithTelemetry());
+```
+
+
+### 🔹 `EnableBenchmarkMode()`
+**Purpose:** Disables all overhead logging features, ideal for performance benchmarking.
+- ❌ Console Output: `false`
+- ❌ Metadata Injection: `false`
+- ❌ Telemetry Enrichment: `false`
+- ❌ Governance Checks: `false`
+- ✅ Queue Sending: `disabled`
+
+**Example:**
+```csharp
+builder.Logging.AddCerbiStream(options => options.EnableBenchmarkMode());
+```
+
+---
+
 ## 🔐 Runtime Encryption
 
 ```csharp
