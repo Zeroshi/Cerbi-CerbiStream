@@ -1,398 +1,309 @@
-# CerbiStream: Dev-Friendly Logging for .NET
+# CerbiStream: Dev-Friendly, Governance-Enforced Logging for .NET
 
-![NuGet](https://img.shields.io/nuget/v/CerbiStream?style=flat-square)
-![Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)
-![.NET](https://img.shields.io/badge/.NET-8.0-blue?style=flat-square)
+[![NuGet](https://img.shields.io/nuget/v/CerbiStream?style=flat-square)](https://www.nuget.org/packages/CerbiStream)
+[![Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=flat-square)](https://www.nuget.org/packages/CerbiStream)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-8.0-blue?style=flat-square)](https://dotnet.microsoft.com/download)
 
-![Dev Friendly](https://img.shields.io/badge/dev--friendly-%E2%9C%94%EF%B8%8F-brightgreen?style=flat-square)
-![Governance Enforced](https://img.shields.io/badge/governance-enforced-red?style=flat-square)
+[![Dev Friendly](https://img.shields.io/badge/dev--friendly-%E2%9C%94%EF%B8%8F-brightgreen?style=flat-square)](https://github.com/Zeroshi/Cerbi-CerbiStream)
+[![Governance Enforced](https://img.shields.io/badge/governance-enforced-red?style=flat-square)](https://github.com/Zeroshi/Cerbi-CerbiStream)
 
 [![Cerbi CI](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml/badge.svg?branch=master)](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Zeroshi_Cerbi-CerbiStream&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Zeroshi_Cerbi-CerbiStream)
 
 > 🚀 **[View CerbiStream Benchmarks](https://cerbi.systems)**
 >
-> Compare against Serilog, NLog, and others. CerbiStream is tuned for performance, governance, and enterprise-scale routing.
+> Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
 
 ---
 
-## ✅ Highlights
+## Table of Contents
 
-- Works with `ILogger<T>` out of the box
-- Structured logging enforcement via CerbiStream or GovernanceAnalyzer
-- Fully supports RabbitMQ, Kafka, Azure Service Bus, AWS SQS/Kinesis, GCP Pub/Sub
-- Flexible encryption: None, Base64, AES (configurable)
-- Optional Roslyn-based GovernanceAnalyzer or external validator hook
-- 🔁 Queue-first architecture (sink-agnostic, logs route through CerbIQ if desired)
-- Entity Framework and Blazor-friendly via external governance validator option
-
-
----
-
-🔄 External Governance Hook
-If you're not using the CerbiStream.GovernanceAnalyzer package (e.g., to avoid Roslyn dependency issues with Entity Framework or Blazor), you can provide your own governance validation logic:
-```csharp
-options.WithGovernanceValidator((profile, data) =>
-{
-    // Custom governance validation logic
-    return data.ContainsKey("UserId") && data.ContainsKey("IPAddress");
-});
-```
-
-This lets you enforce structure without referencing Roslyn, making CerbiStream fully compatible with EF Core and other analyzers.
+- [Overview](#overview)
+- [Highlights](#highlights)
+- [Features](#features)
+- [Architecture & Implementation](#architecture--implementation)
+- [Preset Modes and Configuration](#preset-modes-and-configuration)
+- [Usage Examples](#usage-examples)
+- [Integration & Supported Platforms](#integration--supported-platforms)
+- [Governance and Compliance](#governance-and-compliance)
+- [Telemetry Provider Support](#telemetry-provider-support)
+- [Unit Testing](#unit-testing)
+- [Cerbi Suite: The Bigger Picture](#cerbi-suite-the-bigger-picture)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## ✨ What's New in v1.0.11
+## Overview
 
-- New presets: `BenchmarkMode()`, `EnableDeveloperModeWithTelemetry()`
-- Toggle: telemetry, console, metadata, governance
-- JSON conversion with encryption
-- Queue routing using enums
+**CerbiStream** is a high-performance, dev-friendly logging framework for .NET that not only emphasizes low latency and high throughput but also enforces structured logging governance. Designed for modern applications using `ILogger<T>`, CerbiStream integrates seamlessly into ASP.NET Core, Blazor, and Entity Framework projects. Its flexible configuration options and robust governance support make it ideal for both development and enterprise-scale deployments.
 
----
-
-## 🧰 Install
-
-```bash
-dotnet add package CerbiStream
-```
-Optional governance analyzer:
-```bash
-dotnet add package CerbiStream.GovernanceAnalyzer
-```
+CerbiStream is a core component of the **Cerbi Suite**—a set of tools designed for observability, log governance, routing, and telemetry in regulated and performance-critical environments.
 
 ---
 
-## ⚡ Quick Start
+## Highlights
 
-```csharp
-builder.Logging.AddCerbiStreamWithRouting(options =>
-{
-    options.WithQueue("RabbitMQ", "localhost", "logs-queue")
-           .EnableDeveloperModeWithoutTelemetry()
-           .WithEncryptionMode(EncryptionType.Base64);
-});
-```
+- **Dev-Friendly & Flexible:**  
+  Works out of the box with .NET Core’s logging abstractions.
 
----
+- **High Performance:**  
+  Engineered for low latency and high throughput with efficient resource usage even when logs are output in realistic development modes.
 
-# Configuration Setup Guide
+- **Governance-Enforced Logging:**  
+  Ensures logs conform to structured formats and compliance requirements via internal or pluggable governance validators.
 
-CerbiStream is a structured logging framework designed for observability, telemetry enrichment, and governance enforcement. This guide demonstrates how to configure `CerbiStreamOptions` using the available setup methods.
+- **Multiple Integration Options:**  
+  Supports RabbitMQ, Kafka, Azure Service Bus, AWS SQS/Kinesis, and Google Pub/Sub.
 
-## 🔧 Basic Setup
+- **Encryption & Security:**  
+  Offers flexible encryption modes—including Base64 and AES—to secure sensitive logging data.
 
-```csharp
-builder.Logging.AddCerbiStream(options =>
-{
-    options.EnableDevModeMinimal(); // Logs only to console, minimal metadata
-});
-```
+- **Queue-First Architecture:**  
+  Decouples log generation from delivery, enhancing resilience and scalability via the CerbIQ routing component.
 
-## ⚙️ Available Preset Modes
-
-### ✅ `EnableDevModeMinimal()`
-Minimal output, console only, no metadata injection, ideal for simple development scenarios.
-```csharp
-options.EnableDevModeMinimal();
-```
-
-### ✅ `EnableDeveloperModeWithoutTelemetry()`
-Includes basic metadata injection but skips telemetry logging.
-```csharp
-options.EnableDeveloperModeWithoutTelemetry();
-```
-
-### ✅ `EnableDeveloperModeWithTelemetry()`
-Enables metadata injection, console output, and sends to telemetry.
-```csharp
-options.EnableDeveloperModeWithTelemetry();
-```
-
-### ✅ `EnableBenchmarkMode()`
-Disables all outputs and features for benchmarking.
-```csharp
-options.EnableBenchmarkMode();
-```
-
-## 🛠 Custom Configuration
-
-### Set Custom Queue
-```csharp
-options.WithQueue("RabbitMQ", "localhost", "my-logs");
-```
-
-### Set Encryption Mode
-```csharp
-options.WithEncryptionMode(EncryptionType.Base64);
-options.WithEncryptionKey(keyBytes, ivBytes);
-```
-
-### Enable or Disable Features
-```csharp
-options.WithTelemetryLogging(true);
-options.WithConsoleOutput(true);
-options.WithMetadataInjection(true);
-options.WithTelemetryEnrichment(true);
-options.WithGovernanceChecks(true);
-options.WithDisableQueue(false);
-```
-
-## 🧠 Add Advanced Metadata
-
-```csharp
-options.WithAdvancedMetadata(true);
-options.WithSecurityMetadata(true);
-```
-
-## 🧪 External Governance Validator
-
-```csharp
-options.WithGovernanceValidator((profile, log) =>
-{
-    // Custom validation logic
-    return log.ContainsKey("requiredKey");
-});
-```
-
-## 🔍 Mode Detection
-You can check the runtime mode using:
-```csharp
-bool isMinimal = options.IsMinimalMode;
-bool isBenchmark = options.IsBenchmarkMode;
-```
+- **Telemetry & Analytics:**  
+  Built-in support for telemetry providers (OpenTelemetry, Azure App Insights, AWS CloudWatch, etc.) for end-to-end observability.
 
 ---
 
-📌 **Note:** These methods are chainable, allowing fluent configuration:
+## Features
 
-```csharp
-builder.Logging.AddCerbiStream(options =>
-{
-    options.WithQueue("RabbitMQ", "localhost", "audit-logs")
-           .WithConsoleOutput(true)
-           .WithGovernanceChecks(true);
-});
-```
+- **Developer Modes:**  
+  - **EnableDevModeMinimal():** Minimal console logging without metadata injection—perfect for lightweight development debugging.  
+  - **EnableDeveloperModeWithoutTelemetry():** Console logging with metadata injection but no telemetry data.  
+  - **EnableDeveloperModeWithTelemetry():** Full-fledged logging with metadata, telemetry, and governance checks.  
+  - **EnableBenchmarkMode():** A silent mode disabling all outputs, enrichers, and telemetry, ideal for performance measurement.
 
+- **Governance Enforcement:**  
+  Use built-in or externally provided validators (via the CerbiStream.GovernanceAnalyzer or custom hooks) to enforce required log fields and format consistency.
 
-### 🔹 `EnableDevModeMinimal()`
-**Purpose:** Quickly enables console logging with minimal features for local development or container diagnostics.
-- ✅ Console Output: `true`
-- ❌ Telemetry Enrichment: `false`
-- ❌ Metadata Injection: `false`
-- ❌ Governance Checks: `false`
-- ❌ Queue Sending: `enabled`
-- ✅ Best for: Minimal test containers, low-overhead logging in dev
+- **Encryption Options:**  
+  Configure encryption modes to secure log data with options for None, Base64, or AES encryption.
 
-**Example:**
-```csharp
-builder.Logging.AddCerbiStream(options => options.EnableDevModeMinimal());
-```
+- **Queue-First, Sink-Agnostic Logging:**  
+  Route logs through configured messaging queues first for enhanced fault tolerance and delayed sink processing via CerbIQ.
 
+- **Telemetry Integration:**  
+  Out-of-the-box support for major telemetry platforms ensures your log data is immediately useful for observability and diagnostics.
 
-### 🔹 `EnableDeveloperModeWithoutTelemetry()`
-**Purpose:** Enables local developer logging without external telemetry.
-- ✅ Console Output: `true`
-- ✅ Metadata Injection: `true`
-- ❌ Telemetry Enrichment: `false`
-- ❌ Governance Checks: `false`
+## Architecture & Implementation
 
-**Example:**
-```csharp
-builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithoutTelemetry());
-```
+CerbiStream’s architecture is designed to maximize logging performance while ensuring compliance and structured data integrity:
 
+- **Asynchronous Processing:**  
+  The logging pipeline is built using modern asynchronous patterns to avoid blocking I/O. This allows high-volume log generation without impacting application performance.
 
-### 🔹 `EnableDeveloperModeWithTelemetry()`
-**Purpose:** Enables all developer logging features including telemetry, for full context during dev work.
-- ✅ Console Output: `true`
-- ✅ Metadata Injection: `true`
-- ✅ Telemetry Enrichment: `true`
-- ❌ Governance Checks: `false`
+- **Queue-First Model:**  
+  Log events are first enqueued (supporting various messaging systems) before being dispatched to the final sink. This decoupling reduces processing spikes and improves reliability.
 
-**Example:**
-```csharp
-builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithTelemetry());
-```
+- **Modular & Configurable:**  
+  The framework uses a fluent API for configuration, letting you easily switch modes, enable encryption, set up telemetry, and plug in custom governance validators.
 
+- **Governance & Validation:**  
+  A key aspect of CerbiStream is its governance engine, which enforces structured logging policies. Whether integrated via CerbiStream.GovernanceAnalyzer or custom logic, it ensures that all log messages meet your organizational standards.
 
-### 🔹 `EnableBenchmarkMode()`
-**Purpose:** Disables all overhead logging features, ideal for performance benchmarking.
-- ❌ Console Output: `false`
-- ❌ Metadata Injection: `false`
-- ❌ Telemetry Enrichment: `false`
-- ❌ Governance Checks: `false`
-- ✅ Queue Sending: `disabled`
-
-**Example:**
-```csharp
-builder.Logging.AddCerbiStream(options => options.EnableBenchmarkMode());
-```
+- **Performance Modes:**  
+  Different preset modes (Benchmark, Developer Modes) allow you to choose the level of output and enrichment based on your environment—from raw performance testing to full-featured dev logging.
 
 ---
 
-## 🔐 Runtime Encryption
+## Preset Modes and Configuration
 
+### Developer Modes
+
+- **EnableDevModeMinimal()**  
+  Minimal logging output to the console without metadata or governance checks.
+  ```csharp
+  builder.Logging.AddCerbiStream(options => options.EnableDevModeMinimal());
+  ```
+
+- **EnableDeveloperModeWithoutTelemetry()**  
+  Console logging with metadata injection but without telemetry.
+  ```csharp
+  builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithoutTelemetry());
+  ```
+
+- **EnableDeveloperModeWithTelemetry()**  
+  Full developer mode with metadata enrichment and telemetry.
+  ```csharp
+  builder.Logging.AddCerbiStream(options => options.EnableDeveloperModeWithTelemetry());
+  ```
+
+### Benchmark Mode
+
+- **EnableBenchmarkMode()**  
+  Disables all outputs and enrichments for pure performance testing.
+  ```csharp
+  builder.Logging.AddCerbiStream(options => options.EnableBenchmarkMode());
+  ```
+
+### Advanced Customization
+
+**Queue Configuration:**
+```csharp
+options.WithQueue("RabbitMQ", "localhost", "logs-queue");
+```
+
+**Encryption:**
 ```csharp
 options.WithEncryptionMode(EncryptionType.AES)
        .WithEncryptionKey(myKey, myIV);
 ```
 
-Default (lazy) test keys:
+**Governance Validator:**
 ```csharp
-var (key, iv) = EncryptionHelpers.GetInsecureDefaultKeyPair();
-options.WithEncryptionKey(key, iv);
-```
-
-KeyVault example:
-```csharp
-var key = Convert.FromBase64String(await secretClient.GetSecret("CerbiKey"));
-var iv = Convert.FromBase64String(await secretClient.GetSecret("CerbiIV"));
-```
-
----
-
-## 🛠️ Preset Modes
-
-| Method                                 | Description                                   |
-|----------------------------------------|-----------------------------------------------|
-| `EnableDeveloperModeWithTelemetry()`   | Console + telemetry + metadata                |
-| `EnableDeveloperModeWithoutTelemetry()`| Console + metadata, no telemetry              |
-| `EnableDevModeMinimal()`               | Console only                                  |
-| `EnableBenchmarkMode()`                | Silent mode (no telemetry, queue, or console) |
-
----
-
-## 🔁 Retry Example
-
-```csharp
-Policy
-  .Handle<Exception>()
-  .WaitAndRetry(3, _ => TimeSpan.FromSeconds(1), (ex, _, attempt, _) =>
-  {
-      TelemetryContext.IsRetry = true;
-      TelemetryContext.RetryAttempt = attempt;
-  });
-```
-
----
-
-## 🔧 Configuration Options
-
-| Option                      | Description                                      |
-|-----------------------------|--------------------------------------------------|
-| `.WithQueue(...)`          | Configure queue host, name, and type            |
-| `.DisableQueue()`          | Stops sending logs to queues                    |
-| `.WithTelemetryProvider()` | Set custom telemetry provider                   |
-| `.IncludeSecurityMetadata()`| Adds IP/UserID info                             |
-| `.EnableTelemetryLogging()`| Sends to telemetry even if queue is disabled    |
-
----
-
-## 📊 Telemetry Provider Support
-
-| Provider          | Supported |
-|-------------------|-----------|
-| OpenTelemetry     | ✅        |
-| Azure App Insights| ✅        |
-| AWS CloudWatch    | ✅        |
-| GCP Trace         | ✅        |
-| Datadog           | ✅        |
-
----
-
-## 📘 Code Samples
-
-### CerbiLoggerBuilder
-```csharp
-var logger = new CerbiLoggerBuilder()
-    .UseAzureServiceBus("<conn>", "<queue>")
-    .EnableDebugMode()
-    .Build(logger, new ConvertToJson(), new NoOpEncryption());
-```
-
-### Fluent API
-```csharp
-var options = new CerbiStreamOptions()
-    .WithEncryptionMode(EncryptionType.Base64)
-    .WithQueue("RabbitMQ", "localhost", "logs");
-```
-
-### AddCerbiStreamWithRouting (DI)
-```csharp
-builder.Logging.AddCerbiStreamWithRouting(options =>
+options.WithGovernanceValidator((profile, log) =>
 {
-    options.WithQueue("AzureServiceBus", "sb://...", "queue")
-           .WithEncryptionMode(EncryptionType.AES);
+    return log.ContainsKey("UserId") && log.ContainsKey("IPAddress");
+});
+```
+
+**Feature Toggles:**
+```csharp
+options.WithTelemetryLogging(true)
+       .WithConsoleOutput(true)
+       .WithMetadataInjection(true)
+       .WithGovernanceChecks(true);
+```
+
+---
+
+## Usage Examples
+
+**Basic Example**
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddCerbiStream(options =>
+{
+    options.EnableDevModeMinimal();
+});
+var app = builder.Build();
+app.Run();
+```
+
+**Developer Mode with Custom Queue and Encryption**
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+    options.WithQueue("Kafka", "broker-address", "app-logs")
+           .WithEncryptionMode(EncryptionType.Base64)
+           .EnableDeveloperModeWithoutTelemetry();
+});
+```
+
+**Full Mode with Telemetry and Governance**
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+    options
+        .WithQueue("AzureServiceBus", "sb://myservicebus.servicebus.windows.net", "logs-queue")
+        .WithEncryptionMode(EncryptionType.AES)
+        .WithGovernanceValidator((profile, log) =>
+        {
+            return log.ContainsKey("UserId") && log.ContainsKey("IPAddress");
+        })
+        .EnableDeveloperModeWithTelemetry();
 });
 ```
 
 ---
 
-## 🧪 Unit Test Example
+## Integration & Supported Platforms
 
+CerbiStream is designed to work in a variety of environments:
+
+**Messaging Queues:**  
+Supports RabbitMQ, Kafka, Azure Service Bus, AWS SQS/Kinesis, and Google Pub/Sub.
+
+**Telemetry Providers:**
+
+| Provider           | Supported |
+|--------------------|-----------|
+| OpenTelemetry      | ✅        |
+| Azure App Insights | ✅        |
+| AWS CloudWatch     | ✅        |
+| GCP Trace          | ✅        |
+| Datadog            | ✅        |
+
+**Pluggable Sinks:**  
+CerbiStream is “sink-agnostic” – logs are initially routed to queues, and you can integrate downstream tools (e.g., CerbIQ) to manage final delivery to systems such as Splunk, Elasticsearch, or Blob Storage.
+
+---
+
+## Governance and Compliance
+
+A key differentiator of CerbiStream is its built-in governance:
+
+**Structured Logging Enforcement:**  
+Ensures that every log entry adheres to predefined schemas for consistency, aiding in compliance with regulatory standards (e.g., HIPAA, GDPR).
+
+**External Governance Hook:**  
+If needed, you can provide your own governance validator:
+```csharp
+options.WithGovernanceValidator((profile, log) =>
+{
+    return log.ContainsKey("UserId") && log.ContainsKey("IPAddress");
+});
+```
+
+**Optional CerbiStream.GovernanceAnalyzer:**  
+An add-on package that performs static code analysis to ensure that logging policies are consistently followed.
+
+---
+
+## Telemetry Provider Support
+
+CerbiStream integrates seamlessly with popular telemetry systems to provide extended observability:
+
+Supported providers include: OpenTelemetry, Azure App Insights, AWS CloudWatch, GCP Trace, and Datadog.
+
+Configuration is straightforward through the fluent API, ensuring that enriched log data is automatically forwarded to your chosen telemetry platform.
+
+---
+
+## Unit Testing
+
+Example unit test for CerbiStream logging:
 ```csharp
 var mockQueue = Substitute.For<IQueue>();
-var logger = new Logging(Substitute.For<ILogger<Logging>>(), mockQueue, new ConvertToJson(), new NoOpEncryption());
+var logger = new CerbiLoggerBuilder()
+    .WithQueue("TestQueue", "localhost", "unit-test-logs")
+    .UseNoOpEncryption()
+    .Build(mockQueue);
 
-var result = await logger.LogEventAsync("Test", LogLevel.Information);
+var result = await logger.LogEventAsync("Test log event", LogLevel.Information);
 Assert.True(result);
 ```
 
 ---
 
-## 🌐 Supported Queues
+## Cerbi Suite: The Bigger Picture
 
-- RabbitMQ
-- Kafka
-- Azure Queue / Service Bus
-- AWS SQS / Kinesis
-- Google Pub/Sub
+CerbiStream is a core component of the Cerbi suite—a broader ecosystem aimed at providing enterprise-grade observability, governance, and log routing solutions. The suite includes:
 
----
-
-## 🧵 Queue-First Logging (Sink-Agnostic)
-
-CerbiStream **does not directly send logs to sinks** like Splunk, Elastic, or Blob.
-
-Instead:
-- 🔁 Logs are emitted to **queues only** (Kafka, RabbitMQ, Azure, etc.)
-- 🧠 CerbIQ reads from these queues and sends logs to sinks
-- ✅ Keeps log generation decoupled from log delivery
-
-This design gives you:
-- Better performance
-- Retry-friendly resilience
-- Pluggable downstream integrations
-
-➡️ Add CerbIQ to handle routing and sink delivery.
+- **CerbiStream:** For high-performance, governance-enforced logging.
+- **CerbIQ:** For advanced log routing, aggregation, and delivery to various sinks.
+- **CerbiStream.GovernanceAnalyzer:** For static and runtime validation ensuring consistent log compliance.
 
 ---
 
-## 🔐 Governance Enforcement (Optional)
+## Contributing
 
-```json
-{
-  "LoggingProfiles": {
-    "SecurityLog": {
-      "RequiredFields": ["UserId", "IPAddress"],
-      "OptionalFields": ["DeviceType"]
-    }
-  }
-}
-```
+Contributions are welcome!
+
+- **Report Bugs or Request Features:** Open an issue on GitHub.
+- **Submit Pull Requests:** Follow our code style guidelines and ensure tests pass.
+- **Join the Community:** Star the repo, share feedback, and help improve CerbiStream.
 
 ---
 
-## 📜 License
+## License
 
-MIT
+This project is licensed under the MIT License.
 
 ---
 
-Star the repo ⭐ — Contribute 🔧 — File issues 🐛
-
-Created by [@Zeroshi](https://github.com/Zeroshi)
+Star the repo ⭐ | Contribute 🔧 | File issues 🐛  
+Created by @Zeroshi
