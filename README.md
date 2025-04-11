@@ -238,6 +238,42 @@ builder.Logging.AddCerbiStream(options =>
 
 ---
 
+## File Fallback Logging with Encrypted Rotation
+
+CerbiStream can automatically fallback to a local file logger if upstream log delivery fails. You can configure size/age-based rotation with optional AES encryption for compliance.
+
+### Enable Fallback in Your Program.cs or Startup.cs
+
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+    options.EnableDevModeMinimal(); // Or Prod/Custom config
+
+    options.FileFallback = new FileFallbackOptions
+    {
+        Enable = true,
+        PrimaryFilePath = "logs/primary.json",
+        FallbackFilePath = "logs/fallback.json",
+        RetryCount = 3,
+        RetryDelay = TimeSpan.FromMilliseconds(250),
+        MaxFileSizeBytes = 5 * 1024 * 1024, // Rotate at 5MB
+        MaxFileAge = TimeSpan.FromMinutes(10), // Or age-based
+        EncryptionKey = "your-32-char-AES-key-here!!",
+        EncryptionIV = "your-16byte-iv"
+    };
+});
+```
+
+## Add Background Rotation Service ##
+
+Make sure to register the rotation background service if you're using fallback:
+
+```csharp
+builder.Services.AddHostedService<EncryptedFileRotationService>();
+```
+
+---
+
 ## Integration & Supported Platforms
 
 CerbiStream is designed to work in a variety of environments:
