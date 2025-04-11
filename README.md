@@ -35,6 +35,34 @@
 
 ---
 
+## 🔄 Recent Updates (v1.0.17)
+
+### 🔐 Encrypted File Logging & Rotation (Fallback Mode)
+- Added `EncryptedFileRotator` with support for:
+  - File size & age-based rotation
+  - AES encryption with configurable keys/IVs
+  - Archive naming with timestamped `.enc` files
+- Background task service (`EncryptedFileRotationService`) for automatic, periodic rotation
+- Configurable via `FileFallbackOptions`:
+  - `MaxFileSizeBytes`
+  - `MaxFileAge`
+  - `EncryptionKey`
+  - `EncryptionIV`
+
+### 🧪 Unit Test Coverage
+- Increased to ~65.5%
+- Added test coverage for:
+  - Fallback logger pipeline
+  - Rotation trigger behavior
+  - Telemetry factory mapping
+
+### 🏗 Upcoming Work
+- FIPS toggle evaluation
+- GitHub Copilot hints for governance rules
+
+---
+
+
 ## Overview
 
 **CerbiStream** is a high-performance, dev-friendly logging framework for .NET that not only emphasizes low latency and high throughput but also enforces structured logging governance. Designed for modern applications using `ILogger<T>`, CerbiStream integrates seamlessly into ASP.NET Core, Blazor, and Entity Framework projects. Its flexible configuration options and robust governance support make it ideal for both development and enterprise-scale deployments.

@@ -1,4 +1,5 @@
-﻿using CerbiStream.Interfaces;
+﻿using CerbiStream.Classes.FileLogging;
+using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
 using static CerberusLogging.Classes.Enums.MetaData;
@@ -8,6 +9,7 @@ namespace CerbiStream.Logging.Configuration
 {
     public class CerbiStreamOptions
     {
+        public Classes.FileLogging.FileFallbackOptions? FileFallback { get; set; }
         public string QueueType { get; private set; } = "RabbitMQ";
         public string QueueHost { get; private set; } = "localhost";
         public string QueueName { get; private set; } = "logs-queue";
