@@ -7,6 +7,7 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <UseWindowsForms>false</UseWindowsForms>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>1591</NoWarn>
 
     <Title>CerbiStream.Logging</Title>
     <Authors>Thomas Nelson; Cerbi</Authors>
