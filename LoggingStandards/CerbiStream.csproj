@@ -6,6 +6,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <UseWindowsForms>false</UseWindowsForms>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
     <Title>CerbiStream.Logging</Title>
     <Authors>Thomas Nelson; Cerbi</Authors>
