@@ -13,11 +13,13 @@ namespace CerbiStream.FileLogging
         public FileFallbackProvider(FileFallbackOptions options)
         {
             _options = options;
+            // Either provide a new FileWriter instance explicitly, or let the default parameter take effect:
             _resilientLogger = new ResilientFileLogger(
                 options.PrimaryFilePath,
                 options.FallbackFilePath,
                 options.RetryCount,
-                options.RetryDelay
+                options.RetryDelay,
+                new FileWriter()  // Explicitly providing the IFileWriter instance
             );
         }
 
