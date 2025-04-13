@@ -2,23 +2,27 @@
 using CerbiClientLogging.Classes.Queues;
 using CerbiClientLogging.Implementations;
 using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage; // Use ISendMessage for sending logs
 using Microsoft.Extensions.Logging;
 using System;
 
 public class CerbiLoggerBuilder
 {
-    private IQueue? _queue;
+    // Use ISendMessage as the type for the queue, since that's our final messaging interface.
+    private ISendMessage? _queue;
     private bool _encryptionEnabled = true;
     private bool _debugMode = false;
 
     public CerbiLoggerBuilder UseRabbitMQ(string connectionString)
     {
-        //_queue = new RabbitMqQueue(connectionString);
+        // Uncomment and adjust this if your RabbitMQ implementation supports ISendMessage.
+        // _queue = new RabbitMessageQueue(connectionString);
         return this;
     }
 
     public CerbiLoggerBuilder UseAzureServiceBus(string connectionString, string queueName)
     {
+        // Ensure that AzureServiceBusQueue has been updated to implement ISendMessage.
         _queue = new AzureServiceBusQueue(connectionString, queueName);
         return this;
     }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class KafkaStream : ISendMessage, IQueue
+    public class KafkaStream : ISendMessage
     {
         private readonly string _bootstrapServers;
         private readonly string _topic;
@@ -17,7 +17,7 @@ namespace CerbiClientLogging.Classes.Queues
             _topic = topic;
         }
 
-        public async Task<bool> SendMessageAsync(string payload, Guid messageId)
+        public async Task<bool> SendMessageAsync(string payload, string messageId)
         {
             try
             {

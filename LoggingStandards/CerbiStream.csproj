@@ -5,103 +5,60 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <UseWindowsForms>false</UseWindowsForms>
 
     <Title>CerbiStream.Logging</Title>
     <Authors>Thomas Nelson; Cerbi</Authors>
     <Company>Cerbi</Company>
-
     <Description>
       CerbiStream.Logging - Secure, Scalable, and Standardized Logging for Modern Applications.
-
-      CerbiStream.Logging is a next-generation logging library designed for **enterprise-grade**, **secure**, and **standardized** logging. It enforces structured logging signatures across teams, ensuring **consistent log data** for analysis while seamlessly integrating with **major cloud and on-prem logging platforms**.
-
-      🌟 **Key Features:**
-      - **Standardized Logging Signatures**: Set and enforce structured log formats across all teams.
-      - **Secure and Encrypted Logs**: Built-in encryption for sensitive metadata.
-      - **Multi-Destination Support**: Route logs to **Azure Queues, Service Bus, RabbitMQ, Kafka, AWS SQS, Kinesis, Google PubSub,** or any database.
-      - **SaaS-Connected**: Optional **CerbiIQ SaaS** routes and enriches logs with **ML/AI insights**.
-      - **DevMode**: Prevent logs from being sent during local debugging.
-      - **Minimal Setup**: One-liner configuration to get started in seconds.
-
-      🚀 **Why CerbiStream?**
-      Unlike traditional loggers, **CerbiStream.Logging** goes beyond simple log collection—it **routes, encrypts, and standardizes logs** while allowing **meta-analysis of global patterns** when integrated with **CerbiIQ**.
     </Description>
-
     <PackageProjectUrl>https://cerbi.systems</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Zeroshi/Cerbi-CerbiStream</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-
     <PackageTags>
       CerbiStream; Logging; Structured Logging; Secure Logging; Cloud Logging; Enterprise Logging;
       Governance; Observability; Telemetry; .NET Logging; Logging Framework; Performance Logging;
-      OpenTelemetry; Azure Logging; RabbitMQ; Kafka; AWS SQS; Google PubSub; Message Queue;
-      Logging Library; Logging Standard; Compliance Logging; ML Logging; AI-ready; Benchmark Logging;
-      DevOps; Microservices; Distributed Systems; ILogger; Logging Middleware; Log Enrichment
-
     </PackageTags>
-
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.17</Version>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="appsettings.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="files\appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.7.410.5" />
-    <PackageReference Include="AWSSDK.Kinesis" Version="3.7.402.86" />
-    <PackageReference Include="AWSSDK.SQS" Version="3.7.400.109" />
+    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.7.410.20" />
+    <PackageReference Include="AWSSDK.Kinesis" Version="3.7.402.109" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.7.400.132" />
     <PackageReference Include="Azure.Core" Version="1.45.0" />
-    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.4" />
-    <PackageReference Include="Azure.Storage.Common" Version="12.23.0-beta.1" />
-    <PackageReference Include="Azure.Storage.Queues" Version="12.22.0-beta.1" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
+    <PackageReference Include="Azure.Storage.Common" Version="12.23.0" />
+    <PackageReference Include="Azure.Storage.Queues" Version="12.22.0" />
     <PackageReference Include="cerberus-logger-interface" Version="1.0.26" />
-    <PackageReference Include="Datadog.Trace" Version="3.12.0" />
+    <PackageReference Include="Datadog.Trace" Version="3.14.3" />
     <PackageReference Include="Google.Cloud.Logging.V2" Version="4.4.0" />
-    <PackageReference Include="Google.Cloud.PubSub.V1" Version="3.21.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.30.0" />
+    <PackageReference Include="Google.Cloud.PubSub.V1" Version="3.24.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.30.2" />
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.23.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0-preview.1.25080.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.4" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.4" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="OpenTelemetry" Version="1.11.2" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
-    <PackageReference Include="RabbitMQ.Client" Version="6.4.0" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.0-preview.1.25080.5" />
+    <PackageReference Include="Polly" Version="8.5.2" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.4" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
-    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.1.25080.5" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.4" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.4" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="\" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

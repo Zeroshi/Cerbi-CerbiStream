@@ -1,5 +1,6 @@
 ﻿using CerbiClientLogging.Implementations;
 using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage; // ✅ Updated
 using CerbiStream.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -8,11 +9,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
-
 public class ExtendedLoggingTests
 {
     private readonly Mock<ILogger<Logging>> _mockLogger;
-    private readonly Mock<IQueue> _mockQueue;
+    private readonly Mock<ISendMessage> _mockQueue; // ✅ Use ISendMessage
     private readonly Mock<IConvertToJson> _mockJsonConverter;
     private readonly Mock<IEncryption> _mockEncryption;
     private readonly Logging _logging;
@@ -20,11 +20,11 @@ public class ExtendedLoggingTests
     public ExtendedLoggingTests()
     {
         _mockLogger = new Mock<ILogger<Logging>>();
-        _mockQueue = new Mock<IQueue>();
+        _mockQueue = new Mock<ISendMessage>();
         _mockJsonConverter = new Mock<IConvertToJson>();
         _mockEncryption = new Mock<IEncryption>();
 
-        _mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()))
+        _mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
                   .ReturnsAsync(true);
 
         _mockJsonConverter.Setup(j => j.ConvertMessageToJson(It.IsAny<object>()))
@@ -36,21 +36,16 @@ public class ExtendedLoggingTests
         _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
     }
 
-
     [Fact]
     public async Task Should_Log_Error_When_Queue_Fails()
     {
-        // Arrange
-        _mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<Guid>()))
+        _mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
                   .ThrowsAsync(new Exception("Queue failure"));
 
-        // Act
         bool result = await _logging.LogEventAsync("Test error message", LogLevel.Error);
 
-        // Assert
-        Assert.False(result); // Ensure failure
+        Assert.False(result);
 
-        // ✅ Fix: Use Verify with It.IsAny<T>() and proper type matching
         _mockLogger.Verify(l => l.Log(
             LogLevel.Error,
             It.IsAny<EventId>(),
@@ -59,7 +54,6 @@ public class ExtendedLoggingTests
             It.IsAny<Func<It.IsAnyType, Exception, string>>()
         ), Times.Once);
     }
-
 
     [Fact]
     public async Task Should_Encrypt_Metadata_Correctly()

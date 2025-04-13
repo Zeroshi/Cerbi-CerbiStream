@@ -27,6 +27,12 @@ namespace CerbiStream.Logging.Configuration
         public byte[]? EncryptionKey { get; private set; }
         public byte[]? EncryptionIV { get; private set; }
 
+        // queue resiliency using Polly
+        public bool EnableQueueRetries { get; private set; } = true;
+        public int QueueRetryCount { get; private set; } = 3;
+        public int QueueRetryDelayMilliseconds { get; private set; } = 200;
+
+
         public Func<string, Dictionary<string, object>, bool>? ExternalGovernanceValidator { get; private set; }
 
         public void DumpConfiguration()
@@ -64,6 +70,15 @@ namespace CerbiStream.Logging.Configuration
             QueueType = type;
             QueueHost = host;
             QueueName = name;
+            return this;
+        }
+
+        // queue retries
+        public CerbiStreamOptions WithQueueRetries(bool enabled, int retryCount = 3, int delayMilliseconds = 200)
+        {
+            EnableQueueRetries = enabled;
+            QueueRetryCount = retryCount;
+            QueueRetryDelayMilliseconds = delayMilliseconds;
             return this;
         }
 

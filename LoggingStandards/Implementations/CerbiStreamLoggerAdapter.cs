@@ -7,12 +7,12 @@ using System.Collections.Generic;
 
 namespace CerbiStream.Logging.Configuration
 {
-    public class CerbiStreamLogger : ILogger
+    public class CerbiStreamLoggerAdapter : ILogger
     {
         private readonly string _categoryName;
         private readonly CerbiStreamOptions _options;
 
-        public CerbiStreamLogger(string categoryName, CerbiStreamOptions options)
+        public CerbiStreamLoggerAdapter(string categoryName, CerbiStreamOptions options)
         {
             _categoryName = categoryName;
             _options = options;

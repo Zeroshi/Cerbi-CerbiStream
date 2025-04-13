@@ -13,7 +13,7 @@ namespace CerbiStream.Tests
         public void Log_ShouldNotThrow_WhenLoggerIsEnabled()
         {
             var options = new CerbiStreamOptions();
-            var logger = new CerbiStreamLogger("TestCategory", options);
+            var logger = new CerbiStreamLoggerAdapter("TestCategory", options);
 
             var logLevel = LogLevel.Information;
             var eventId = new EventId(1, "TestEvent");
@@ -29,7 +29,7 @@ namespace CerbiStream.Tests
         public void IsEnabled_ShouldReturnTrue()
         {
             var options = new CerbiStreamOptions();
-            var logger = new CerbiStreamLogger("TestCategory", options);
+            var logger = new CerbiStreamLoggerAdapter("TestCategory", options);
 
             Assert.True(logger.IsEnabled(LogLevel.Debug));
         }

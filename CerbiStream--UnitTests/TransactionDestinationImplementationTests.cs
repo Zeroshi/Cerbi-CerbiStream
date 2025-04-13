@@ -1,6 +1,7 @@
 ﻿using CerbiClientLogging.Classes;
 using CerbiClientLogging.Implementations;
 using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
 using CerbiStream.Configuration;
 using CerbiStream.Enums;
 using CerbiStream.Logging.Configuration;
@@ -16,8 +17,8 @@ public class TransactionDestinationImplementationTests
     public async Task Logging_ShouldSendToKafka_WhenKafkaDestinationSelected()
     {
         // Arrange
-        var mockQueue = Substitute.For<IQueue>();
-        mockQueue.SendMessageAsync(Arg.Any<string>(), Arg.Any<Guid>())
+        var mockQueue = Substitute.For<ISendMessage>(); // ✅ Updated interface
+        mockQueue.SendMessageAsync(Arg.Any<string>(), Arg.Any<string>())
                  .Returns(Task.FromResult(true));
 
         var logger = Substitute.For<ILogger<Logging>>();
@@ -36,6 +37,6 @@ public class TransactionDestinationImplementationTests
 
         // Assert
         Assert.True(result);
-        await mockQueue.Received().SendMessageAsync(Arg.Any<string>(), Arg.Any<Guid>());
+        await mockQueue.Received().SendMessageAsync(Arg.Any<string>(), Arg.Any<string>()); // ✅ Updated signature
     }
 }

@@ -1,6 +1,7 @@
 ﻿using CerberClientLogging.Classes.Queues;
 using CerbiClientLogging.Classes.Queues;
 using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
 using CerbiStream.Configuration;
 using System;
 
@@ -8,7 +9,7 @@ namespace CerbiStream.Classes.Queues
 {
     public static class QueueFactory
     {
-        public static IQueue CreateQueue(CerbiStreamConfig config)
+        public static ISendMessage CreateQueue(CerbiStreamConfig config)
         {
             return config.QueueType switch
             {

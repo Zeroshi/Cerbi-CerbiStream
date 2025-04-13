@@ -1,6 +1,7 @@
 using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using System;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,7 +11,7 @@ namespace CerberClientLogging.Classes.Queues
     /// <summary>
     /// Represents a RabbitMQ queue for sending messages.
     /// </summary>
-    public class RabbitMessageQueue : ISendMessage, IQueue
+    public class RabbitMessageQueue : ISendMessage
     {
         private readonly string _hostName;
         private readonly string _queueName;
@@ -33,15 +34,14 @@ namespace CerberClientLogging.Classes.Queues
         /// <summary>
         /// Sends a message asynchronously to the RabbitMQ queue.
         /// </summary>
-        public Task<bool> SendMessageAsync(string message, Guid messageId)
+        public async Task<bool> SendMessageAsync(string message, string messageId)
         {
             try
             {
-                using var connection = _factory.CreateConnection(new string[] { _hostName });
-                using var channel = connection.CreateModel();
+                using var connection = await _factory.CreateConnectionAsync();
+                using var channel = await connection.CreateChannelAsync();
 
-                // Declare queue to ensure it exists
-                channel.QueueDeclare(
+                await channel.QueueDeclareAsync(
                     queue: _queueName,
                     durable: true,
                     exclusive: false,
@@ -49,26 +49,35 @@ namespace CerberClientLogging.Classes.Queues
                     arguments: null
                 );
 
-                var body = Encoding.UTF8.GetBytes(message);
+                var body = Encoding.UTF8.GetBytes(message ?? string.Empty);
 
-                var properties = channel.CreateBasicProperties();
-                properties.Persistent = true; // Ensures message durability
+                // Fix for CS0128: Renamed the variable to avoid duplicate declaration
+                // Fix for CS1061: Replaced the incorrect method call with a valid approach
+                var basicProperties = new BasicProperties
+                {
+                    Persistent = true
+                };
 
-                // Publish the message
-                channel.BasicPublish(
+                await channel.BasicPublishAsync(
                     exchange: "",
                     routingKey: _queueName,
-                    basicProperties: properties,
+                    mandatory: false,
+                    basicProperties: basicProperties,
                     body: body
                 );
 
                 Console.WriteLine($"[RabbitMQ] {messageId} was sent.");
-                return Task.FromResult(true);
+                return true;
+            }
+            catch (BrokerUnreachableException ex)
+            {
+                Console.WriteLine($"[RabbitMQ] {messageId} was NOT sent. Broker unreachable: {ex.Message}");
+                return false;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[RabbitMQ] {messageId} was NOT sent. Error: {ex.Message}");
-                return Task.FromResult(false);
+                return false;
             }
         }
     }

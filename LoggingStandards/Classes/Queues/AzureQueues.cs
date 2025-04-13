@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AzureQueues : ISendMessage, IQueue
+    public class AzureQueues : ISendMessage
     {
         private readonly QueueClient _client;
 
@@ -17,7 +17,7 @@ namespace CerbiClientLogging.Classes.Queues
             _client.CreateIfNotExists();
         }
 
-        public async Task<bool> SendMessageAsync(string payload, Guid messageId)
+        public async Task<bool> SendMessageAsync(string payload, string messageId)
         {
             try
             {

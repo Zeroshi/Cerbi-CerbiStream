@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class GooglePubSubQueue : ISendMessage, IQueue
+    public class GooglePubSubQueue : ISendMessage
     {
         private readonly string _projectId;
         private readonly string _topicId;
@@ -20,7 +20,7 @@ namespace CerbiClientLogging.Classes.Queues
             _publisher = PublisherClient.CreateAsync(new TopicName(_projectId, _topicId)).Result;
         }
 
-        public async Task<bool> SendMessageAsync(string message, Guid messageId)
+        public async Task<bool> SendMessageAsync(string message, string messageId)
         {
             try
             {

@@ -5,7 +5,7 @@ namespace CerbiClientLogging.Interfaces
 {
     public interface IQueue
     {
-        Task<bool> SendMessageAsync(string message, Guid messageId);
+        Task<bool> SendMessageAsync(string message);
     }
 
 }

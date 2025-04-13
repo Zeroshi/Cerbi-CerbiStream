@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AwsSqsQueue : ISendMessage, IQueue
+    public class AwsSqsQueue : ISendMessage
     {
         private readonly AmazonSQSClient _sqsClient;
         private readonly string _queueUrl;
@@ -18,7 +18,7 @@ namespace CerbiClientLogging.Classes.Queues
             _queueUrl = queueUrl;
         }
 
-        public async Task<bool> SendMessageAsync(string message, Guid messageId)
+        public async Task<bool> SendMessageAsync(string message, string messageId)
         {
             try
             {

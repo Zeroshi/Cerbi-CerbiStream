@@ -15,7 +15,7 @@ namespace CerbiClientLogging.Classes.Databases
         }
 
 
-        public async Task<bool> SendMessageAsync(string payload, Guid messageId)
+        public async Task<bool> SendMessageAsync(string payload, string messageId)
         {
             try
             {

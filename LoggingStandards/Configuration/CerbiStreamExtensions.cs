@@ -10,7 +10,7 @@ namespace CerbiStream.Configuration
     public static class CerbiStreamExtensions
     {
         /// <summary>
-        /// Adds CerbiStream logging to the application's logging pipeline.
+        /// Adds logging to the application's logging pipeline.
         /// </summary>
         public static ILoggingBuilder AddCerbiStream(
             this ILoggingBuilder builder,

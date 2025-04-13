@@ -8,7 +8,7 @@ namespace CerbiStream.Configuration
     public class CerbiStreamLoggerProvider : ILoggerProvider
     {
         private readonly CerbiStreamOptions _options;
-        private readonly ConcurrentDictionary<string, CerbiStreamLogger> _loggers = new();
+        private readonly ConcurrentDictionary<string, CerbiStreamLoggerAdapter> _loggers = new();
 
         public CerbiStreamLoggerProvider(CerbiStreamOptions options)
         {
@@ -17,7 +17,7 @@ namespace CerbiStream.Configuration
 
         public ILogger CreateLogger(string categoryName)
         {
-            return _loggers.GetOrAdd(categoryName, name => new CerbiStreamLogger(name, _options));
+            return _loggers.GetOrAdd(categoryName, name => new CerbiStreamLoggerAdapter(name, _options));
         }
 
         public void Dispose()

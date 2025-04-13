@@ -35,7 +35,120 @@
 
 ---
 
-## 🔄 Recent Updates (v1.0.17)
+## 🔄 Recent Updates (v1.1.0)
+
+### New Features
+
+- **Unified Log Enrichment:**  
+  Every log message is now enriched with a unique LogId (GUID), timestamp, ApplicationId, InstanceId, CloudProvider, Region, and any additional metadata. All of this information is embedded directly in the JSON payload.
+  
+- **Dual Metadata Transmission:**  
+  The enriched JSON payload is sent along with a separate LogId parameter. This allows for:
+  - **Efficient Routing & Partitioning:** The separate LogId is used as a partition key (or similar) by the queue implementations.
+  - **Simplified Tracing:** Console or debug logs show the LogId immediately without needing to re-parse the JSON.
+  
+- **Resilient Queue Sending:**  
+  With the use of Polly, transient failures are automatically retried up to 3 times with exponential backoff. This resiliency is applied transparently to the selected queue implementation when enabled.
+
+---
+
+### Breaking Changes (v1.1.0)
+
+1. **Consolidation of Queue Interfaces:**
+   - **Removed:** The old `IQueue` interface (which defined `SendMessageAsync(string, Guid)`).
+   - **Now Using:** The new `ISendMessage` interface which defines:
+     ```csharp
+     Task<bool> SendMessageAsync(string payload, string logId);
+     ```
+     *All queue implementations have been updated to use this new signature.*
+
+2. **Log Message Enrichment:**
+   - The logger now generates a unique `LogId` once per log entry. This ID is embedded within the JSON payload along with metadata (timestamp, ApplicationId, etc.) and is also passed as a separate parameter.
+   - This change means that downstream systems will receive a self-contained JSON log that includes the LogId, but the queue sender can also use the separate LogId for routing/partitioning purposes.
+
+3. **Dependency Injection Changes:**
+   - The logging pipeline now expects an implementation of `ISendMessage` instead of `IQueue`. If you have custom implementations that previously implemented `IQueue`, these must be updated or replaced with the new `ISendMessage`-based implementation.
+
+4. **Version Bump:**
+   - The library version has been changed from **1.0.17** to **1.1.0** to reflect these major breaking changes.
+
+---
+
+### How to Upgrade
+
+- **Update Your DI Registrations:**  
+  If you previously registered your queue implementations using the `IQueue` interface, change them to register as `ISendMessage`. For example:
+  
+  ```csharp
+  // Old registration:
+  services.AddTransient<IQueue, AzureServiceBusQueue>();
+
+  // New registration:
+  services.AddTransient<ISendMessage, AzureServiceBusQueue>();
+  ```
+  
+  Additionally, if you're using the resilient decorator, update it accordingly:
+
+  ```csharp
+  // Using Scrutor for decoration (if enabled)
+  services.Decorate<ISendMessage, ResilientQueueClient>();
+  ```
+
+- **Update Logging Method Calls:**  
+  All log messages must now be enriched by the logger to include the LogId and other metadata inside the JSON payload. The logger then calls:
+  
+  ```csharp
+  await _queue.SendMessageAsync(formattedLog, logId);
+  ```
+  
+  Update your custom logging code accordingly if you're interfacing directly with these methods.
+
+---
+
+### Example Usage
+
+Below is an example of how the updated logger now works:
+
+```csharp
+private async Task<bool> SendLog(object logEntry)
+{
+    // Generate a unique LogId once per log entry.
+    string logId = Guid.NewGuid().ToString();
+    
+    var enrichedLogEntry = new
+    {
+        LogId = logId,
+        TimestampUtc = DateTime.UtcNow,
+        ApplicationId = ApplicationMetadata.ApplicationId,
+        InstanceId = ApplicationMetadata.InstanceId,
+        CloudProvider = ApplicationMetadata.CloudProvider,
+        Region = ApplicationMetadata.Region,
+        LogData = logEntry
+    };
+
+    string formattedLog = _jsonConverter.ConvertMessageToJson(enrichedLogEntry);
+
+    _logger.LogInformation($"Log with ID {logId} sent to queue.");
+
+    // Send the enriched log payload with the LogId passed separately.
+    return await _queue.SendMessageAsync(formattedLog, logId);
+}
+```
+
+---
+
+### Summary
+
+These breaking changes and enhancements make the logging solution more robust, self-contained, and easier to trace and process downstream. We recommend upgrading to version **1.1.0** to take advantage of these improvements.
+
+If you encounter any issues or need further assistance during the upgrade, please refer to our detailed migration guide or contact me.
+
+---
+
+This updated README and breaking changes section should help users understand the new design and what they need to update in their code. Let me know if you need any more adjustments or additional sections!
+
+
+---
 
 ### 🔐 Encrypted File Logging & Rotation (Fallback Mode)
 - Added `EncryptedFileRotator` with support for:

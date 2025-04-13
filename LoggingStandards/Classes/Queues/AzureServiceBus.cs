@@ -1,12 +1,13 @@
 ﻿using Azure.Messaging.ServiceBus;
 using CerbiClientLogging.Interfaces;
+using CerbiClientLogging.Interfaces.SendMessage;
 using System;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace CerbiClientLogging.Classes.Queues
 {
-    public class AzureServiceBusQueue : IQueue, IAsyncDisposable
+    public class AzureServiceBusQueue : ISendMessage, IAsyncDisposable
     {
         private readonly ServiceBusSender _sender;
 
@@ -16,7 +17,7 @@ namespace CerbiClientLogging.Classes.Queues
             _sender = client.CreateSender(queueName);
         }
 
-        public async Task<bool> SendMessageAsync(string message, Guid messageId)
+        public async Task<bool> SendMessageAsync(string message, string messageId)
         {
             try
             {
