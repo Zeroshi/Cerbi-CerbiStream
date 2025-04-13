@@ -70,11 +70,6 @@ namespace CerbiClientLogging.Implementations
                 var enrichedLogEntry = new
                 {
                     LogId = logId,
-                    TimestampUtc = DateTime.UtcNow,
-                    ApplicationId = ApplicationMetadata.ApplicationId,
-                    InstanceId = ApplicationMetadata.InstanceId,
-                    CloudProvider = ApplicationMetadata.CloudProvider,
-                    Region = ApplicationMetadata.Region,
                     LogData = logEntry
                 };
 
