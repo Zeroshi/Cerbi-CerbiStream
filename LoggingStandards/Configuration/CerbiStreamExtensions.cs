@@ -10,36 +10,42 @@ namespace CerbiStream.Configuration
     public static class CerbiStreamExtensions
     {
         /// <summary>
-        /// Adds logging to the application's logging pipeline.
+        /// Adds CerbiStream logging to the application's logging pipeline, including optional file-fallback.
         /// </summary>
         public static ILoggingBuilder AddCerbiStream(
             this ILoggingBuilder builder,
             Action<CerbiStreamOptions> configureOptions)
         {
+            // Configure core options
             var options = new CerbiStreamOptions();
             configureOptions(options);
 
+            // Register options and primary logger provider
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
 
-            // Add File Fallback support if enabled
+            // File-fallback: map config -> runtime options, then register
             if (options.FileFallback?.Enable == true)
             {
-                builder.Services.AddSingleton<ILoggerProvider>(new FileFallbackProvider(options.FileFallback));
-            }
-            if (options.FileFallback?.Enable == true)
-            {
-                var rotator = new EncryptedFileRotator(options.FileFallback);
-                builder.Services.AddSingleton(rotator);
-                builder.Services.AddHostedService<EncryptedFileRotationService>();
-                builder.AddProvider(new FileFallbackProvider(options.FileFallback));
-            }
+                var cfg = options.FileFallback;
+                var fbOpts = new CerbiStream.Classes.FileLogging.FileFallbackOptions
+                {
+                    Enable = cfg.Enable,
+                    PrimaryFilePath = cfg.PrimaryFilePath,
+                    FallbackFilePath = cfg.FallbackFilePath,
+                    RetryCount = cfg.RetryCount,
+                    RetryDelay = TimeSpan.FromMilliseconds(cfg.RetryDelayMilliseconds)
+                };
 
+                // Register fallback logger provider
+                builder.Services.AddSingleton<ILoggerProvider>(new FileFallbackProvider(fbOpts));
+                // Register rotation service
+                builder.Services.AddSingleton(new EncryptedFileRotator(fbOpts));
+                builder.Services.AddHostedService<EncryptedFileRotationService>();
+                builder.AddProvider(new FileFallbackProvider(fbOpts));
+            }
 
             return builder;
         }
     }
-
 }
-
-

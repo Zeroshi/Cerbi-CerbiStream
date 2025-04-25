@@ -2,6 +2,7 @@
 using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage; // ✅ Updated
 using CerbiStream.Interfaces;
+using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
@@ -33,7 +34,13 @@ public class ExtendedLoggingTests
         _mockEncryption.Setup(e => e.IsEnabled).Returns(true);
         _mockEncryption.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("encrypted-data");
 
-        _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object);
+        var options = new CerbiStreamOptions()
+    .WithQueueRetries(true, 3, 200); // or default
+
+        _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object, options);
+
+
+        _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object, options);
     }
 
     [Fact]

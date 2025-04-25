@@ -2,38 +2,47 @@
 using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
-using static CerberusLogging.Classes.Enums.MetaData;
 using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 namespace CerbiStream.Logging.Configuration
 {
     public class CerbiStreamOptions
     {
-        public Classes.FileLogging.FileFallbackOptions? FileFallback { get; set; }
+        // File fallback settings
+        public CerbiStream.Configuration.FileFallbackOptions? FileFallback { get; set; }
+
+        // Queue settings
         public string QueueType { get; private set; } = "RabbitMQ";
         public string QueueHost { get; private set; } = "localhost";
         public string QueueName { get; private set; } = "logs-queue";
+
+        // Metadata toggles
         public bool AdvancedMetadataEnabled { get; private set; } = false;
         public bool SecurityMetadataEnabled { get; private set; } = false;
+
+        // Output and enrichment
         public bool EnableConsoleOutput { get; private set; } = true;
         public bool EnableTelemetryEnrichment { get; private set; } = true;
         public bool EnableMetadataInjection { get; private set; } = true;
         public bool EnableGovernanceChecks { get; private set; } = true;
         public bool DisableQueueSending { get; private set; } = false;
 
+        // Telemetry provider
         public ITelemetryProvider? TelemetryProvider { get; private set; }
         public bool AlsoSendToTelemetry { get; private set; } = false;
-        public EncryptionType EncryptionMode { get; private set; } = EncryptionType.Base64;
+
+        // Encryption settings
+        public EncryptionType EncryptionMode { get; private set; } = EncryptionType.None;
         public byte[]? EncryptionKey { get; private set; }
         public byte[]? EncryptionIV { get; private set; }
 
-        // queue resiliency using Polly
+        // Polly retry for queues
         public bool EnableQueueRetries { get; private set; } = true;
         public int QueueRetryCount { get; private set; } = 3;
         public int QueueRetryDelayMilliseconds { get; private set; } = 200;
 
-
-        public Func<string, Dictionary<string, object>, bool>? ExternalGovernanceValidator { get; private set; }
+        // Governance validator hook
+        public Func<string, Dictionary<string, object>, bool>? GovernanceValidator { get; private set; }
 
         public void DumpConfiguration()
         {
@@ -52,6 +61,7 @@ namespace CerbiStream.Logging.Configuration
             Console.WriteLine("=================================");
         }
 
+        // Encryption key/IV
         public CerbiStreamOptions WithEncryptionKey(byte[] key, byte[] iv)
         {
             EncryptionKey = key;
@@ -65,6 +75,12 @@ namespace CerbiStream.Logging.Configuration
             return this;
         }
 
+        // Shorthand for common encryption modes
+        public CerbiStreamOptions WithoutEncryption() => WithEncryptionMode(EncryptionType.None);
+        public CerbiStreamOptions WithBase64Encryption() => WithEncryptionMode(EncryptionType.Base64);
+        public CerbiStreamOptions WithAesEncryption() => WithEncryptionMode(EncryptionType.AES);
+
+        // Queue configuration
         public CerbiStreamOptions WithQueue(string type, string host, string name)
         {
             QueueType = type;
@@ -73,7 +89,7 @@ namespace CerbiStream.Logging.Configuration
             return this;
         }
 
-        // queue retries
+        // Queue retry settings
         public CerbiStreamOptions WithQueueRetries(bool enabled, int retryCount = 3, int delayMilliseconds = 200)
         {
             EnableQueueRetries = enabled;
@@ -82,12 +98,14 @@ namespace CerbiStream.Logging.Configuration
             return this;
         }
 
+        // Telemetry provider
         public CerbiStreamOptions WithTelemetryProvider(ITelemetryProvider provider)
         {
             TelemetryProvider = provider;
             return this;
         }
 
+        // Metadata toggles
         public CerbiStreamOptions WithAdvancedMetadata(bool enabled = true)
         {
             AdvancedMetadataEnabled = enabled;
@@ -138,8 +156,19 @@ namespace CerbiStream.Logging.Configuration
 
         public CerbiStreamOptions WithGovernanceValidator(Func<string, Dictionary<string, object>, bool> validator)
         {
-            ExternalGovernanceValidator = validator;
+            GovernanceValidator = validator;
             return this;
+        }
+
+        // Preset modes
+        public CerbiStreamOptions EnableProductionMode()
+        {
+            return WithTelemetryLogging(true)
+                .WithConsoleOutput(false)
+                .WithTelemetryEnrichment(true)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(true)
+                .WithDisableQueue(false);
         }
 
         public CerbiStreamOptions EnableBenchmarkMode()
@@ -178,16 +207,13 @@ namespace CerbiStream.Logging.Configuration
                 .WithGovernanceChecks(false);
         }
 
-        public bool ValidateLog(string profileName, Dictionary<string, object> logData)
-        {
-            if (!EnableGovernanceChecks || ExternalGovernanceValidator == null)
-                return true;
-
-            return ExternalGovernanceValidator.Invoke(profileName, logData);
-        }
+        // Validation helper
+        public bool ValidateLog(string profileName, Dictionary<string, object> logData) =>
+            !EnableGovernanceChecks || (GovernanceValidator?.Invoke(profileName, logData) ?? true);
 
         public bool ShouldSkipQueueSend() => DisableQueueSending;
 
+        // Mode checks for introspection
         public bool IsBenchmarkMode =>
             !EnableConsoleOutput &&
             !EnableTelemetryEnrichment &&
