@@ -1,76 +1,99 @@
-﻿using Amazon.CloudWatchLogs;
-using Amazon.CloudWatchLogs.Model;
-using CerbiStream.Interfaces;
+﻿using CerbiStream.Interfaces;
+using CerbiStream.Telemetry;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Amazon.CloudWatchLogs;
+using Amazon.CloudWatchLogs.Model;
 
 namespace CerbiStream.Classes.OpenTelemetry
 {
     public class AWSCloudWatchTelemetryProvider : ITelemetryProvider
     {
-        private readonly AmazonCloudWatchLogsClient _cloudWatchClient;
-        private readonly string _logGroupName = "CerbiStreamLogs";
-        private readonly string _logStreamName = $"CerbiStream-{Guid.NewGuid()}";
+        private readonly IAmazonCloudWatchLogs _client;
+        private readonly string _logGroupName = "cerbistream-logs";
 
         public AWSCloudWatchTelemetryProvider()
         {
-            _cloudWatchClient = new AmazonCloudWatchLogsClient();
-            InitializeLogStream().Wait();
-        }
-
-        private async Task InitializeLogStream()
-        {
-            try
-            {
-                await _cloudWatchClient.CreateLogGroupAsync(new CreateLogGroupRequest { LogGroupName = _logGroupName });
-                await _cloudWatchClient.CreateLogStreamAsync(new CreateLogStreamRequest { LogGroupName = _logGroupName, LogStreamName = _logStreamName });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[AWSCloudWatch] Failed to initialize log stream: {ex.Message}");
-            }
+            _client = new AmazonCloudWatchLogsClient();
         }
 
         public void TrackEvent(string eventName, Dictionary<string, string> properties)
         {
-            var message = $"[Event] {eventName} | {string.Join(", ", properties)}";
-            SendLog(message);
+            _ = SendLogAsync(SerializeToJson(new
+            {
+                EventName = eventName,
+                Properties = MergeWithTelemetryContext(properties),
+                TimestampUtc = DateTime.UtcNow
+            }));
         }
 
-        public void TrackException(Exception ex, Dictionary<string, string> properties)
+        public void TrackException(Exception exception, Dictionary<string, string> properties)
         {
-            var message = $"[Exception] {ex.Message} | StackTrace: {ex.StackTrace} | {string.Join(", ", properties)}";
-            SendLog(message);
+            _ = SendLogAsync(SerializeToJson(new
+            {
+                ExceptionType = exception.GetType().Name,
+                ExceptionMessage = exception.Message,
+                StackTrace = exception.StackTrace,
+                Properties = MergeWithTelemetryContext(properties),
+                TimestampUtc = DateTime.UtcNow
+            }));
         }
 
-        public void TrackDependency(string dependencyName, string command, TimeSpan duration, bool success)
+        public void TrackDependency(string dependencyType, string target, TimeSpan duration, bool success)
         {
-            var message = $"[Dependency] {dependencyName} | Command: {command} | Duration: {duration} | Success: {success}";
-            SendLog(message);
+            _ = SendLogAsync(SerializeToJson(new
+            {
+                DependencyType = dependencyType,
+                Target = target,
+                Success = success,
+                DurationMs = duration.TotalMilliseconds,
+                TimestampUtc = DateTime.UtcNow
+            }));
         }
 
-        private async void SendLog(string message)
+        private async Task SendLogAsync(string message)
         {
             try
             {
-                var logEvent = new InputLogEvent
-                {
-                    Message = message,
-                    Timestamp = DateTime.UtcNow
-                };
-
-                await _cloudWatchClient.PutLogEventsAsync(new PutLogEventsRequest
+                var request = new PutLogEventsRequest
                 {
                     LogGroupName = _logGroupName,
-                    LogStreamName = _logStreamName,
-                    LogEvents = new List<InputLogEvent> { logEvent }
-                });
+                    LogStreamName = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                    LogEvents = new List<InputLogEvent>
+                    {
+                        new InputLogEvent
+                        {
+                            Message = message,
+                            Timestamp = DateTime.UtcNow
+                        }
+                    }
+                };
+
+                await _client.PutLogEventsAsync(request);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[AWSCloudWatch] Failed to send log: {ex.Message}");
+                Console.WriteLine($"[CerbiStream AWSCloudWatch] Failed to send log: {ex.Message}");
             }
+        }
+
+        private static Dictionary<string, string> MergeWithTelemetryContext(Dictionary<string, string> properties)
+        {
+            var snapshot = TelemetryContext.Snapshot();
+            foreach (var kvp in snapshot)
+            {
+                if (!properties.ContainsKey(kvp.Key) && kvp.Value != null)
+                {
+                    properties[kvp.Key] = kvp.Value.ToString()!;
+                }
+            }
+            return properties;
+        }
+
+        private static string SerializeToJson(object obj)
+        {
+            return System.Text.Json.JsonSerializer.Serialize(obj);
         }
     }
 }

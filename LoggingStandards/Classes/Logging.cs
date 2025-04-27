@@ -62,17 +62,26 @@ namespace CerbiClientLogging.Implementations
                 ["InstanceId"] = instanceId ?? "Unknown",
                 ["ApplicationVersion"] = applicationVersion ?? "Unknown",
                 ["RequestId"] = requestId ?? Guid.NewGuid().ToString(),
-                ["Log"] = log,
                 ["Platform"] = platform ?? "Unknown",
                 ["OnlyInnerException"] = onlyInnerException ?? false,
-                ["Note"] = note ?? "No note",
-                ["Error"] = error?.Message ?? "No Error"
+                ["Note"] = note ?? "No note"
             };
+
+            if (environment != null && !metadata.ContainsKey("Environment"))
+            {
+                metadata["Environment"] = environment.Name ?? "Unknown";
+            }
+
+            if (error != null && !metadata.ContainsKey("ErrorCode"))
+            {
+                metadata["ErrorCode"] = error.HResult.ToString();
+                metadata["TransactionStatus"] = "Failed";
+            }
 
             if (_options.EnableMetadataInjection)
             {
                 EnrichMetadata(metadata);
-                EncryptMetadata(metadata);
+                EncryptInternalSecrets(metadata);
             }
 
             if (!_options.ValidateLog(_options.QueueType, metadata))
@@ -86,6 +95,7 @@ namespace CerbiClientLogging.Implementations
                 ApplicationMessage = applicationMessage,
                 CurrentMethod = currentMethod,
                 LogLevel = logLevel,
+                Log = log, // freeform log message stays OUTSIDE metadata
                 Metadata = metadata
             };
 
@@ -107,7 +117,7 @@ namespace CerbiClientLogging.Implementations
             if (_options.EnableMetadataInjection)
             {
                 EnrichMetadata(metadata);
-                EncryptMetadata(metadata);
+                EncryptInternalSecrets(metadata);
             }
 
             var entry = new { Message = message, Metadata = metadata };
@@ -129,10 +139,9 @@ namespace CerbiClientLogging.Implementations
             if (_options.EnableMetadataInjection)
             {
                 EnrichMetadata(metadata);
-                EncryptMetadata(metadata);
+                EncryptInternalSecrets(metadata);
             }
 
-            // Pass performance details as metadata inside the main log entry
             var entry = new
             {
                 Message = eventName,
@@ -147,14 +156,12 @@ namespace CerbiClientLogging.Implementations
             {
                 var logId = Guid.NewGuid().ToString();
 
-                // Serialize JSON payload
                 string payload = _jsonConverter.ConvertMessageToJson(new
                 {
                     LogId = logId,
                     LogData = logEntry
                 });
 
-                // Apply full payload encryption
                 if (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled)
                 {
                     payload = _encryption.Encrypt(payload);
@@ -192,19 +199,54 @@ namespace CerbiClientLogging.Implementations
             }
         }
 
-        // Adds timestamp
         private void EnrichMetadata(Dictionary<string, object> metadata)
-            => metadata.TryAdd("TimestampUtc", DateTime.UtcNow);
+        {
+            metadata.TryAdd("TimestampUtc", DateTime.UtcNow);
 
-        // Encrypts selected sensitive metadata fields
-        private void EncryptMetadata(Dictionary<string, object> metadata)
+            if (!metadata.ContainsKey("ServiceName") && !string.IsNullOrEmpty(_options.ServiceName))
+                metadata["ServiceName"] = _options.ServiceName;
+
+            if (!metadata.ContainsKey("OriginApp") && !string.IsNullOrEmpty(_options.OriginApp))
+                metadata["OriginApp"] = _options.OriginApp;
+
+            if (!metadata.ContainsKey("ApplicationType") && !string.IsNullOrEmpty(_options.ApplicationType))
+                metadata["ApplicationType"] = _options.ApplicationType;
+
+            if (!metadata.ContainsKey("ServiceType") && !string.IsNullOrEmpty(_options.ServiceType))
+                metadata["ServiceType"] = _options.ServiceType;
+
+            if (!metadata.ContainsKey("TargetApplicationType") && !string.IsNullOrEmpty(_options.TargetApplicationType))
+                metadata["TargetApplicationType"] = _options.TargetApplicationType;
+
+            if (!metadata.ContainsKey("TargetServiceType") && !string.IsNullOrEmpty(_options.TargetServiceType))
+                metadata["TargetServiceType"] = _options.TargetServiceType;
+
+            // ✅ Only enrich tracing if allowed
+            if (!_options.MinimalMode && _options.EnableTracingEnrichment && System.Diagnostics.Activity.Current != null)
+            {
+                var activity = System.Diagnostics.Activity.Current;
+
+                if (!metadata.ContainsKey("TraceId") && activity.TraceId != default)
+                    metadata["TraceId"] = activity.TraceId.ToString();
+
+                if (!metadata.ContainsKey("SpanId") && activity.SpanId != default)
+                    metadata["SpanId"] = activity.SpanId.ToString();
+
+                if (!metadata.ContainsKey("ParentSpanId") && activity.ParentSpanId != default)
+                    metadata["ParentSpanId"] = activity.ParentSpanId.ToString();
+            }
+        }
+
+
+
+
+        private void EncryptInternalSecrets(Dictionary<string, object> metadata)
         {
             if (!_encryption.IsEnabled) return;
 
-            foreach (var key in new List<string> { "APIKey", "SensitiveField" })
+            if (metadata.TryGetValue("APIKey", out var val) && val is string str)
             {
-                if (metadata.TryGetValue(key, out var val) && val is string str)
-                    metadata[key] = _encryption.Encrypt(str);
+                metadata["APIKey"] = _encryption.Encrypt(str);
             }
         }
     }

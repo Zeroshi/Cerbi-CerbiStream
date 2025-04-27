@@ -1,6 +1,4 @@
-﻿// 🔹 TelemetryContext.cs
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace CerbiStream.Telemetry
 {
@@ -27,5 +25,17 @@ namespace CerbiStream.Telemetry
 
             return result;
         }
+
+        public static void Clear()
+        {
+            ServiceName = null;
+            OriginApp = null;
+            UserType = null;
+            Feature = null;
+            IsRetry = null;
+            RetryAttempt = null;
+        }
+
     }
+
 }

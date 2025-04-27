@@ -11,6 +11,8 @@
 
 - [Overview](#overview)
 - [Highlights](#highlights)
+- [Developer Quick Start](#developer-quick-start)
+- [Advanced Setup & Best Practices](#advanced-setup--best-practices)
 - [Features](#features)
 - [Architecture & Implementation](#architecture--implementation)
 - [Preset Modes and Configuration](#preset-modes-and-configuration)
@@ -247,6 +249,56 @@ Comprehensive coverage for:
 
 ---
 
+# CerbiStream: Dev-Friendly, Governance-Enforced Logging for .NET
+
+*Brought to you by **Cerbi LLC**, your trusted partner in enterprise observability.*
+
+> 🚀 **[View CerbiStream Benchmarks](https://cerbi.systems)**  
+> Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
+
+---
+
+## Benchmark vs Serilog
+
+**CerbiStream** was benchmarked against **Serilog** to highlight performance, memory usage, and enterprise-readiness.
+
+| Category | CerbiStream | Serilog | Comments |
+|:---------|:------------|:--------|:---------|
+| **Pipeline Layers** | Serialize → Encrypt → Send | Destructure ➔ Enrich ➔ Filter ➔ Format ➔ Write | Serilog's architecture adds overhead per log event. |
+| **Memory Allocation per Event** | 🔵 ~1–3 KB | 🔴 ~10–30 KB | Serilog allocates multiple objects (LogEventProperty trees). |
+| **Encryption Model** | Encrypt entire payload | No built-in encryption | CerbiStream secures the full log payload without external libraries. |
+| **Throughput** | 🟢 >50K logs/sec | 🟠 ~10K–30K logs/sec | CerbiStream maintains speed even with encryption and governance. |
+| **Telemetry & Governance** | Native, lightweight, optional enforcement | Plugins required, no native governance | CerbiStream enforces compliance simply. |
+
+---
+
+### Why CerbiStream is Faster
+
+- **No Multi-Step Enrichers**: Metadata is injected once during serialization.
+- **Full-Payload Encryption**: Encrypts the JSON payload, avoiding per-field cost.
+- **Minimal Object Allocation**: No construction of complex `LogEvent` trees.
+- **Light Retry Strategy**: Built-in Polly retries for resilient delivery.
+
+---
+
+### When to Choose CerbiStream
+
+| | Enterprise-Grade Systems | Lightweight Applications |
+|:-|:-|:-|
+| **CerbiStream** | ✅ Best choice (performance, compliance, encryption) | ✅ Simple setup, lower resource usage |
+| **Serilog** | ⚙️ Possible, but heavier and harder to govern | ✅ Best for flexible, custom plug-in scenarios |
+
+**View the full benchmarks:** [CerbiStream Benchmark Tests](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
+
+
+---
+
+## License
+
+MIT © Cerbi LLC
+
+
+
 ## Contributing
 
 PRs and issues welcome! Please ensure tests pass and follow style guidelines. Use `git tag` to list releases.
@@ -259,6 +311,15 @@ PRs and issues welcome! Please ensure tests pass and follow style guidelines. Us
 - **Email:** hello@cerbi.io  
 - **Website & Benchmarks:** https://cerbi.systems  
 - **Governance Analyzer:** https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer
+
+## Developer Quick Start
+
+👉 [View Quick Start Guide](README-CerbiStreamDeveloperQuickStart.md)
+
+## Advanced Setup & Best Practices
+
+👉 [View Advanced Setup Guide](README-CerbiStream-AdvancedSetup&BestPractices.md)
+
 
 ---
 

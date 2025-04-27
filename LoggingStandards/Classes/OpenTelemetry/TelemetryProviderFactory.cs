@@ -14,8 +14,10 @@ namespace CerbiStream.Classes.OpenTelemetry
                 "opentelemetry" => new OpenTelemetryProvider(),
                 "awscloudwatch" => new AWSCloudWatchTelemetryProvider(),
                 "gcpstackdriver" => new GCPStackdriverTelemetryProvider(),
+                "optimizedopentelemetry" => new OptimizedTelemetryProvider(),
                 _ => throw new ArgumentException($"Unknown telemetry provider: {providerName}")
             };
+
         }
     }
 }
