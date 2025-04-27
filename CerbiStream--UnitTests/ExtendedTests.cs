@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
+using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 public class ExtendedLoggingTests
 {
@@ -63,20 +64,28 @@ public class ExtendedLoggingTests
     }
 
     [Fact]
-    public async Task Should_Encrypt_Metadata_Correctly()
+    public async Task Should_Encrypt_FullPayload_Correctly()
     {
-        Dictionary<string, object> metadata = new Dictionary<string, object>
-        {
-            { "APIKey", "SensitiveData" },
-            { "SensitiveField", "SomeSecretValue" }
-        };
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var mockEncryption = new Mock<IEncryption>();
+        var options = new CerbiStreamOptions().WithEncryptionMode(EncryptionType.AES);
 
-        var privateMethod = typeof(Logging).GetMethod("EncryptMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        privateMethod.Invoke(_logging, new object[] { metadata });
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{\"LogData\":\"something\"}");
+        mockEncryption.Setup(e => e.IsEnabled).Returns(true);
+        mockEncryption.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("ENCRYPTED-PAYLOAD");
 
-        Assert.Equal("encrypted-data", metadata["APIKey"]);
-        Assert.Equal("encrypted-data", metadata["SensitiveField"]);
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncryption.Object, options);
+
+        var metadata = new Dictionary<string, object>();
+
+        await logger.LogEventAsync("Test Event", LogLevel.Information, metadata);
+
+        mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(p => p.Contains("ENCRYPTED-PAYLOAD")), It.IsAny<string>()), Times.Once);
     }
+
+
 
     [Fact]
     public async Task Should_Handle_Empty_Message_Correctly()

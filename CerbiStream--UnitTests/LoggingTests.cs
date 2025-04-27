@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
+using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 public class LoggingTests
 {
@@ -101,16 +102,15 @@ public class LoggingTests
 
         var metadata = new Dictionary<string, object>
     {
-        { "APIKey", "secret" },
-        { "SensitiveField", "value" }
+        { "APIKey", "secret" }
     };
 
-        var method = typeof(Logging).GetMethod("EncryptMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var method = typeof(Logging).GetMethod("EncryptInternalSecrets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method.Invoke(logger, new object[] { metadata });
 
         Assert.Equal("encrypted", metadata["APIKey"]);
-        Assert.Equal("encrypted", metadata["SensitiveField"]);
     }
+
 
 
     [Fact]
@@ -207,18 +207,29 @@ public class LoggingTests
     [Fact]
     public void EncryptMetadata_WhenEnabled_ShouldEncryptSensitiveFields()
     {
-        Dictionary<string, object> metadata = new Dictionary<string, object>
-        {
-            { "APIKey", "SensitiveData" },
-            { "SensitiveField", "SomeSecretValue" }
-        };
+        // Arrange
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var mockEncrypt = new Mock<IEncryption>();
+        var options = new CerbiStreamOptions();
 
-        var method = typeof(Logging).GetMethod("EncryptMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method.Invoke(_logging, new object[] { metadata });
+        mockEncrypt.Setup(e => e.IsEnabled).Returns(true);
+        mockEncrypt.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("encrypted-data");
+
+        var logging = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+
+        var metadata = new Dictionary<string, object>
+    {
+        { "APIKey", "SensitiveData" }
+    };
+
+        var method = typeof(Logging).GetMethod("EncryptInternalSecrets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method.Invoke(logging, new object[] { metadata });
 
         Assert.Equal("encrypted-data", metadata["APIKey"]);
-        Assert.Equal("encrypted-data", metadata["SensitiveField"]);
     }
+
 
     [Fact]
     public async Task Should_Not_Send_To_Queue_When_DisableQueueSending_Is_True()
@@ -254,7 +265,7 @@ public class LoggingTests
         var options = new CerbiStreamOptions()
             .WithEncryptionMode(CerbiStream.Interfaces.IEncryptionTypeProvider.EncryptionType.AES)
             .WithEncryptionKey(new byte[16], new byte[16]);
-        
+
         mockEncrypt.Setup(e => e.IsEnabled).Returns(true);
         mockEncrypt.Setup(e => e.Encrypt(It.IsAny<string>()))
             .Returns<string>(s => $"[ENCRYPTED]{s}[/ENCRYPTED]");
@@ -271,6 +282,78 @@ public class LoggingTests
         mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(s => s.StartsWith("[ENCRYPTED]")), It.IsAny<string>()), Times.Once);
     }
 
+    [Fact]
+    public async Task Logging_Should_EncryptPayload_When_UsingAesEncryption()
+    {
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
 
+        // Provide a dummy key and IV manually
+        var key = new byte[32]; // AES-256
+        var iv = new byte[16];  // AES block size
+        var aesEncryption = new AesEncryption(key, iv);
 
+        var options = new CerbiStreamOptions()
+            .WithEncryptionMode(EncryptionType.AES)
+            .WithEncryptionKey(key, iv)
+            .WithTelemetryEnrichment(false)
+            .WithMetadataInjection(false);
+
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, aesEncryption, options);
+
+        await logger.LogEventAsync("test event", LogLevel.Information);
+
+        // 🔥 Correct verification
+        mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(payload => payload != "{}" && IsBase64(payload)), It.IsAny<string>()), Times.Once);
+    }
+
+    // Helper function
+    private static bool IsBase64(string s)
+    {
+        Span<byte> buffer = new Span<byte>(new byte[s.Length]);
+        return Convert.TryFromBase64String(s, buffer, out _);
+    }
+
+    [Fact]
+    public async Task Logging_Should_EncryptPayload_When_UsingBase64Encryption()
+    {
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var base64Encryption = new EncryptionImplementation();
+        var options = new CerbiStreamOptions()
+            .WithEncryptionMode(EncryptionType.Base64)
+            .WithTelemetryEnrichment(false)
+            .WithMetadataInjection(false);
+
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, base64Encryption, options);
+
+        await logger.LogEventAsync("test event", LogLevel.Information);
+
+        mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(p => p != "{}"), It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Logging_Should_NotEncryptPayload_When_UsingNoEncryption()
+    {
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var noOpEncryption = new NoOpEncryption();
+        var options = new CerbiStreamOptions()
+            .WithoutEncryption()
+            .WithTelemetryEnrichment(false)
+            .WithMetadataInjection(false);
+
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, noOpEncryption, options);
+
+        await logger.LogEventAsync("test event", LogLevel.Information);
+
+        mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(p => p == "{}"), It.IsAny<string>()), Times.Once);
+    }
 }
