@@ -5,6 +5,16 @@
 > 🚀 **[View CerbiStream Benchmarks](https://cerbi.systems)**  
 > Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
 
+[![CerbiStream NuGet](https://img.shields.io/nuget/v/CerbiStream?label=CerbiStream%20NuGet&style=flat-square)](https://www.nuget.org/packages/CerbiStream/)
+[![CerbiStream Downloads](https://img.shields.io/nuget/dt/CerbiStream?label=Downloads&style=flat-square)](https://www.nuget.org/packages/CerbiStream/)
+[![Governance Analyzer NuGet](https://img.shields.io/nuget/v/CerbiStream.GovernanceAnalyzer?label=Governance%20Analyzer%20NuGet&style=flat-square)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer/)
+[![Governance Analyzer Downloads](https://img.shields.io/nuget/dt/CerbiStream.GovernanceAnalyzer?label=Governance%20Analyzer%20Downloads&style=flat-square)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer/)
+[![Build Status](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml/badge.svg?branch=master)](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Zeroshi_Cerbi-CerbiStream&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Zeroshi_Cerbi-CerbiStream)
+[![Benchmark Tests Repo](https://img.shields.io/badge/View-Benchmark%20Tests-blue?style=flat-square)](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+
 ---
 
 ## Table of Contents
@@ -42,6 +52,14 @@
 - **New Backends Added:** Out-of-the-box support now includes **HTTP endpoint** (`HttpMessageSender`) and **Azure Blob Storage** (`BlobStorageSender`)—a highlight of v1.1.2!
 
 ---
+
+## Developer Quick Start
+
+👉 [View Quick Start Guide](LoggingStandards/README-CerbiStreamDeveloperQuickStart.md)
+
+## Advanced Setup & Best Practices
+
+👉 [View Advanced Setup Guide](LoggingStandards/README-CerbiStream–AdvancedSetup&BestPractices.md)
 
 ## Overview
 
@@ -312,13 +330,6 @@ PRs and issues welcome! Please ensure tests pass and follow style guidelines. Us
 - **Website & Benchmarks:** https://cerbi.systems  
 - **Governance Analyzer:** https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer
 
-## Developer Quick Start
-
-👉 [View Quick Start Guide](README-CerbiStreamDeveloperQuickStart.md)
-
-## Advanced Setup & Best Practices
-
-👉 [View Advanced Setup Guide](README-CerbiStream-AdvancedSetup&BestPractices.md)
 
 
 ---
