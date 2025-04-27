@@ -356,4 +356,48 @@ public class LoggingTests
 
         mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(p => p == "{}"), It.IsAny<string>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Should_Drop_Log_When_Governance_Fails()
+    {
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var mockEncrypt = new Mock<IEncryption>();
+        var options = new CerbiStreamOptions()
+            .WithGovernanceValidator((profile, data) => false); // Force fail
+
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+
+        var result = await logger.LogEventAsync("Test", LogLevel.Information);
+
+        Assert.False(result);
+    }
+
+
+    [Fact]
+    public async Task Should_Not_Send_When_Queue_Disabled()
+    {
+        var mockLogger = new Mock<ILogger<Logging>>();
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var mockEncrypt = new Mock<IEncryption>();
+        var options = new CerbiStreamOptions().WithDisableQueue(true);
+
+        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+
+        var result = await logger.LogEventAsync("Test", LogLevel.Information);
+
+        mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.True(result); // returns true even if skipped
+    }
+
+    [Fact]
+    public void Should_Handle_Missing_TelemetryProvider_Gracefully()
+    {
+        var options = new CerbiStreamOptions(); // No telemetry
+        var provider = options.TelemetryProvider;
+        Assert.Null(provider); // Simply ensure no null exceptions happen in normal code
+    }
+
 }
