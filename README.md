@@ -11,8 +11,18 @@
 [![Governance Analyzer Downloads](https://img.shields.io/nuget/dt/CerbiStream.GovernanceAnalyzer?label=Governance%20Analyzer%20Downloads&style=flat-square)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer/)
 [![Build Status](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml/badge.svg?branch=master)](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Zeroshi_Cerbi-CerbiStream&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Zeroshi_Cerbi-CerbiStream)
+
 [![Benchmark Tests Repo](https://img.shields.io/badge/View-Benchmark%20Tests-blue?style=flat-square)](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+
+🔗 **Where can CerbiStream connect?**
+CerbiStream natively supports:
+- 📨 **Queues**: Azure Service Bus, RabbitMQ, Kafka, AWS SQS/Kinesis, Google Pub/Sub
+- 🌐 **HTTP Endpoints**: Send logs to any REST API with custom headers
+- ☁️ **Cloud Storage**: Azure Blob Storage (save structured logs for batch processing)
+- 📝 **File System Fallback**: Encrypted JSON file logging when needed
+- 📈 **Telemetry Providers**: App Insights, OpenTelemetry, Datadog, AWS CloudWatch, GCP Stackdriver
 
 
 ---
