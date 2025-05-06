@@ -1,48 +1,53 @@
-﻿using CerbiStream.Classes.FileLogging;
+﻿using CerbiClientLogging.Interfaces;
+using CerbiStream.Classes.FileLogging;
+using CerbiStream.FileLogging;
 using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging; // Explicitly use only one namespace
+using Microsoft.Extensions.Logging;
 using System;
-using CerbiStream.FileLogging;
 
 namespace CerbiStream.Configuration
 {
     public static class CerbiStreamExtensions
     {
         /// <summary>
-        /// Adds CerbiStream logging to the application's logging pipeline, including optional file-fallback.
+        /// Adds CerbiStream logging to the application's logging pipeline, including optional file fallback support.
         /// </summary>
         public static ILoggingBuilder AddCerbiStream(
             this ILoggingBuilder builder,
             Action<CerbiStreamOptions> configureOptions)
         {
-            // Configure core options
             var options = new CerbiStreamOptions();
             configureOptions(options);
 
-            // Register options and primary logger provider
+            // Register CerbiStream options and logger provider
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
 
-            // File-fallback: map config -> runtime options, then register
             if (options.FileFallback?.Enable == true)
             {
-                var cfg = options.FileFallback;
-                var fbOpts = new CerbiStream.Classes.FileLogging.FileFallbackOptions
+                var fallbackConfig = options.FileFallback;
+                var fallbackOptions = new CerbiStream.Classes.FileLogging.FileFallbackOptions
                 {
-                    Enable = cfg.Enable,
-                    PrimaryFilePath = cfg.PrimaryFilePath,
-                    FallbackFilePath = cfg.FallbackFilePath,
-                    RetryCount = cfg.RetryCount,
-                    RetryDelay = TimeSpan.FromMilliseconds(cfg.RetryDelayMilliseconds)
+                    Enable = fallbackConfig.Enable,
+                    PrimaryFilePath = fallbackConfig.PrimaryFilePath,
+                    FallbackFilePath = fallbackConfig.FallbackFilePath,
+                    RetryCount = fallbackConfig.RetryCount,
                 };
 
-                // Register fallback logger provider
-                builder.Services.AddSingleton<ILoggerProvider>(new FileFallbackProvider(fbOpts));
-                // Register rotation service
-                builder.Services.AddSingleton(new EncryptedFileRotator(fbOpts));
+                // Register fallback logging components
+                builder.Services.AddSingleton(fallbackOptions);
+                builder.Services.AddSingleton<ILoggerProvider, FileFallbackProvider>();
+
+                // Explicit factory registration for rotator with encryption dependency
+                builder.Services.AddSingleton<EncryptedFileRotator>(sp =>
+                {
+                    var opts = sp.GetRequiredService<CerbiStream.Classes.FileLogging.FileFallbackOptions>();
+                    var encryption = sp.GetRequiredService<IEncryption>();
+                    return new EncryptedFileRotator(opts, encryption);
+                });
+
                 builder.Services.AddHostedService<EncryptedFileRotationService>();
-                builder.AddProvider(new FileFallbackProvider(fbOpts));
             }
 
             return builder;

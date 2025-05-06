@@ -15,7 +15,6 @@
 [![Benchmark Tests Repo](https://img.shields.io/badge/View-Benchmark%20Tests-blue?style=flat-square)](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-
 🔗 **Where can CerbiStream connect?**
 CerbiStream natively supports:
 - 📨 **Queues**: Azure Service Bus, RabbitMQ, Kafka, AWS SQS/Kinesis, Google Pub/Sub
@@ -23,7 +22,6 @@ CerbiStream natively supports:
 - ☁️ **Cloud Storage**: Azure Blob Storage (save structured logs for batch processing)
 - 📝 **File System Fallback**: Encrypted JSON file logging when needed
 - 📈 **Telemetry Providers**: App Insights, OpenTelemetry, Datadog, AWS CloudWatch, GCP Stackdriver
-
 
 ---
 
@@ -173,7 +171,7 @@ builder.Logging.AddCerbiStream(opts => {
         .WithMetadataInjection(true)
         .EnableDeveloperModeWithoutTelemetry();
 });
-```  
+```
 
 ### By Transport
 
@@ -277,15 +275,6 @@ Comprehensive coverage for:
 
 ---
 
-# CerbiStream: Dev-Friendly, Governance-Enforced Logging for .NET
-
-*Brought to you by **Cerbi LLC**, your trusted partner in enterprise observability.*
-
-> 🚀 **[View CerbiStream Benchmarks](https://cerbi.systems)**  
-> Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
-
----
-
 ## Benchmark vs Serilog
 
 **CerbiStream** was benchmarked against **Serilog** to highlight performance, memory usage, and enterprise-readiness.
@@ -298,16 +287,12 @@ Comprehensive coverage for:
 | **Throughput** | 🟢 >50K logs/sec | 🟠 ~10K–30K logs/sec | CerbiStream maintains speed even with encryption and governance. |
 | **Telemetry & Governance** | Native, lightweight, optional enforcement | Plugins required, no native governance | CerbiStream enforces compliance simply. |
 
----
-
 ### Why CerbiStream is Faster
 
 - **No Multi-Step Enrichers**: Metadata is injected once during serialization.
 - **Full-Payload Encryption**: Encrypts the JSON payload, avoiding per-field cost.
 - **Minimal Object Allocation**: No construction of complex `LogEvent` trees.
 - **Light Retry Strategy**: Built-in Polly retries for resilient delivery.
-
----
 
 ### When to Choose CerbiStream
 
@@ -318,14 +303,13 @@ Comprehensive coverage for:
 
 **View the full benchmarks:** [CerbiStream Benchmark Tests](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
 
-
 ---
 
 ## License
 
 MIT © Cerbi LLC
 
-
+---
 
 ## Contributing
 
@@ -337,14 +321,11 @@ PRs and issues welcome! Please ensure tests pass and follow style guidelines. Us
 
 - **GitHub Repo:** https://github.com/Zeroshi/Cerbi-CerbiStream  
 - **Email:** hello@cerbi.io  
-- **Website & Benchmarks:** https://cerbi.systems  
+- **Website & Benchmarks:** https://cerbi.io  
 - **Governance Analyzer:** https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer
-
-
 
 ---
 
 ## License
 
 MIT © Cerbi LLC
-

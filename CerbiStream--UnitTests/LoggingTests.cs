@@ -15,17 +15,15 @@ using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 public class LoggingTests
 {
-    private readonly Mock<ILogger<Logging>> _mockLogger;
-    private readonly Mock<ISendMessage> _mockQueue; // ✅ Updated
-    private readonly Mock<ConvertToJson> _mockJsonConverter;
+    private readonly Mock<ISendMessage> _mockQueue;
+    private readonly Mock<IConvertToJson> _mockJsonConverter;
     private readonly Mock<IEncryption> _mockEncryption;
     private readonly Logging _logging;
 
     public LoggingTests()
     {
-        _mockLogger = new Mock<ILogger<Logging>>();
-        _mockQueue = new Mock<ISendMessage>(); // ✅ Use ISendMessage
-        _mockJsonConverter = new Mock<ConvertToJson>();
+        _mockQueue = new Mock<ISendMessage>();
+        _mockJsonConverter = new Mock<IConvertToJson>();
         _mockEncryption = new Mock<IEncryption>();
 
         _mockJsonConverter.Setup(j => j.ConvertMessageToJson(It.IsAny<object>()))
@@ -39,8 +37,9 @@ public class LoggingTests
 
         var options = new CerbiStreamOptions();
 
-        _logging = new Logging(_mockLogger.Object, _mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object, options);
+        _logging = new Logging(_mockQueue.Object, _mockJsonConverter.Object, _mockEncryption.Object, options);
     }
+
 
     [Fact]
     public async Task LogEventAsync_ReturnsFalse_When_QueueFails()
@@ -57,11 +56,17 @@ public class LoggingTests
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
         mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        var logger = new Logging(          // ✅ ILogger<Logging>
+            mockQueue.Object,            // ✅ ISendMessage
+            mockJson.Object,             // ✅ IConvertToJson
+            mockEncrypt.Object,          // ✅ IEncryption
+            options                      // ✅ CerbiStreamOptions
+        );
 
         var result = await logger.LogEventAsync("test", LogLevel.Information);
         Assert.False(result);
     }
+
 
 
     [Fact]
@@ -88,7 +93,6 @@ public class LoggingTests
     [Fact]
     public async Task EncryptMetadata_Encrypts_Sensitive_Fields()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
@@ -98,7 +102,7 @@ public class LoggingTests
         mockEncrypt.Setup(e => e.IsEnabled).Returns(true);
         mockEncrypt.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("encrypted");
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var metadata = new Dictionary<string, object>
     {
@@ -112,52 +116,53 @@ public class LoggingTests
     }
 
 
-
     [Fact]
     public async Task LogEventAsync_WhenExceptionOccurs_ShouldReturnFalse()
     {
-        _mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ThrowsAsync(new Exception("Queue failure"));
-
-        bool result = await _logging.LogEventAsync("Test message", LogLevel.Information);
-
-        Assert.False(result);
-
-        _mockLogger.Verify(
-            l => l.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Logging failed")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()
-            ),
-            Times.Once
-        );
-    }
-
-    [Fact]
-    public async Task Retry_Policy_Is_Applied_When_Enabled()
-    {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
-        var options = new CerbiStreamOptions().WithQueueRetries(true, 2, 50);
-
-        mockQueue.SetupSequence(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ThrowsAsync(new Exception("Transient failure"))
-            .ReturnsAsync(true); // Should succeed on retry
+        var options = new CerbiStreamOptions();
 
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
         mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new Exception("Queue failure"));
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+
+        bool result = await logger.LogEventAsync("Test message", LogLevel.Information);
+
+        Assert.False(result);
+    }
+
+
+    [Fact]
+    public async Task Retry_Policy_Is_Applied_When_Enabled()
+    {
+        var mockQueue = new Mock<ISendMessage>();
+        var mockJson = new Mock<IConvertToJson>();
+        var mockEncrypt = new Mock<IEncryption>();
+
+        var options = new CerbiStreamOptions()
+            .WithQueueRetries(true, retryCount: 2, 50);
+
+        mockQueue.SetupSequence(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new Exception("Transient failure"))
+            .ReturnsAsync(true); // Succeeds on second attempt
+
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+        mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var result = await logger.LogEventAsync("retry test", LogLevel.Information);
 
-        Assert.True(result); // ✅ Should pass
+        Assert.True(result); // ✅ Success after one retry
         mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Exactly(2));
     }
+
 
 
 
@@ -208,7 +213,6 @@ public class LoggingTests
     public void EncryptMetadata_WhenEnabled_ShouldEncryptSensitiveFields()
     {
         // Arrange
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
@@ -217,7 +221,7 @@ public class LoggingTests
         mockEncrypt.Setup(e => e.IsEnabled).Returns(true);
         mockEncrypt.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("encrypted-data");
 
-        var logging = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        var logging = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var metadata = new Dictionary<string, object>
     {
@@ -225,16 +229,16 @@ public class LoggingTests
     };
 
         var method = typeof(Logging).GetMethod("EncryptInternalSecrets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method.Invoke(logging, new object[] { metadata });
+        method!.Invoke(logging, new object[] { metadata });
 
         Assert.Equal("encrypted-data", metadata["APIKey"]);
     }
 
 
+
     [Fact]
     public async Task Should_Not_Send_To_Queue_When_DisableQueueSending_Is_True()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
@@ -245,7 +249,7 @@ public class LoggingTests
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
         mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var result = await logger.LogEventAsync("test message", LogLevel.Information);
 
@@ -254,10 +258,10 @@ public class LoggingTests
     }
 
 
+
     [Fact]
     public async Task Should_Encrypt_Log_Json_When_Encryption_Is_Enabled()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
@@ -273,7 +277,7 @@ public class LoggingTests
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>()))
             .Returns("{ \"Message\": \"Sensitive payload\" }");
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var result = await logger.LogEventAsync("encrypt test", LogLevel.Information);
 
@@ -282,10 +286,10 @@ public class LoggingTests
         mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(s => s.StartsWith("[ENCRYPTED]")), It.IsAny<string>()), Times.Once);
     }
 
+
     [Fact]
     public async Task Logging_Should_EncryptPayload_When_UsingAesEncryption()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
 
@@ -302,7 +306,7 @@ public class LoggingTests
 
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, aesEncryption, options);
+        var logger = new Logging(mockQueue.Object, mockJson.Object, aesEncryption, options);
 
         await logger.LogEventAsync("test event", LogLevel.Information);
 
@@ -320,27 +324,28 @@ public class LoggingTests
     [Fact]
     public async Task Logging_Should_EncryptPayload_When_UsingBase64Encryption()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var base64Encryption = new EncryptionImplementation();
+
         var options = new CerbiStreamOptions()
             .WithEncryptionMode(EncryptionType.Base64)
             .WithTelemetryEnrichment(false)
             .WithMetadataInjection(false);
 
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, base64Encryption, options);
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, base64Encryption, options);
 
         await logger.LogEventAsync("test event", LogLevel.Information);
 
         mockQueue.Verify(q => q.SendMessageAsync(It.Is<string>(p => p != "{}"), It.IsAny<string>()), Times.Once);
     }
 
+
     [Fact]
     public async Task Logging_Should_NotEncryptPayload_When_UsingNoEncryption()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var noOpEncryption = new NoOpEncryption();
@@ -350,7 +355,8 @@ public class LoggingTests
             .WithMetadataInjection(false);
 
         mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, noOpEncryption, options);
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, noOpEncryption, options);
 
         await logger.LogEventAsync("test event", LogLevel.Information);
 
@@ -360,14 +366,16 @@ public class LoggingTests
     [Fact]
     public async Task Should_Drop_Log_When_Governance_Fails()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
         var options = new CerbiStreamOptions()
             .WithGovernanceValidator((profile, data) => false); // Force fail
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+        mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var result = await logger.LogEventAsync("Test", LogLevel.Information);
 
@@ -378,13 +386,15 @@ public class LoggingTests
     [Fact]
     public async Task Should_Not_Send_When_Queue_Disabled()
     {
-        var mockLogger = new Mock<ILogger<Logging>>();
         var mockQueue = new Mock<ISendMessage>();
         var mockJson = new Mock<IConvertToJson>();
         var mockEncrypt = new Mock<IEncryption>();
         var options = new CerbiStreamOptions().WithDisableQueue(true);
 
-        var logger = new Logging(mockLogger.Object, mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+        mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{}");
+        mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
+
+        var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
         var result = await logger.LogEventAsync("Test", LogLevel.Information);
 

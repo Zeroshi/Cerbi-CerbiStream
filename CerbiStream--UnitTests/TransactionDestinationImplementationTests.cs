@@ -31,7 +31,7 @@ public class TransactionDestinationImplementationTests
         };
 
         var options = new CerbiStreamOptions();
-        var logging = new Logging(logger, mockQueue, jsonConverter, encryption, options);
+        var logging = new Logging(mockQueue, jsonConverter, encryption, options);
 
         // Act
         var result = await logging.LogEventAsync("Test message", LogLevel.Information);

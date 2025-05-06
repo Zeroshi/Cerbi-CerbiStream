@@ -1,4 +1,6 @@
-﻿using CerberClientLogging.Classes.Queues;
+﻿/* Obsolete
+ * 
+ * using CerberClientLogging.Classes.Queues;
 using CerbiClientLogging.Classes.Queues;
 using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
@@ -30,4 +32,4 @@ namespace CerbiStream.Classes.Queues
 
     }
 }
-
+*/

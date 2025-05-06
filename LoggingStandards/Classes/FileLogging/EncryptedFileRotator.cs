@@ -1,24 +1,29 @@
-﻿using System;
+﻿using CerbiClientLogging.Interfaces;
+using CerbiStream.Interfaces;
+using System;
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace CerbiStream.Classes.FileLogging
 {
-    //todo: refactor to use the same aes that was created prior
     public class EncryptedFileRotator
     {
         private readonly FileFallbackOptions _options;
+        private readonly IEncryption _encryption;
 
-        public EncryptedFileRotator(FileFallbackOptions options)
+        public EncryptedFileRotator(FileFallbackOptions options, IEncryption encryption)
         {
-            _options = options;
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
+
+            if (!_encryption.IsEnabled)
+                throw new InvalidOperationException("Encryption must be enabled for file rotation.");
         }
 
         public void CheckAndRotateIfNeeded()
         {
             var fallbackPath = _options.FallbackFilePath;
-            if (!File.Exists(fallbackPath)) return;
+            if (string.IsNullOrWhiteSpace(fallbackPath) || !File.Exists(fallbackPath))
+                return;
 
             var fileInfo = new FileInfo(fallbackPath);
             var now = DateTime.UtcNow;
@@ -36,31 +41,17 @@ namespace CerbiStream.Classes.FileLogging
 
             try
             {
-                EncryptAndArchiveFile(fallbackPath, archiveFileName);
+                string rawLog = File.ReadAllText(fallbackPath);
+                if (string.IsNullOrWhiteSpace(rawLog)) return;
+
+                string encrypted = _encryption.Encrypt(rawLog);
+                File.WriteAllText(archiveFileName, encrypted);
                 File.WriteAllText(fallbackPath, string.Empty); // Clear current log file
             }
             catch (Exception ex)
             {
-                // You might want to log this to another fallback or monitoring tool
-                Console.Error.WriteLine("Log rotation failed: " + ex);
+                Console.Error.WriteLine($"[CerbiStream] Log rotation failed: {ex}");
             }
-        }
-
-        private void EncryptAndArchiveFile(string sourcePath, string destinationPath)
-        {
-            var key = Encoding.UTF8.GetBytes(_options.EncryptionKey ?? "default-32-char-test-key!!");
-            var iv = Encoding.UTF8.GetBytes(_options.EncryptionIV ?? "default-16byte-iv");
-
-            using var aes = Aes.Create();
-            aes.Key = key;
-            aes.IV = iv;
-            aes.Mode = CipherMode.CBC;
-
-            using var encryptor = aes.CreateEncryptor();
-            using var inputStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read);
-            using var outputStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-            using var cryptoStream = new CryptoStream(outputStream, encryptor, CryptoStreamMode.Write);
-            inputStream.CopyTo(cryptoStream);
         }
     }
 }

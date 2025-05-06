@@ -13,20 +13,17 @@ namespace CerbiClientLogging.Implementations
 {
     public class Logging : IBaseLogging
     {
-        private readonly ILogger<Logging> _logger;
         private readonly ISendMessage _queue;
         private readonly IConvertToJson _jsonConverter;
         private readonly IEncryption _encryption;
         private readonly CerbiStreamOptions _options;
 
         public Logging(
-            ILogger<Logging> logger,
             ISendMessage queue,
             IConvertToJson jsonConverter,
             IEncryption encryption,
             CerbiStreamOptions options)
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _queue = queue ?? throw new ArgumentNullException(nameof(queue));
             _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
             _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
@@ -68,9 +65,7 @@ namespace CerbiClientLogging.Implementations
             };
 
             if (environment != null && !metadata.ContainsKey("Environment"))
-            {
                 metadata["Environment"] = environment.Name ?? "Unknown";
-            }
 
             if (error != null && !metadata.ContainsKey("ErrorCode"))
             {
@@ -86,7 +81,7 @@ namespace CerbiClientLogging.Implementations
 
             if (!_options.ValidateLog(_options.QueueType, metadata))
             {
-                _logger.LogError("[CerbiStream] Governance validation failed; dropping log.");
+                Console.WriteLine("[CerbiStream] Governance validation failed; dropping log.");
                 return Task.FromResult(false);
             }
 
@@ -95,7 +90,7 @@ namespace CerbiClientLogging.Implementations
                 ApplicationMessage = applicationMessage,
                 CurrentMethod = currentMethod,
                 LogLevel = logLevel,
-                Log = log, // freeform log message stays OUTSIDE metadata
+                Log = log,
                 Metadata = metadata
             };
 
@@ -106,7 +101,7 @@ namespace CerbiClientLogging.Implementations
         {
             if (string.IsNullOrWhiteSpace(message))
             {
-                _logger.LogWarning("Log message is empty or null.");
+                Console.WriteLine("[CerbiStream] Log message is empty or null.");
                 return Task.FromResult(false);
             }
 
@@ -128,7 +123,7 @@ namespace CerbiClientLogging.Implementations
         {
             if (string.IsNullOrWhiteSpace(eventName) || elapsedMilliseconds < 0)
             {
-                _logger.LogWarning("Invalid performance log parameters.");
+                Console.WriteLine("[CerbiStream] Invalid performance log parameters.");
                 return Task.FromResult(false);
             }
 
@@ -147,6 +142,7 @@ namespace CerbiClientLogging.Implementations
                 Message = eventName,
                 Metadata = metadata
             };
+
             return SendLogAsync(entry);
         }
 
@@ -165,14 +161,14 @@ namespace CerbiClientLogging.Implementations
                 if (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled)
                 {
                     payload = _encryption.Encrypt(payload);
-                    _logger.LogDebug($"[CerbiStream] Payload for log ID {logId} encrypted ({_options.EncryptionMode}).");
+                    Console.WriteLine($"[CerbiStream] Payload for log ID {logId} encrypted ({_options.EncryptionMode}).");
                 }
 
-                _logger.LogInformation($"[CerbiStream] Sending log ID {logId}...");
+                Console.WriteLine($"[CerbiStream] Sending log ID {logId}...");
 
                 if (_options.DisableQueueSending)
                 {
-                    _logger.LogInformation($"[CerbiStream] Queue send disabled; log ID {logId} dropped.");
+                    Console.WriteLine($"[CerbiStream] Queue send disabled; log ID {logId} dropped.");
                     return true;
                 }
 
@@ -183,8 +179,11 @@ namespace CerbiClientLogging.Implementations
                         .WaitAndRetryAsync(
                             _options.QueueRetryCount,
                             idx => TimeSpan.FromMilliseconds(_options.QueueRetryDelayMilliseconds),
-                            (ex, span, retry, ctx) => _logger.LogWarning(ex, $"Retry {retry} failed for log ID {logId}.")
-                        );
+                            (ex, span, retry, ctx) =>
+                            {
+                                Console.WriteLine($"[CerbiStream] Retry {retry} failed for log ID {logId}. Error: {ex.Message}");
+                            });
+
                     var sentWithRetry = await policy.ExecuteAsync(() => _queue.SendMessageAsync(payload, logId));
                     return sentWithRetry || (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled);
                 }
@@ -194,7 +193,7 @@ namespace CerbiClientLogging.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Logging failed.");
+                Console.WriteLine($"[CerbiStream] Logging failed. Error: {ex.Message}");
                 return false;
             }
         }
@@ -221,7 +220,6 @@ namespace CerbiClientLogging.Implementations
             if (!metadata.ContainsKey("TargetServiceType") && !string.IsNullOrEmpty(_options.TargetServiceType))
                 metadata["TargetServiceType"] = _options.TargetServiceType;
 
-            // ✅ Only enrich tracing if allowed
             if (!_options.MinimalMode && _options.EnableTracingEnrichment && System.Diagnostics.Activity.Current != null)
             {
                 var activity = System.Diagnostics.Activity.Current;
@@ -236,9 +234,6 @@ namespace CerbiClientLogging.Implementations
                     metadata["ParentSpanId"] = activity.ParentSpanId.ToString();
             }
         }
-
-
-
 
         private void EncryptInternalSecrets(Dictionary<string, object> metadata)
         {
