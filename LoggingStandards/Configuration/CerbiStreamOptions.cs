@@ -11,9 +11,8 @@ namespace CerbiStream.Logging.Configuration
     {
         /// <summary>
         /// Configuration settings for local file fallback logging.
-        /// Used if primary queue or remote sinks fail.
         /// </summary>
-        public FileFallbackOptions? FileFallback { get; set; }
+        public CerbiStream.Classes.FileLogging.FileFallbackOptions? FileFallback { get; set; }
 
         /// <summary>
         /// Defines the hosting model of the application (e.g., API, WebApp, Worker, Function).
@@ -304,13 +303,116 @@ namespace CerbiStream.Logging.Configuration
             return this;
         }
 
+        /// <summary>
+        /// Enables local file fallback logging with the provided options.
+        /// </summary>
         public CerbiStreamOptions WithFileFallback(CerbiStream.Classes.FileLogging.FileFallbackOptions options)
         {
             FileFallback = options;
             return this;
         }
 
+        /// <summary>
+        /// Enables file fallback logging using default fallback path.
+        /// </summary>
+        public CerbiStreamOptions WithFileFallback()
+        {
+            FileFallback = new FileFallbackOptions
+            {
+                Enable = true,
+                FallbackFilePath = "logs/log-fallback.json",
+                PrimaryFilePath = "logs/log-primary.json"
+            };
+            ValidateFallbackOptions();
+            return this;
+        }
 
+        /// <summary>
+        /// Enables file fallback logging with a custom fallback file path.
+        /// </summary>
+        public CerbiStreamOptions WithFileFallback(string fallbackFilePath)
+        {
+            FileFallback = new FileFallbackOptions
+            {
+                Enable = true,
+                FallbackFilePath = fallbackFilePath,
+                PrimaryFilePath = "logs/log-primary.json"
+            };
+            ValidateFallbackOptions();
+            return this;
+        }
+
+        /// <summary>
+        /// Enables file fallback logging with both custom fallback and primary paths.
+        /// </summary>
+        public CerbiStreamOptions WithFileFallback(string fallbackFilePath, string primaryFilePath)
+        {
+            FileFallback = new FileFallbackOptions
+            {
+                Enable = true,
+                FallbackFilePath = fallbackFilePath,
+                PrimaryFilePath = primaryFilePath
+            };
+            ValidateFallbackOptions();
+            return this;
+        }
+
+        /// <summary>
+        /// Enables file fallback logging with encryption options.
+        /// </summary>
+        public CerbiStreamOptions WithEncryptedFallback(string fallbackFilePath, string primaryFilePath, string encryptionKey, string encryptionIV)
+        {
+            FileFallback = new FileFallbackOptions
+            {
+                Enable = true,
+                FallbackFilePath = fallbackFilePath,
+                PrimaryFilePath = primaryFilePath,
+                EncryptionKey = encryptionKey,
+                EncryptionIV = encryptionIV
+            };
+            ValidateFallbackOptions();
+            return this;
+        }
+
+        /// <summary>
+        /// Enables file fallback logging with encryption and file limits.
+        /// </summary>
+        public CerbiStreamOptions WithEncryptedFallback(string fallbackFilePath, string primaryFilePath, string encryptionKey, string encryptionIV, long maxFileSizeBytes, TimeSpan maxFileAge)
+        {
+            FileFallback = new FileFallbackOptions
+            {
+                Enable = true,
+                FallbackFilePath = fallbackFilePath,
+                PrimaryFilePath = primaryFilePath,
+                EncryptionKey = encryptionKey,
+                EncryptionIV = encryptionIV,
+                MaxFileSizeBytes = maxFileSizeBytes,
+                MaxFileAge = maxFileAge
+            };
+            ValidateFallbackOptions();
+            return this;
+        }
+
+        /// <summary>
+        /// Validates fallback options to prevent misconfiguration.
+        /// </summary>
+        private void ValidateFallbackOptions()
+        {
+            if (FileFallback == null)
+                throw new InvalidOperationException("FileFallback options must be configured.");
+
+            if (string.IsNullOrWhiteSpace(FileFallback.FallbackFilePath))
+                throw new ArgumentException("FallbackFilePath must be provided.");
+
+            if (string.IsNullOrWhiteSpace(FileFallback.PrimaryFilePath))
+                throw new ArgumentException("PrimaryFilePath must be provided.");
+
+            if (FileFallback.MaxFileSizeBytes < 1024)
+                throw new ArgumentException("MaxFileSizeBytes must be at least 1KB.");
+
+            if (!string.IsNullOrEmpty(FileFallback.EncryptionKey) ^ !string.IsNullOrEmpty(FileFallback.EncryptionIV))
+                throw new ArgumentException("Both EncryptionKey and EncryptionIV must be provided together.");
+        }
 
         public CerbiStreamOptions EnableProductionMode()
         {

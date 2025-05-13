@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using CerbiStream.Telemetry;
+using CerbiStream.Configuration;
 
 namespace CerbiStream
 {
