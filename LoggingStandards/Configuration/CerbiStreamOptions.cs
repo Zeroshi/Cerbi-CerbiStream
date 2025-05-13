@@ -1,9 +1,9 @@
-﻿using CerbiStream.Classes.FileLogging;
-using CerbiStream.Interfaces;
+﻿using CerbiStream.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using static CerbiStream.Interfaces.IEncryptionTypeProvider;
+using FileFallbackOptions = CerbiStream.Classes.FileLogging.FileFallbackOptions;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -13,7 +13,7 @@ namespace CerbiStream.Logging.Configuration
         /// Configuration settings for local file fallback logging.
         /// Used if primary queue or remote sinks fail.
         /// </summary>
-        public CerbiStream.Configuration.FileFallbackOptions? FileFallback { get; set; }
+        public FileFallbackOptions? FileFallback { get; set; }
 
         /// <summary>
         /// Defines the hosting model of the application (e.g., API, WebApp, Worker, Function).
@@ -303,6 +303,14 @@ namespace CerbiStream.Logging.Configuration
             GovernanceValidator = validator;
             return this;
         }
+
+        public CerbiStreamOptions WithFileFallback(CerbiStream.Classes.FileLogging.FileFallbackOptions options)
+        {
+            FileFallback = options;
+            return this;
+        }
+
+
 
         public CerbiStreamOptions EnableProductionMode()
         {
