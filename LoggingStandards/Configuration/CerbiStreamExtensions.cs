@@ -1,10 +1,12 @@
-﻿using CerbiClientLogging.Interfaces;
+﻿using Cerbi.Governance;
+using CerbiClientLogging.Interfaces;
 using CerbiStream.Classes.FileLogging;
 using CerbiStream.FileLogging;
 using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 
 namespace CerbiStream.Configuration
 {
