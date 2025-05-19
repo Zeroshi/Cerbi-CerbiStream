@@ -27,21 +27,31 @@ namespace CerbiStream.Extensions
 
         public CerbiLoggerWrapper(ILogger logger)
         {
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public void LogWarning(Dictionary<string, object> payload)
+        public void LogTrace(string message) => Log(LogLevel.Trace, message);
+        public void LogDebug(string message) => Log(LogLevel.Debug, message);
+        public void LogInformation(string message) => Log(LogLevel.Information, message);
+        public void LogWarning(string message) => Log(LogLevel.Warning, message);
+        public void LogError(string message) => Log(LogLevel.Error, message);
+        public void LogCritical(string message) => Log(LogLevel.Critical, message);
+
+        private void Log(LogLevel level, string message)
         {
-            payload["GovernanceRelaxed"] = true;
-            _logger.Log(LogLevel.Warning, default, payload, null, Format);
+            var metadata = new Dictionary<string, object>
+            {
+                ["Message"] = message,
+                ["GovernanceRelaxed"] = true,
+                ["TimestampUtc"] = DateTime.UtcNow
+            };
+
+            _logger.Log(level, default, metadata, null, Format);
         }
 
-        public void LogInformation(Dictionary<string, object> payload)
+        private static string Format(object state, Exception? error)
         {
-            payload["GovernanceRelaxed"] = true;
-            _logger.Log(LogLevel.Information, default, payload, null, Format);
+            return state?.ToString() ?? string.Empty;
         }
-
-        private static string Format(object state, Exception? error) => state?.ToString() ?? string.Empty;
     }
 }
