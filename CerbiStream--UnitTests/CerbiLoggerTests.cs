@@ -4,53 +4,61 @@ using System;
 using System.Threading.Tasks;
 using Xunit;
 
-public class CerbiLoggerTests
+namespace Logger
 {
-    [Fact]
-    public async Task LogAsync_ShouldWriteToConsole_WhenInDebugMode()
+    public class CerbiLoggerTests
     {
-        var logger = new CerbiLogger(null, encryptionEnabled: false, debugMode: true);
+        [Fact]
+        public async Task LogAsync_ShouldWriteToConsole_WhenInDebugMode()
+        {
+            var logger = new CerbiLogger(null, encryptionEnabled: false, debugMode: true, governanceValidator: null);
 
-        var result = await logger.LogAsync("Test debug message");
 
-        Assert.True(result);
-    }
+            var result = await logger.LogAsync("Test debug message");
 
-    [Fact]
-    public async Task LogAsync_ShouldReturnFalse_WhenQueueIsNull_AndNotInDebugMode()
-    {
-        var logger = new CerbiLogger(null, encryptionEnabled: false, debugMode: false);
+            Assert.True(result);
+        }
 
-        var result = await logger.LogAsync("This should fail");
 
-        Assert.False(result);
-    }
 
-    [Fact]
-    public async Task LogAsync_ShouldCallQueue_WhenConfigured()
-    {
-        var mockQueue = new Mock<ISendMessage>(); // ✅ Use ISendMessage now
-        mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
-                 .ReturnsAsync(true);
+        [Fact]
+        public async Task LogAsync_ShouldReturnFalse_WhenQueueIsNull_AndNotInDebugMode()
+        {
+            var logger = new CerbiLogger(null, encryptionEnabled: false, debugMode: false, governanceValidator: null);
 
-        var logger = new CerbiLogger(mockQueue.Object, encryptionEnabled: true, debugMode: false);
 
-        var result = await logger.LogAsync("Send to queue");
+            var result = await logger.LogAsync("This should fail");
 
-        Assert.True(result);
-        mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
-    }
+            Assert.False(result);
+        }
 
-    [Fact]
-    public async Task LogAsync_ShouldNotCallQueue_WhenInDebugMode()
-    {
-        var mockQueue = new Mock<ISendMessage>(); // ✅ Use ISendMessage now
+        [Fact]
+        public async Task LogAsync_ShouldCallQueue_WhenConfigured()
+        {
+            var mockQueue = new Mock<ISendMessage>();
+            mockQueue.Setup(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()))
+                     .ReturnsAsync(true);
 
-        var logger = new CerbiLogger(mockQueue.Object, encryptionEnabled: true, debugMode: true);
+            var logger = new CerbiLogger(mockQueue.Object, encryptionEnabled: false, debugMode: false, governanceValidator: null);
 
-        var result = await logger.LogAsync("Should only log locally");
+            var result = await logger.LogAsync("Send to queue");
 
-        Assert.True(result);
-        mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            Assert.True(result);
+            mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task LogAsync_ShouldNotCallQueue_WhenInDebugMode()
+        {
+            var mockQueue = new Mock<ISendMessage>(); // ✅ Use ISendMessage now
+
+            var logger = new CerbiLogger(null, encryptionEnabled: false, debugMode: true, governanceValidator: null);
+
+
+            var result = await logger.LogAsync("Should only log locally");
+
+            Assert.True(result);
+            mockQueue.Verify(q => q.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
     }
 }

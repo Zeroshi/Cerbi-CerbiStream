@@ -26,6 +26,18 @@ namespace CerbiStream.Configuration
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
 
+            builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
+            {
+                var settings = new RuntimeGovernanceSettings(); // Load from config if needed
+                var source = new FileGovernanceSource(settings.ConfigPath);
+                return new RuntimeGovernanceValidator(
+                    isEnabled: () => settings.Enabled,
+                    profileName: settings.Profile,
+                    source: source
+                );
+            });
+
+
             if (options.FileFallback?.Enable == true)
             {
                 var fallbackConfig = options.FileFallback;

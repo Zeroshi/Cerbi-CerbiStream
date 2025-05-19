@@ -1,5 +1,7 @@
-﻿using CerbiClientLogging.Interfaces.SendMessage;
+﻿using Cerbi.Governance;
+using CerbiClientLogging.Interfaces.SendMessage;
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -9,12 +11,14 @@ public class CerbiLogger
     private readonly ISendMessage? _queue;
     private readonly bool _encryptionEnabled;
     private readonly bool _debugMode;
+    private readonly RuntimeGovernanceValidator? _governanceValidator;
 
-    public CerbiLogger(ISendMessage? queue, bool encryptionEnabled, bool debugMode)
+    public CerbiLogger(ISendMessage? queue, bool encryptionEnabled, bool debugMode, RuntimeGovernanceValidator? governanceValidator)
     {
         _queue = queue;
         _encryptionEnabled = encryptionEnabled;
         _debugMode = debugMode;
+        _governanceValidator = governanceValidator;
     }
 
     /// <summary>
@@ -39,21 +43,23 @@ public class CerbiLogger
         // Generate the unique LogId once.
         string logId = Guid.NewGuid().ToString();
 
-        // Build an enriched log entry that includes the logId and additional metadata.
-        var enrichedLogEntry = new
+        // ✅ Build dictionary to mutate in place
+        var logData = new Dictionary<string, object>
         {
-            LogId = logId,
-            TimestampUtc = DateTime.UtcNow,
-            ApplicationId = CerbiStream.Classes.ApplicationMetadata.ApplicationId,
-            InstanceId = CerbiStream.Classes.ApplicationMetadata.InstanceId,
-            CloudProvider = CerbiStream.Classes.ApplicationMetadata.CloudProvider,
-            Region = CerbiStream.Classes.ApplicationMetadata.Region,
-            Message = message
-            // Add any additional metadata as needed.
+            ["LogId"] = logId,
+            ["TimestampUtc"] = DateTime.UtcNow,
+            ["ApplicationId"] = CerbiStream.Classes.ApplicationMetadata.ApplicationId,
+            ["InstanceId"] = CerbiStream.Classes.ApplicationMetadata.InstanceId,
+            ["CloudProvider"] = CerbiStream.Classes.ApplicationMetadata.CloudProvider,
+            ["Region"] = CerbiStream.Classes.ApplicationMetadata.Region,
+            ["Message"] = message
         };
 
-        // Serialize the enriched log entry to JSON.
-        string formattedLog = JsonSerializer.Serialize(enrichedLogEntry);
+        // ✅ Apply governance if active
+        _governanceValidator?.ValidateInPlace(logData);
+
+        // ✅ Serialize after enrichment and validation
+        string formattedLog = JsonSerializer.Serialize(logData);
         // Alternatively, if you have a JSON converter:
         // string formattedLog = _jsonConverter.ConvertMessageToJson(enrichedLogEntry);
 

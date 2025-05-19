@@ -1,4 +1,5 @@
-﻿using CerbiClientLogging.Interfaces;
+﻿using Cerbi.Governance;
+using CerbiClientLogging.Interfaces;
 using CerbiClientLogging.Interfaces.SendMessage;
 using CerbiStream.Classes;
 using CerbiStream.Interfaces;
@@ -17,17 +18,20 @@ namespace CerbiClientLogging.Implementations
         private readonly IConvertToJson _jsonConverter;
         private readonly IEncryption _encryption;
         private readonly CerbiStreamOptions _options;
+        private readonly RuntimeGovernanceValidator? _governanceValidator;
 
         public Logging(
             ISendMessage queue,
             IConvertToJson jsonConverter,
             IEncryption encryption,
-            CerbiStreamOptions options)
+            CerbiStreamOptions options,
+            RuntimeGovernanceValidator? governanceValidator = null)
         {
             _queue = queue ?? throw new ArgumentNullException(nameof(queue));
             _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
             _encryption = encryption ?? throw new ArgumentNullException(nameof(encryption));
             _options = options ?? new CerbiStreamOptions();
+            _governanceValidator = governanceValidator;
         }
 
         public Task<bool> SendApplicationLogAsync(
@@ -114,6 +118,12 @@ namespace CerbiClientLogging.Implementations
                 EnrichMetadata(metadata);
                 EncryptInternalSecrets(metadata);
             }
+
+            if (_governanceValidator != null)
+            {
+                _governanceValidator.ValidateInPlace(metadata);
+            }
+
 
             var entry = new { Message = message, Metadata = metadata };
             return SendLogAsync(entry);
