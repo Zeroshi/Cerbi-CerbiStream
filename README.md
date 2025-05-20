@@ -222,6 +222,35 @@ JSON logs are fully encrypted before sending.
 * Fallback to file: `.WithFileFallback("fallback.json")`
 * Multi-cloud: auto-populates cloud provider
 
+
+---
+
+## 🔓 Relaxed Logging Modes
+Cerbi supports two forms of relaxed logging to bypass governance rules when explicitly intended:
+
+Mode	Description	Usage Example
+Fluent .Relax()	Developer-triggered, scoped for individual log statements	logger.Relax().LogInformation("...")
+Runtime .RelaxGovernance()	Global override, wraps logger during startup configuration	logger = logger.RelaxGovernance();
+
+## 🧑‍💻 Developer Inline (Fluent API):
+
+```csharp
+var logger = builder.Logging.CreateLogger("MyApp");
+logger = logger.RelaxGovernance(); // All logs now include GovernanceRelaxed: true
+```
+
+This uses CerbiLoggerWrapper for structured logging, useful during development or for logs intentionally excluded from governance enforcement.
+
+## ⚙️ Runtime Setup Override:
+
+```csharp
+var logger = builder.Logging.CreateLogger("MyApp");
+logger = logger.RelaxGovernance(); // All logs now include GovernanceRelaxed: true
+```
+
+
+
+
 ---
 
 ## Integration & Supported Platforms

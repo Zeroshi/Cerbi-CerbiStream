@@ -52,7 +52,7 @@ namespace Cerbi.Governance
 
     public static class LoggerRelaxExtension
     {
-        public static ILogger Relax(this ILogger logger)
+        public static ILogger RelaxGovernance(this ILogger logger)
         {
             return new RelaxedLoggerWrapper(logger);
         }
