@@ -21,7 +21,7 @@ jobs:
         run: |
           PROJECT_PATH=$(find . -name "*.csproj" | head -n 1)
           echo "Found project: $PROJECT_PATH"
-          VERSION="1.0.${{ github.run_number }}"
+          VERSION="1.1.${{ github.run_number }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
 
