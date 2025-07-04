@@ -72,7 +72,7 @@ CerbiStream now uses **real-time governance enforcement** via [Cerbi.Governance.
 * Compatible with .NET 6–8+
 * Config from local, blob, or GitHub
 * Automatically tags logs with governance info
-* Supports `.Relax()` and `[CerbiTopic]`
+* Supports `.Relax()` and `[CerbiTopic]` 
 
 ### ⚠️ Build-Time Analyzer Limitations:
 
@@ -429,6 +429,24 @@ TelemetryProviderFactory.CreateTelemetryProvider("appinsights");
 Supported options include AppInsights, OpenTelemetry, Datadog, AWS CloudWatch, and GCP Stackdriver.
 
 ---
+
+Here’s the addition you can include in your `README.md` under a new section like `## 🙏 Acknowledgments` or within your `## 🔄 Recent Updates` or `## 🧪 Benchmarks` section:
+
+---
+
+## 🙏 Acknowledgments
+
+Special thanks to [**@snakefoot**](https://github.com/snakefoot) for the performance insights and benchmark contributions across popular logging frameworks:
+
+* ✅ **Microsoft Console Logger** uses an asynchronous queue by default.
+* ⚠️ **Serilog Console** writes synchronously — causing slower results unless async sinks are used.
+* ✅ **NLog** and **Log4Net** support async file targets out of the box, yielding faster logging performance.
+* 🧪 These contributions helped improve CerbiStream's own async capabilities.
+
+---
+
+Let me know if you'd like this rendered into a Markdown table with benchmark chart screenshots or badges.
+
 
 ## License
 

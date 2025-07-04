@@ -105,5 +105,20 @@ namespace CerbiStream.Tests
             Assert.True(result);
             mockValidator.Verify(m => m("TestProfile", It.IsAny<Dictionary<string, object>>()), Times.Once);
         }
+
+        [Fact]
+        public void WithAsyncConsoleOutput_ShouldEnableFlag()
+        {
+            var options = new CerbiStreamOptions().WithAsyncConsoleOutput(true);
+            Assert.True(options.EnableAsyncConsoleOutput);
+        }
+
+        [Fact]
+        public void WithAsyncConsoleOutput_Disabled_ShouldDisableFlag()
+        {
+            var options = new CerbiStreamOptions().WithAsyncConsoleOutput(false);
+            Assert.False(options.EnableAsyncConsoleOutput);
+        }
+
     }
 }
