@@ -16,11 +16,17 @@ namespace CerbiStream.Configuration
         /// Adds CerbiStream logging to the application's logging pipeline, including optional file fallback support.
         /// </summary>
         public static ILoggingBuilder AddCerbiStream(
-            this ILoggingBuilder builder,
-            Action<CerbiStreamOptions> configureOptions)
+    this ILoggingBuilder builder,
+    Action<CerbiStreamOptions> configureOptions)
         {
             var options = new CerbiStreamOptions();
             configureOptions(options);
+
+            // 🔥 Enable async console if requested
+            if (options.EnableAsyncConsoleOutput)
+            {
+                CerbiStream.Extensions.CerbiLoggerWrapper.EnableAsyncConsole();
+            }
 
             // Register CerbiStream options and logger provider
             builder.Services.AddSingleton(options);
@@ -37,7 +43,6 @@ namespace CerbiStream.Configuration
                 );
             });
 
-
             if (options.FileFallback?.Enable == true)
             {
                 var fallbackConfig = options.FileFallback;
@@ -49,11 +54,9 @@ namespace CerbiStream.Configuration
                     RetryCount = fallbackConfig.RetryCount,
                 };
 
-                // Register fallback logging components
                 builder.Services.AddSingleton(fallbackOptions);
                 builder.Services.AddSingleton<ILoggerProvider, FileFallbackProvider>();
 
-                // Explicit factory registration for rotator with encryption dependency
                 builder.Services.AddSingleton<EncryptedFileRotator>(sp =>
                 {
                     var opts = sp.GetRequiredService<CerbiStream.Classes.FileLogging.FileFallbackOptions>();

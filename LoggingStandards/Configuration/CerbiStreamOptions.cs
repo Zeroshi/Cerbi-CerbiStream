@@ -15,6 +15,11 @@ namespace CerbiStream.Logging.Configuration
         public CerbiStream.Classes.FileLogging.FileFallbackOptions? FileFallback { get; set; }
 
         /// <summary>
+        /// Enables async console output using background queue.
+        /// </summary>
+        public bool EnableAsyncConsoleOutput { get; private set; } = false;
+
+        /// <summary>
         /// Defines the hosting model of the application (e.g., API, WebApp, Worker, Function).
         /// Helps classify logs for environment and scaling characteristics.
         /// </summary>
@@ -168,6 +173,13 @@ namespace CerbiStream.Logging.Configuration
             EnableTracingEnrichment = true;
             return this;
         }
+
+        public CerbiStreamOptions WithAsyncConsoleOutput(bool enabled = true)
+        {
+            EnableAsyncConsoleOutput = enabled;
+            return this;
+        }
+
 
         /// <summary>
         /// Sets the application hosting model and business service role for log metadata enrichment.
