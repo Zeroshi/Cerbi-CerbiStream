@@ -9,42 +9,71 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # better blame & Sonar analysis
 
       - name: Locate Project File
         run: find . -name "*.csproj"
 
       - name: Set Version in .csproj
         id: versioning
+        shell: bash
         run: |
           PROJECT_PATH=$(find . -name "*.csproj" | head -n 1)
           echo "Found project: $PROJECT_PATH"
           VERSION="1.1.${{ github.run_number }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
+          if grep -q "<Version>.*</Version>" "$PROJECT_PATH"; then
+            sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" "$PROJECT_PATH"
+          else
+            # insert Version into first PropertyGroup if missing
+            awk '1; /<PropertyGroup>/ && !seen++ {print "    <Version'"'">$VERSION"'"'</Version>'"}' VERSION="$VERSION" "$PROJECT_PATH" > tmp.csproj && mv tmp.csproj "$PROJECT_PATH"
+          fi
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restore Dependencies
         run: dotnet restore
 
-      - name: Run Unit Tests
-        run: dotnet test --no-restore --verbosity normal
+      # Build & test BEFORE Sonar so it can ingest coverage/test results
+      - name: Build Project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run Unit Tests with Coverage
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx"
+        # This produces TestResults/*.trx and coverage.cobertura.xml per project
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
           args: >
             -Dsonar.projectKey=Zeroshi_Cerbi-CerbiStream
             -Dsonar.organization=zeroshi
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/bin/**,**/obj/**
+            -Dsonar.cs.vstest.reportsPaths=**/TestResults/*.trx
+            -Dsonar.cs.opencover.reportsPaths=**/coverage.cobertura.xml
 
       - name: Snyk Open Source Scan
         uses: snyk/actions/dotnet@master
@@ -54,15 +83,12 @@ jobs:
         with:
           args: --org=${{ secrets.SNYK_ORG_ID }} --severity-threshold=high
 
-      - name: Build Project
-        run: dotnet build --configuration Release --no-restore
-
       - name: Pack NuGet Package
-        run: dotnet pack --configuration Release --no-build --output ${{ github.workspace }}/nupkgs
+        run: dotnet pack --configuration Release --no-build --output "${{ github.workspace }}/nupkgs" /p:PackageVersion=${{ env.VERSION }}
 
       - name: Verify NuGet Package Exists
         run: |
-          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
+          ls -l "${{ github.workspace }}/nupkgs/"*.nupkg || (echo "No NuGet packages found!" && exit 1)
 
       - name: Test NuGet API Key
         run: |
@@ -75,4 +101,4 @@ jobs:
           fi
 
       - name: Push to NuGet
-        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
