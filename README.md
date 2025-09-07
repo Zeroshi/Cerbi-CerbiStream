@@ -2,7 +2,7 @@
 
 *Brought to you by **Cerbi LLC**, your trusted partner in enterprise observability.*
 
-> 🚀 **[View CerbiStream Benchmarks](https://cerbi.systems)**
+> 🚀 **[View CerbiStream Benchmarks](https://cerbi.io)**
 > Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
 
 [![CerbiStream NuGet](https://img.shields.io/nuget/v/CerbiStream?label=CerbiStream%20NuGet\&style=flat-square)](https://www.nuget.org/packages/CerbiStream/)
@@ -356,7 +356,6 @@ PRs welcome! Please open an issue first for large features. Follow code style an
 * GitHub: [https://github.com/Zeroshi/Cerbi-CerbiStream](https://github.com/Zeroshi/Cerbi-CerbiStream)
 * Email: [hello@cerbi.io](mailto:hello@cerbi.io)
 * Website: [https://cerbi.io](https://cerbi.io)
-* Benchmarks: [https://cerbi.systems](https://cerbi.systems)
 
 ---
 
