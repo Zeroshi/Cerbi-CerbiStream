@@ -9,43 +9,72 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # Pick the main (non-test) project to pack/publish
       - name: Locate Project File
-        run: find . -name "*.csproj"
-
-      - name: Set Version in .csproj
-        id: versioning
+        id: proj
+        shell: bash
         run: |
-          PROJECT_PATH=$(find . -name "*.csproj" | head -n 1)
+          PROJECT_PATH=$(find . -type f -name "*.csproj" \
+            ! -ipath "*test*" ! -ipath "*tests*" ! -ipath "*unit*" | head -n 1)
+          if [ -z "$PROJECT_PATH" ]; then
+            echo "No non-test .csproj found" >&2
+            exit 1
+          fi
           echo "Found project: $PROJECT_PATH"
-          VERSION="1.1.${{ github.run_number }}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|g" $PROJECT_PATH
+          echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
+
+      # Set a build/version number without editing csproj XML
+      - name: Set Version
+        run: echo "VERSION=1.1.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore Dependencies
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore
         run: dotnet restore
 
-      - name: Run Unit Tests
-        run: dotnet test --no-restore --verbosity normal
+      - name: Build
+        run: dotnet build --configuration Release --no-restore /p:Version=${{ env.VERSION }}
 
+      - name: Test (with coverage)
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx"
+
+      # SonarCloud scan (requires SONAR_TOKEN secret)
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
           args: >
             -Dsonar.projectKey=Zeroshi_Cerbi-CerbiStream
             -Dsonar.organization=zeroshi
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/bin/**,**/obj/**
+            -Dsonar.cs.vstest.reportsPaths=**/TestResults/*.trx
+            -Dsonar.cs.opencover.reportsPaths=**/coverage.cobertura.xml
 
+      # Optional Snyk scan (requires SNYK_TOKEN and SNYK_ORG_ID)
       - name: Snyk Open Source Scan
         uses: snyk/actions/dotnet@master
         continue-on-error: true
@@ -54,16 +83,14 @@ jobs:
         with:
           args: --org=${{ secrets.SNYK_ORG_ID }} --severity-threshold=high
 
-      - name: Build Project
-        run: dotnet build --configuration Release --no-restore
-
       - name: Pack NuGet Package
-        run: dotnet pack --configuration Release --no-build --output ${{ github.workspace }}/nupkgs
+        run: dotnet pack "$PROJECT_PATH" --configuration Release --no-build --output "${{ github.workspace }}/nupkgs" /p:PackageVersion=${{ env.VERSION }}
 
       - name: Verify NuGet Package Exists
         run: |
-          ls -l ${{ github.workspace }}/nupkgs/*.nupkg || (echo "No NuGet packages found!" && exit 1)
+          ls -l "${{ github.workspace }}/nupkgs/"*.nupkg || (echo "No NuGet packages found!" && exit 1)
 
+      # Fail fast if the NuGet API key is missing
       - name: Test NuGet API Key
         run: |
           echo "Testing API Key..."
@@ -75,4 +102,4 @@ jobs:
           fi
 
       - name: Push to NuGet
-        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
