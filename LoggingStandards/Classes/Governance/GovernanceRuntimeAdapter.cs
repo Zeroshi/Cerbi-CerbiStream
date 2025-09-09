@@ -8,57 +8,69 @@ using System.Text.Json;
 namespace CerbiStream.GovernanceRuntime.Governance;
 
 /// <summary>
-/// Calls the runtime validator to tag the payload (GovernanceViolations, GovernanceRelaxed, etc.)
-/// and then REDACTS any fields that show up as Forbidden/Disallowed in the violations list.
+/// Validates payloads in-place (tags GovernanceViolations / GovernanceRelaxed) and
+/// REDACTS fields that are forbidden/disallowed by either runtime violations or by policy in the profile file.
 /// </summary>
 public sealed class GovernanceRuntimeAdapter
 {
     private readonly RuntimeGovernanceValidator _validator;
+    private readonly string _profileName;
+    private readonly string _configPath;
+
+    // simple cache for parsed policy
+    private DateTime _lastLoadedUtc;
+    private HashSet<string> _policyRedactFields = new(StringComparer.OrdinalIgnoreCase);
 
     /// <param name="profileName">Active profile name (e.g., "default", "Orders").</param>
-    /// <param name="configPath">Path to cerbi_governance.json (if null, uses env or ./cerbi_governance.json)</param>
+    /// <param name="configPath">Path to cerbi_governance.json; if null, uses env CERBI_GOVERNANCE_PATH or ./cerbi_governance.json.</param>
     public GovernanceRuntimeAdapter(string profileName, string? configPath = null)
     {
-        var appProfile = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName;
-
-        // Resolve a concrete path for the file source
-        var path = !string.IsNullOrWhiteSpace(configPath)
+        _profileName = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName;
+        _configPath = !string.IsNullOrWhiteSpace(configPath)
             ? configPath!
             : (Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH")
                ?? Path.Combine(AppContext.BaseDirectory, "cerbi_governance.json"));
 
-        IRuntimeGovernanceSource source = new FileGovernanceSource(path);
+        IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath);
 
-        // ✅ Correct ctor: (isEnabled, profileName, source)
+        // ctor: (isEnabled, profileName, source)
         _validator = new RuntimeGovernanceValidator(
             isEnabled: () => true,
-            profileName: appProfile,
+            profileName: _profileName,
             source: source);
     }
 
     public void ValidateAndRedactInPlace(IDictionary<string, object> data)
     {
-        // Respect Relax tag if caller set it (runtime also recognizes this)
+        // 0) Respect Relax tag (bypass checks + redaction)
         if (IsRelaxed(data))
         {
             data["GovernanceRelaxed"] = true;
             return;
         }
 
-        // The runtime expects a concrete Dictionary<string, object>.
+        // Runtime expects a concrete Dictionary<string, object>
         var working = AsDictionary(data);
 
-        // 1) Let the runtime mutate tags into the payload
+        // 1) Tag using the runtime validator (adds GovernanceViolations[], GovernanceProfileVersion, etc.)
         _validator.ValidateInPlace(working);
 
-        // 2) Inspect violations and compute fields to redact
-        var toRedact = GetFieldsToRedactFromViolations(working).ToArray();
+        // 2) Compute fields to redact
+        var toRedact = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 3) Apply redaction to the working dictionary
+        // 2a) From runtime violations
+        foreach (var f in GetFieldsToRedactFromViolations(working))
+            toRedact.Add(f);
+
+        // 2b) From policy file (disallowed + forbidden)
+        foreach (var f in GetFieldsToRedactFromPolicy())
+            toRedact.Add(f);
+
+        // 3) Apply redaction
         foreach (var field in toRedact)
             RedactIfPresent(working, field);
 
-        // 4) Propagate changes back into the original IDictionary
+        // 4) Copy changes back into original IDictionary
         CopyInto(working, data);
     }
 
@@ -146,6 +158,100 @@ public sealed class GovernanceRuntimeAdapter
     private static bool IsForbiddenCode(string? code) =>
         string.Equals(code, "ForbiddenField", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(code, "DisallowedFieldPresent", StringComparison.OrdinalIgnoreCase);
+
+    private IEnumerable<string> GetFieldsToRedactFromPolicy()
+    {
+        try
+        {
+            if (!File.Exists(_configPath))
+                return Array.Empty<string>();
+
+            var lastWrite = File.GetLastWriteTimeUtc(_configPath);
+            if (_policyRedactFields.Count == 0 || lastWrite > _lastLoadedUtc)
+            {
+                _policyRedactFields = ParsePolicyRedactFields(_configPath, _profileName);
+                _lastLoadedUtc = lastWrite;
+            }
+
+            return _policyRedactFields;
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static HashSet<string> ParsePolicyRedactFields(string path, string profileName)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        var root = doc.RootElement;
+
+        // Find LoggingProfiles (case-insensitive)
+        if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) ||
+            profilesEl.ValueKind != JsonValueKind.Object)
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Find the target profile (case-insensitive by key), else first
+        JsonElement? profileEl = null;
+        foreach (var p in profilesEl.EnumerateObject())
+        {
+            if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
+            {
+                profileEl = p.Value;
+                break;
+            }
+        }
+        profileEl ??= profilesEl.EnumerateObject().FirstOrDefault().Value;
+
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (profileEl is null || profileEl.Value.ValueKind != JsonValueKind.Object)
+            return result;
+
+        // DisallowedFields
+        if (TryGetPropertyCI(profileEl.Value, "DisallowedFields", out var dis) &&
+            dis.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var s in dis.EnumerateArray())
+                if (s.ValueKind == JsonValueKind.String)
+                    result.Add(s.GetString()!);
+        }
+
+        // FieldSeverities: any == "Forbidden"
+        if (TryGetPropertyCI(profileEl.Value, "FieldSeverities", out var sev) &&
+            sev.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var kv in sev.EnumerateObject())
+            {
+                if (kv.Value.ValueKind == JsonValueKind.String &&
+                    string.Equals(kv.Value.GetString(), "Forbidden", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(kv.Name);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static bool TryGetPropertyCI(JsonElement obj, string name, out JsonElement value)
+    {
+        if (obj.ValueKind != JsonValueKind.Object)
+        {
+            value = default;
+            return false;
+        }
+        if (obj.TryGetProperty(name, out value)) return true;
+        foreach (var p in obj.EnumerateObject())
+        {
+            if (string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = p.Value;
+                return true;
+            }
+        }
+        value = default;
+        return false;
+    }
 
     private static Dictionary<string, object> ToDictionary(JsonElement root)
     {
