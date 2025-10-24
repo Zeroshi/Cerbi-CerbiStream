@@ -8,9 +8,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
-public class GovernanceRuntimeAdapterTests
+namespace CerbiStream.Tests
 {
- [Fact]
+ public class GovernanceRuntimeAdapterTests
+ {
+ [Fact(DisplayName = "ParseViolationFieldsFromJsonString - Valid JSON returns forbidden fields")]
  public void ParseViolationFieldsFromJsonString_ValidJson_ReturnsFields()
  {
  var method = typeof(GovernanceRuntimeAdapter).GetMethod("ParseViolationFieldsFromJsonString", BindingFlags.NonPublic | BindingFlags.Static);
@@ -28,7 +30,7 @@ public class GovernanceRuntimeAdapterTests
  Assert.DoesNotContain("notused", list);
  }
 
- [Fact]
+ [Fact(DisplayName = "ParseViolationFieldsFromJsonString - Malformed JSON returns empty")]
  public void ParseViolationFieldsFromJsonString_MalformedJson_ReturnsEmpty()
  {
  var method = typeof(GovernanceRuntimeAdapter).GetMethod("ParseViolationFieldsFromJsonString", BindingFlags.NonPublic | BindingFlags.Static);
@@ -42,7 +44,7 @@ public class GovernanceRuntimeAdapterTests
  Assert.False(enumerator.MoveNext());
  }
 
- [Fact]
+ [Fact(DisplayName = "ValidateAndRedactInPlace - Redacts fields from policy file")]
  public void ValidateAndRedactInPlace_RedactsFromPolicy()
  {
  var temp = Path.GetTempFileName();
@@ -69,7 +71,7 @@ public class GovernanceRuntimeAdapterTests
  }
  }
 
- [Fact]
+ [Fact(DisplayName = "ValidateAndRedactInPlace - Concurrent calls redact consistently")]
  public void ConcurrentValidate_DoesNotThrow_And_RedactsConsistently()
  {
  var temp = Path.GetTempFileName();
@@ -102,7 +104,7 @@ public class GovernanceRuntimeAdapterTests
  }
  }
 
- [Fact]
+ [Fact(DisplayName = "PolicyReload - File change updates redaction policy")]
  public void PolicyReload_OnFileChange_UpdatesRedaction()
  {
  var temp = Path.Combine(Path.GetTempPath(), "cerbi_policy_test.json");
@@ -136,6 +138,7 @@ public class GovernanceRuntimeAdapterTests
  finally
  {
  if (File.Exists(temp)) File.Delete(temp);
+ }
  }
  }
 }

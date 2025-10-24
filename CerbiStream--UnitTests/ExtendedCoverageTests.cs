@@ -11,7 +11,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CerbiStream_UnitTests
+namespace CerbiStream.Tests
 {
     public class ExtendedCoverageTests
     {
@@ -24,7 +24,7 @@ namespace CerbiStream_UnitTests
             var options = new CerbiStreamOptions()
                 .WithGovernanceValidator((profile, data) => false);
 
-            var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+            var logger = new CerbiClientLogging.Implementations.Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
             var result = await logger.LogEventAsync("Test Governance", LogLevel.Warning);
 
@@ -39,7 +39,7 @@ namespace CerbiStream_UnitTests
             var mockEncrypt = new Mock<IEncryption>();
             var options = new CerbiStreamOptions().WithDisableQueue(true);
 
-            var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+            var logger = new CerbiClientLogging.Implementations.Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
             var result = await logger.LogEventAsync("Test Queue Disable", LogLevel.Information);
 
@@ -69,7 +69,7 @@ namespace CerbiStream_UnitTests
             mockEncrypt.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("ENCRYPTED-PAYLOAD");
             mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{\"test\":\"data\"}");
 
-            var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+            var logger = new CerbiClientLogging.Implementations.Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
             await logger.LogEventAsync("EncryptTest", LogLevel.Information);
 
@@ -88,7 +88,7 @@ namespace CerbiStream_UnitTests
             mockEncrypt.Setup(e => e.IsEnabled).Returns(false);
             mockJson.Setup(j => j.ConvertMessageToJson(It.IsAny<object>())).Returns("{\"test\":\"data\"}");
 
-            var logger = new Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
+            var logger = new CerbiClientLogging.Implementations.Logging(mockQueue.Object, mockJson.Object, mockEncrypt.Object, options);
 
             await logger.LogEventAsync("PlainTest", LogLevel.Information);
 

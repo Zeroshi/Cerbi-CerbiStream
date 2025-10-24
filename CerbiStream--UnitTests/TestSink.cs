@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace CerbiStream.GovernanceRuntime.Tests;
+namespace CerbiStream.Tests;
 
 internal sealed class TestSink : ILoggerProvider, ILogger
 {

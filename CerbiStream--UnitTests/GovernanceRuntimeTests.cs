@@ -2,14 +2,14 @@
 using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace CerbiStream.GovernanceRuntime.Tests;
+namespace CerbiStream.Tests;
 
 public class GovernanceRuntimeTests
 {
-    [Fact]
+    [Fact(DisplayName = "Governance: Forbidden field is redacted and violation tagged")]
     public void Forbidden_Field_Is_Redacted_And_Violation_Tagged()
     {
-        // inline config file with 1 profile
+        // inline config file with1 profile
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(tmp,
 @"{
@@ -35,7 +35,7 @@ public class GovernanceRuntimeTests
         Assert.Equal("***REDACTED***", ssn);
     }
 
-    [Fact]
+    [Fact(DisplayName = "Governance: Relax tag bypasses redaction")]
     public void Relax_Tag_Bypasses_Redaction()
     {
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
