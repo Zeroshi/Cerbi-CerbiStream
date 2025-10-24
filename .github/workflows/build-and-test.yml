@@ -24,8 +24,49 @@ jobs:
       - name: Build
         run: dotnet build "CerbiStream.sln" -c Release --no-restore
 
-      - name: Test
-        run: dotnet test "CerbiStream--UnitTests/UnitTests.csproj" -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+      - name: Test (with coverage)
+        run: |
+          dotnet test "CerbiStream--UnitTests/UnitTests.csproj" -c Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
+
+      - name: Install reportgenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.1.23
+
+      - name: Generate coverage report
+        env:
+          PATH: ${{ runner.tool_cache }}:$HOME/.dotnet/tools:$PATH
+        run: |
+          # find cobertura xml produced by coverlet
+          cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
+          echo "Found coverage file: $cov"
+          if [ -z "$cov" ]; then echo "Coverage file not found"; exit 1; fi
+          reportgenerator -reports:"$cov" -targetdir:"coverage-report" -reporttypes:Html
+
+      - name: Check coverage threshold (line-rate >=80%)
+        run: |
+          cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
+          python3 - <<'PY'
+import sys, xml.etree.ElementTree as ET
+cov_file = sys.argv[1]
+threshold = 80.0
+try:
+    tree = ET.parse(cov_file)
+    root = tree.getroot()
+    # cobertura root has 'line-rate' attribute
+    line_rate = root.attrib.get('line-rate')
+    if line_rate is None:
+        print('line-rate attribute not found in coverage file')
+        sys.exit(1)
+    pct = float(line_rate) * 100.0
+    print(f'Line coverage: {pct:.2f}%')
+    if pct + 1e-6 < threshold:
+        print(f'Coverage {pct:.2f}% is below threshold {threshold}%')
+        sys.exit(1)
+    sys.exit(0)
+except Exception as e:
+    print('Failed to parse coverage file:', e)
+    sys.exit(1)
+PY
+          "${cov}"
 
       - name: Upload test results
         if: always()
@@ -33,3 +74,10 @@ jobs:
         with:
           name: test-results
           path: "**/TestResults/*.trx"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
