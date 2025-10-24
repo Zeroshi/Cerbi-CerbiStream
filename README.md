@@ -13,6 +13,59 @@ This README is ordered for new users: quick overview, why it matters, how to get
 
 ---
 
+## Developer-friendly additions (recent)
+We added several small, low-risk features to make adoption and development easier. These are enabled by default when you use the quick registration helper below.
+
+- `AddCerbiStream` convenience registration
+ - Two overloads:
+ - `AddCerbiStream(this ILoggingBuilder, Action<CerbiStreamOptions>)` — pass options with fluent API.
+ - `AddCerbiStream(this ILoggingBuilder)` — default, opinionated registration.
+ - Registers `CerbiStreamOptions`, the `CerbiStreamLoggerProvider`, a `RuntimeGovernanceValidator` and lightweight hosted helpers.
+
+- `HealthHostedService`
+ - A tiny hosted service that checks for the presence and accessibility of the configured governance policy file at startup and logs a warning or info. Helps catch misconfiguration early in CI/CD and on boot.
+ - Automatically registered when you call `AddCerbiStream(...)`.
+
+- Telemetry & metadata helpers
+ - `TelemetryContext` snapshot facility (static) and `CerbiStreamLoggerAdapter` will merge telemetry context into log metadata when configured.
+ - Lightweight enrichment of `Activity` trace identifiers (`TraceId`, `SpanId`) when `EnableTracingEnrichment` is on.
+
+- Relaxed logging wrapper
+ - `RelaxedLoggerWrapper` and `logger.RelaxGovernance()` helper allow callers to mark specific logs as `GovernanceRelaxed` (bypass validation/redaction) for intentional diagnostics or developer flows.
+
+- Performance-friendly runtime changes
+ - Temporary `Dictionary<string, object>` pooling to reduce per-log allocations when converting `IDictionary` to a concrete dictionary.
+ - Pooled `HashSet<string>` for `toRedact` to avoid frequent allocations.
+ - Streaming parsing of JSON-formatted `GovernanceViolations` via `Utf8JsonReader` to prevent `JsonDocument` allocations on hot paths.
+
+- Tests
+ - Unit tests added for the health hosted service (`CerbiStream--UnitTests/HealthHostedServiceTests.cs`) and existing test coverage continues for options, governance and telemetry providers.
+
+Quick usage example (recommended):
+
+```csharp
+var builder = Host.CreateDefaultBuilder(args);
+var appBuilder = builder.ConfigureLogging((context, logging) =>
+{
+ logging.AddCerbiStream(options =>
+ {
+ options.WithFileFallback("logs/fallback.json");
+ options.WithTelemetryEnrichment(true);
+ options.WithGovernanceChecks(true);
+ });
+});
+```
+
+This wires CerbiStream into the standard host logging system and registers the health check hosted service automatically.
+
+How to run the health test locally:
+
+```
+dotnet test CerbiStream--UnitTests/UnitTests.csproj -f net8.0
+```
+
+---
+
 ## The problem (why this exists)
 Modern apps emit high volumes of structured logs across many services and destinations. Common challenges:
 - PII and secrets accidentally logged and stored in multiple systems.
@@ -52,6 +105,13 @@ Example policy snippet:
 ```csharp
 var inner = LoggerFactory.Create(b => b.AddConsole());
 builder.Logging.AddCerbiGovernanceRuntime(inner, "default", configPath: "./cerbi_governance.json");
+```
+OR use the convenience helper:
+```csharp
+builder.Logging.AddCerbiStream(options =>
+{
+ options.WithFileFallback("logs/fallback.json");
+});
 ```
 4. Run. Logs that include `ssn` or `creditCard` fields will be redacted as `***REDACTED***` and governance tags will be present.
 

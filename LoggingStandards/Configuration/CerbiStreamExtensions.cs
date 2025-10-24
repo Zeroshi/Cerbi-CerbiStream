@@ -4,6 +4,7 @@ using CerbiStream.Classes.FileLogging;
 using CerbiStream.FileLogging;
 using CerbiStream.Logging.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
@@ -66,6 +67,37 @@ namespace CerbiStream.Configuration
 
                 builder.Services.AddHostedService<EncryptedFileRotationService>();
             }
+
+            // Register lightweight health check hosted service
+            builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
+
+            return builder;
+        }
+
+        /// <summary>
+        /// Convenience overload that binds options from IConfiguration using the typical pattern.
+        /// </summary>
+        public static ILoggingBuilder AddCerbiStream(this ILoggingBuilder builder)
+        {
+            var options = new CerbiStreamOptions();
+            // Default options are fine for many apps; consumers can register and override the singleton if needed.
+            builder.Services.AddSingleton(options);
+
+            // Register default runtime components
+            builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
+            builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
+            {
+                var settings = new RuntimeGovernanceSettings();
+                var source = new FileGovernanceSource(settings.ConfigPath);
+                return new RuntimeGovernanceValidator(
+                    isEnabled: () => settings.Enabled,
+                    profileName: settings.Profile,
+                    source: source
+                );
+            });
+
+            // Health check hosted service
+            builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
 
             return builder;
         }

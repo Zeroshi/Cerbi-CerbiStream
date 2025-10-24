@@ -309,6 +309,8 @@ public sealed class GovernanceRuntimeAdapter
 
  private static HashSet<string> ParsePolicyRedactFields(string path, string profileName)
  {
+ try
+ {
  // Parse from stream to avoid allocating a temporary large string
  using var fs = File.OpenRead(path);
  using var doc = JsonDocument.Parse(fs);
@@ -359,6 +361,12 @@ public sealed class GovernanceRuntimeAdapter
  }
 
  return result;
+ }
+ catch
+ {
+ // Malformed JSON or IO error: return empty set rather than throw to keep runtime resilient
+ return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+ }
  }
 
  private static bool TryGetPropertyCI(JsonElement obj, string name, out JsonElement value)
