@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Moq;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Xunit;
 using CerbiStream.Logging.Configuration;
 
@@ -39,7 +38,7 @@ namespace CerbiStream.Tests
                     { "SecurityLog", new LoggingProfile { RequiredFields = new List<string>{"UserId"} } }
                 }
             };
-            File.WriteAllText("cerbi_governance.json", JsonConvert.SerializeObject(profile));
+            File.WriteAllText("cerbi_governance.json", JsonSerializer.Serialize(profile));
 
             // Act
             var result = CerbiStreamGovernance.LoadGovernance();

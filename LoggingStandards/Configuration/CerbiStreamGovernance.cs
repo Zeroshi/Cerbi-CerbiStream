@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace CerbiStream.Logging.Configuration
 {
@@ -19,7 +19,10 @@ namespace CerbiStream.Logging.Configuration
             try
             {
                 var json = File.ReadAllText(_governanceFilePath);
-                return JsonConvert.DeserializeObject<CerbiStreamGovernance>(json) ?? new CerbiStreamGovernance();
+                return JsonSerializer.Deserialize<CerbiStreamGovernance>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new CerbiStreamGovernance();
             }
             catch (Exception ex)
             {
