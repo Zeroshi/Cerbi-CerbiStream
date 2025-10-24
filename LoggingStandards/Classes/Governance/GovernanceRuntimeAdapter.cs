@@ -1,4 +1,5 @@
 ﻿using Cerbi.Governance; // RuntimeGovernanceValidator, IRuntimeGovernanceSource, FileGovernanceSource
+using CerbiStream.Observability;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -83,6 +84,7 @@ public sealed class GovernanceRuntimeAdapter
 
  public void ValidateAndRedactInPlace(IDictionary<string, object> data)
  {
+ Metrics.IncrementLogsProcessed();
  //0) Respect Relax tag (bypass checks + redaction)
  if (IsRelaxed(data))
  {
@@ -101,16 +103,25 @@ public sealed class GovernanceRuntimeAdapter
  _validator.ValidateInPlace(working);
 
  //2a) From runtime violations
+ long violationCount =0;
  foreach (var f in GetFieldsToRedactFromViolations(working))
+ {
  toRedact.Add(f);
+ violationCount++;
+ }
+ if (violationCount >0) Metrics.IncrementViolations(violationCount);
 
  //2b) From policy file (disallowed + forbidden)
  foreach (var f in GetFieldsToRedactFromPolicy())
  toRedact.Add(f);
 
  //3) Apply redaction
+ long redacted =0;
  foreach (var field in toRedact)
- RedactIfPresent(working, field);
+ {
+ if (RedactIfPresentAndCount(working, field)) redacted++;
+ }
+ if (redacted >0) Metrics.IncrementRedactions(redacted);
 
  //4) Copy changes back into original IDictionary if a different instance was created
  if (!ReferenceEquals(working, data))
@@ -147,6 +158,26 @@ public sealed class GovernanceRuntimeAdapter
  var hit = data.Keys.FirstOrDefault(k => string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
  if (hit is not null)
  data[hit] = "***REDACTED***";
+ }
+
+ private static bool RedactIfPresentAndCount(IDictionary<string, object> data, string field)
+ {
+ if (data is Dictionary<string, object> dict)
+ {
+ if (dict.TryGetValue(field, out var _))
+ {
+ dict[field] = "***REDACTED***";
+ return true;
+ }
+ return false;
+ }
+ var hit = data.Keys.FirstOrDefault(k => string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
+ if (hit is not null)
+ {
+ data[hit] = "***REDACTED***";
+ return true;
+ }
+ return false;
  }
 
  private static IEnumerable<string> GetFieldsToRedactFromViolations(IDictionary<string, object> data)
