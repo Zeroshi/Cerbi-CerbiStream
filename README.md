@@ -66,6 +66,41 @@ dotnet test CerbiStream--UnitTests/UnitTests.csproj -f net8.0
 
 ---
 
+## Dev & observability (new)
+CerbiStream aims to be developer-friendly and lightweight. The library includes small, optional observability helpers you can enable in apps to get immediate insight without pulling heavy dependencies.
+
+- Built-in metrics
+ - The runtime increments three lightweight counters: `LogsProcessed`, `Redactions`, and `Violations` in `CerbiStream.Observability.Metrics`.
+ - These counters are thread-safe and can be reset in tests via `Metrics.Reset()`.
+ - Optionally wire metrics to a telemetry provider by setting `CerbiStreamOptions.TelemetryProvider` — the library will emit a simple `CerbiStream.Metric` event for metric updates when a provider is present.
+
+- Prometheus / health endpoints (opt-in)
+ - Minimal middleware exposes two endpoints for development and lightweight monitoring:
+ - `/cerbistream/metrics` — Prometheus-style plaintext metrics for the three counters.
+ - `/cerbistream/health` — basic JSON readiness response.
+ - To enable in ASP.NET Core:
+
+```csharp
+// register logging and health helpers
+builder.Logging.AddCerbiStream(options => { /* ... */ });
+builder.Logging.AddCerbiStreamHealthChecks();
+
+var app = builder.Build();
+// add middleware to pipeline
+app.UseCerbiStreamMetrics();
+```
+
+- Telemetry integration (opt-in, minimal)
+ - The library supports pluggable telemetry providers (AppInsights, OpenTelemetry, Datadog, etc.).
+ - If you provide a telemetry provider via `CerbiStreamOptions.WithTelemetryProvider(...)`, CerbiStream will forward lightweight metric events.
+ - This wiring is intentionally minimal and designed to be useful during development; for production-grade telemetry aggregation use your preferred telemetry pipeline or OpenTelemetry exporters.
+
+- Keep it lightweight
+ - Everything above is opt-in. If you don't call the health/metrics helper nobody is added to your request pipeline.
+ - The core library has no runtime dependency on ASP.NET Core; middleware and healthchecks use small, optional extension registration and only add a couple of types.
+
+---
+
 ## The problem (why this exists)
 Modern apps emit high volumes of structured logs across many services and destinations. Common challenges:
 - PII and secrets accidentally logged and stored in multiple systems.
