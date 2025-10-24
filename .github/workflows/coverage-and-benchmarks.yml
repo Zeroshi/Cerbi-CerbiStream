@@ -1,0 +1,50 @@
+name: coverage-and-benchmarks
+
+on:
+ schedule:
+ - cron: '03 * * *' # run daily at03:00 UTC
+
+jobs:
+ coverage-and-report:
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ - name: Setup .NET
+ uses: actions/setup-dotnet@v4
+ with:
+ dotnet-version: '8.0.x'
+ - name: Restore
+ run: dotnet restore "CerbiStream.sln"
+ - name: Build
+ run: dotnet build "CerbiStream.sln" -c Release --no-restore
+ - name: Run tests with coverage
+ run: dotnet test "CerbiStream--UnitTests/UnitTests.csproj" -c Release --no-build --collect:"XPlat Code Coverage"
+ - name: Install reportgenerator
+ run: dotnet tool install --global dotnet-reportgenerator-globaltool --version5.1.23
+ - name: Generate coverage report
+ run: |
+ cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
+ reportgenerator -reports:"$cov" -targetdir:"coverage-report" -reporttypes:Html
+ - name: Upload coverage report
+ uses: actions/upload-artifact@v4
+ with:
+ name: coverage-report
+ path: coverage-report
+
+ benchmarks:
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ - name: Setup .NET
+ uses: actions/setup-dotnet@v4
+ with:
+ dotnet-version: '8.0.x'
+ - name: Build benchmarks
+ run: dotnet build "BenchmarkSuite1/BenchmarkSuite1.csproj" -c Release
+ - name: Run benchmarks (quick)
+ run: dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release -- --join --runtimes net8.0
+ - name: Upload benchmarks
+ uses: actions/upload-artifact@v4
+ with:
+ name: benchmarks
+ path: BenchmarkSuite1/bin/Release/net8.0

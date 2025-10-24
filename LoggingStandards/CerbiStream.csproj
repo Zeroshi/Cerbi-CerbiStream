@@ -72,6 +72,8 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.8" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

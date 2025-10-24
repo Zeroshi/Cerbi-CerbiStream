@@ -8,6 +8,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
+using CerbiStream.Observability;
+using Microsoft.AspNetCore.Builder;
 
 namespace CerbiStream.Configuration
 {
@@ -68,8 +70,14 @@ namespace CerbiStream.Configuration
                 builder.Services.AddHostedService<EncryptedFileRotationService>();
             }
 
-            // Register lightweight health check hosted service
+            // HealthHostedService
             builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
+
+            // Wire telemetry provider into Metrics if present
+            if (options.TelemetryProvider != null)
+            {
+                Metrics.TelemetryProvider = options.TelemetryProvider;
+            }
 
             return builder;
         }
@@ -96,10 +104,33 @@ namespace CerbiStream.Configuration
                 );
             });
 
-            // Health check hosted service
             builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
 
+            if (options.TelemetryProvider != null)
+            {
+                Metrics.TelemetryProvider = options.TelemetryProvider;
+            }
+
             return builder;
+        }
+
+        /// <summary>
+        /// Registers a lightweight health and metrics endpoint integration for ASP.NET Core.
+        /// This is intentionally minimal: it adds a healthcheck and a small middleware that exposes metrics
+        /// at `/cerbistream/metrics` in a Prometheus-friendly plaintext format and `/cerbistream/health` for basic readiness.
+        /// </summary>
+        public static ILoggingBuilder AddCerbiStreamHealthChecks(this ILoggingBuilder builder)
+        {
+            // Register health checks and a small middleware component
+            builder.Services.AddHealthChecks();
+            builder.Services.AddSingleton<CerbiStream.Middleware.CerbiMetricsMiddleware>();
+            return builder;
+        }
+
+        public static IApplicationBuilder UseCerbiStreamMetrics(this IApplicationBuilder app)
+        {
+            app.UseMiddleware<CerbiStream.Middleware.CerbiMetricsMiddleware>();
+            return app;
         }
     }
 }
