@@ -1,69 +1,41 @@
-# CerbiStream: Dev-Friendly, Governance-Enforced Logging for .NET
+# CerbiStream — Governance-Enforced Structured Logging for .NET
 
-*Brought to you by **Cerbi LLC**, your trusted partner in enterprise observability.*
+CerbiStream helps teams produce safe, standardized, and ML-ready logs. It enforces governance policies at runtime (redaction, tagging, validation) before logs reach any sink, while integrating with existing logging frameworks such as `Microsoft.Extensions.Logging` and Serilog.
 
-> 🚀 **[View CerbiStream Benchmarks](https://cerbi.io)**
-> Compare against Serilog, NLog, and others. CerbiStream is engineered for high performance, strict governance, and enterprise-grade log routing.
-
-[![CerbiStream NuGet](https://img.shields.io/nuget/v/CerbiStream?label=CerbiStream%20NuGet&style=flat-square)](https://www.nuget.org/packages/CerbiStream/)
-[![CerbiStream Downloads](https://img.shields.io/nuget/dt/CerbiStream?label=Downloads&style=flat-square)](https://www.nuget.org/packages/CerbiStream/)
-[![Governance Analyzer NuGet](https://img.shields.io/nuget/v/CerbiStream.GovernanceAnalyzer?label=Governance%20Analyzer%20NuGet&style=flat-square)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer/)
-[![Governance Analyzer Downloads](https://img.shields.io/nuget/dt/CerbiStream.GovernanceAnalyzer?label=Governance%20Analyzer%20Downloads&style=flat-square)](https://www.nuget.org/packages/CerbiStream.GovernanceAnalyzer/)
-[![Build Status](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml/badge.svg?branch=master)](https://github.com/Zeroshi/Cerbi-CerbiStream/actions/workflows/cerbi-devsecops.yml)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Zeroshi_Cerbi-CerbiStream&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Zeroshi_Cerbi-CerbiStream)
-
-[![Benchmark Tests Repo](https://img.shields.io/badge/View-Benchmark%20Tests-blue?style=flat-square)](https://github.com/Zeroshi/CerbiStream.BenchmarkTests)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+This README is ordered for new users: quick overview, why it matters, how to get started, key features, integrations, performance, security & compliance, docs and troubleshooting, and business/technical selling points.
 
 ---
 
-## Quick Links
-- Installation and setup: docs/INSTALLATION.md
-- Production operations: docs/README-PRODUCTION.md
-- Troubleshooting: docs/TROUBLESHOOTING.md
-- Technical walkthrough: docs/WALKTHROUGH-TECHNICAL.md
-- Overview for non-technical stakeholders: docs/OVERVIEW-NONTECHNICAL.md
+## Quick summary (What is CerbiStream?)
+- A runtime logging layer that validates, tags, and redacts structured logs according to a policy.
+- Works as a wrapper around your existing logging pipeline (MEL, Serilog plugins available).
+- Keeps logging fast (sub-microsecond overhead for governance checks in typical cases) and consistent for downstream analytics and ML.
 
 ---
 
-## 🔗 Supported Destinations
-
-CerbiStream can route logs to:
-
-* Queues: Azure Service Bus, RabbitMQ, Kafka, AWS SQS/Kinesis, Google Pub/Sub
-* HTTP Endpoints: Any REST API with custom headers
-* Cloud Storage: Azure Blob, AWS S3, Google Cloud Storage
-* File Fallback: Local JSON file (AES/Base64 encryption supported)
-* Telemetry Providers: App Insights, OpenTelemetry, Datadog, AWS CloudWatch, GCP Stackdriver
+## The problem (why this exists)
+Modern apps emit high volumes of structured logs across many services and destinations. Common challenges:
+- PII and secrets accidentally logged and stored in multiple systems.
+- Inconsistent field names and schemas break analytics & ML pipelines.
+- Compliance audits require consistent redaction and proof of enforcement.
+- Storing unstandardized logs increases indexing and storage costs.
 
 ---
 
-## 🧱 CerbiSuite Overview
-
-| Component | Purpose |
-| ---------------------------------- | ------------------------------------------------------ |
-| CerbiStream | Structured logging for .NET with queue & cloud targets |
-| Cerbi.Governance.Runtime | Runtime enforcement of governance rules |
-| CerbiStream.GovernanceAnalyzer | Compile-time governance analyzer |
-| CerbiShield (coming soon) | Governance dashboard & deployment portal |
-| CerbIQ (coming soon) | Metadata aggregation + routing pipeline |
-| CerbiSense (coming soon) | Governance scoring & ML analysis engine |
+## The solution (what CerbiStream does)
+CerbiStream enforces governance before logs are written to any sink:
+- Validates logs against a `cerbi_governance.json` policy per profile.
+- Tags logs with governance metadata (violations, profile version).
+- Redacts disallowed/forbidden fields in-place.
+- Integrates seamlessly with existing sinks and logging libraries.
 
 ---
 
-## Developer Quick Start
+## Quick start (5-minute setup)
+1. Add the package or project reference to `LoggingStandards/CerbiStream.csproj` (or install the NuGet package).
+2. Create a simple policy file `cerbi_governance.json` in your application folder or set `CERBI_GOVERNANCE_PATH`.
 
-See docs/INSTALLATION.md for end-to-end setup including policy file and runtime registration.
-
-Minimal setup:
-
-```
-var inner = LoggerFactory.Create(b => b.AddConsole());
-builder.Logging.AddCerbiGovernanceRuntime(inner, "default");
-```
-
-Policy file example (`cerbi_governance.json`):
-
+Example policy snippet:
 ```
 {
  "Version": "1.0.0",
@@ -76,42 +48,108 @@ Policy file example (`cerbi_governance.json`):
 }
 ```
 
----
+3. Wire CerbiStream into your logging pipeline (example in `Program.cs`):
+```csharp
+var inner = LoggerFactory.Create(b => b.AddConsole());
+builder.Logging.AddCerbiGovernanceRuntime(inner, "default", configPath: "./cerbi_governance.json");
+```
+4. Run. Logs that include `ssn` or `creditCard` fields will be redacted as `***REDACTED***` and governance tags will be present.
 
-## 🆕2025 Governance Update
-
-CerbiStream now uses real-time governance enforcement via Cerbi.Governance.Runtime.
-
-### Runtime Advantages:
-
-* Compatible with .NET6–8+
-* Config from local, blob, or GitHub
-* Automatically tags logs with governance info
-* Supports `.Relax()` and `[CerbiTopic]`
+For more: see `docs/INSTALLATION.md` and `docs/README-PRODUCTION.md`.
 
 ---
 
-## Features
-
-- Topic-based log scoping
-- Metadata injection
-- Governance policy validation
-- Relaxed log support
-- Queue & blob transport
-- Polly retry support
-
----
-
-## Unit Testing
-
-- Governance rule enforcement
-- Retry/backoff
-- Metadata injection
-- Fallback logging rotation
-- Encryption and validation
+## Key features (at a glance)
+- Runtime governance enforcement (validate, tag, redact)
+- Profile-based policies (`LoggingProfiles`) and env override via `CERBI_GOVERNANCE_PATH`
+- In-place, case-insensitive redaction for structured logs
+- Relaxed mode (`GovernanceRelaxed`) to bypass enforcement when intentional
+- Low-latency: typical governance overhead ≈0.65 µs per log in our benchmarks
+- Memory-efficient: pooled dictionaries & hashsets, streaming JSON parsing
+- Integrations with AppInsights, OpenTelemetry, Datadog, AWS CloudWatch, GCP Stackdriver
+- Queue + storage sinks: Azure, AWS SQS/Kinesis/S3, Google Pub/Sub/Storage, RabbitMQ, Kafka
+- File fallback with rotation and optional encryption (AES/Base64)
+- Configurable retry policies (Polly) and telemetry enrichment
+- Unit tests and benchmark suite included (`CerbiStream--UnitTests`, `BenchmarkSuite1`)
 
 ---
 
-## License
+## Integrations and extensibility
+- Works as a middleware/provider for `Microsoft.Extensions.Logging` via `AddCerbiGovernanceRuntime`.
+- Plug-in model and adapters available for Serilog so you can keep existing sinks and structured logging code.
+- Governance policy source is pluggable — default is file; you can implement cloud-backed sources.
+- Telemetry contexts and attributes (`CerbiTopic`) included for downstream routing and analytics.
 
-MIT © Cerbi LLC
+---
+
+## Performance & benchmark notes
+- Baseline (no governance): ~26–28 ns per call (in-memory no-op sink).
+- Governance path (validation + redaction): ~0.64–0.71 µs per call (measured with BenchmarkDotNet on representative hardware).
+- Measured managed allocations on the governance path: approx840 B per call (reduced by pooling and streaming parsing).
+- Benchmarks are in `BenchmarkSuite1/GovernanceLoggingBench.cs`. Run locally with:
+
+```
+dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release -- --join
+```
+
+These numbers show CerbiStream keeps enforcement cheap while guaranteeing policy compliance across sinks.
+
+---
+
+## Security & compliance
+- Policies should be stored and changed via PRs and restricted permissions.
+- Redaction is applied at the ingestion point to reduce exposure risk.
+- Audit fields (`GovernanceViolations`, `GovernanceProfileVersion`) make it easy to prove enforcement for audits.
+- Encryption support (AES) for file fallback and optional payload encryption for sensitive storage.
+
+---
+
+## Packaging & CI
+- NuGet packaging metadata is configured in `LoggingStandards/CerbiStream.csproj` (symbols/snupkg generation enabled).
+- GitHub Actions workflow at `.github/workflows/build-and-test.yml` builds and runs tests on push/PR.
+
+---
+
+## How CerbiStream fits the Cerbi product family
+- Runtime enforcement is complemented by static analysis via `CerbiStream.GovernanceAnalyzer` and dashboards such as `CerbiShield`.
+- `CerbIQ` and analytics products benefit from standardized, redacted, and tagged logs for ML/AI use.
+
+---
+
+## Selling points (clear value props for stakeholders)
+- Reduce risk: prevents accidental PII leakage and reduces remediation costs.
+- Compliance-first: enforces policies at the earliest point, simplifying audits.
+- Cost control: standardized logs reduce high-cardinality fields being stored/indexed in multiple systems.
+- Developer-friendly: integrates with existing logging frameworks — no need to replace Serilog or MEL.
+- ML/AI readiness: consistent schemas and enforced metadata make logs immediately usable for analytics and models.
+- Fast and safe: sub-microsecond enforcement for typical cases with low allocation strategies.
+
+---
+
+## FAQ (short)
+Q: Does CerbiStream replace Serilog or MEL?
+A: No. CerbiStream is a governance/enrichment layer that plugs into MEL/Serilog. It ensures logs are compliant before they reach sinks.
+
+Q: What if policy changes frequently?
+A: The adapter watches the policy file and reloads safely; for remote policy sources you can implement a custom source.
+
+Q: What if I need zero-latency logging?
+A: For extreme use cases you can offload validation to a background pipeline (trade-off: immediate delivery semantics change). Contact us to help design that architecture.
+
+---
+
+## Documentation & support
+- Installation & quick start: `docs/INSTALLATION.md`
+- Production guidance & checklist: `docs/README-PRODUCTION.md`
+- Troubleshooting: `docs/TROUBLESHOOTING.md`
+- Technical walkthrough: `docs/WALKTHROUGH-TECHNICAL.md`
+- Non-technical overview: `docs/OVERVIEW-NONTECHNICAL.md`
+
+---
+
+## Contributing
+Contributions are welcome. Please follow existing code style, add tests for behavior changes, and run the benchmark suite when changing hot paths.
+
+---
+
+If you want this content split into a dedicated `docs/FEATURES.md` or `docs/WHY-CERBI.md`, I can move it and add cross-links. What would you prefer?

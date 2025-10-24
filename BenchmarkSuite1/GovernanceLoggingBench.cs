@@ -4,12 +4,10 @@ using System.IO;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.Logging;
 using CerbiStream.GovernanceRuntime.Governance;
-using Microsoft.VSDiagnostics;
 
 namespace CerbiStream.Benchmarks
 {
     [MemoryDiagnoser]
-    [CPUUsageDiagnoser]
     public class GovernanceLoggingBench
     {
         private ILogger _baselineLogger = default!;
