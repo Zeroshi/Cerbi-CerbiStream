@@ -10,6 +10,8 @@ using System;
 using System.IO;
 using CerbiStream.Observability;
 using Microsoft.AspNetCore.Builder;
+using CerbiStream.Encryption; // EncryptionFactory
+using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 
 namespace CerbiStream.Configuration
 {
@@ -25,7 +27,7 @@ namespace CerbiStream.Configuration
             var options = new CerbiStreamOptions();
             configureOptions(options);
 
-            // 🔥 Enable async console if requested
+            // Enable async console if requested
             if (options.EnableAsyncConsoleOutput)
             {
                 CerbiStream.Extensions.CerbiLoggerWrapper.EnableAsyncConsole();
@@ -35,6 +37,7 @@ namespace CerbiStream.Configuration
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
 
+            // Register governance runtime validator
             builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
             {
                 var settings = new RuntimeGovernanceSettings(); // Load from config if needed
@@ -46,6 +49,9 @@ namespace CerbiStream.Configuration
                 );
             });
 
+            // Register encryption service based on options (used by file rotation and other features)
+            builder.Services.AddSingleton<IEncryption>(sp => EncryptionFactory.GetEncryption(options));
+
             if (options.FileFallback?.Enable == true)
             {
                 var fallbackConfig = options.FileFallback;
@@ -55,19 +61,28 @@ namespace CerbiStream.Configuration
                     PrimaryFilePath = fallbackConfig.PrimaryFilePath,
                     FallbackFilePath = fallbackConfig.FallbackFilePath,
                     RetryCount = fallbackConfig.RetryCount,
+                    RetryDelay = fallbackConfig.RetryDelay,
+                    MaxFileSizeBytes = fallbackConfig.MaxFileSizeBytes,
+                    MaxFileAge = fallbackConfig.MaxFileAge,
+                    EncryptionKey = fallbackConfig.EncryptionKey,
+                    EncryptionIV = fallbackConfig.EncryptionIV
                 };
 
                 builder.Services.AddSingleton(fallbackOptions);
                 builder.Services.AddSingleton<ILoggerProvider, FileFallbackProvider>();
 
-                builder.Services.AddSingleton<EncryptedFileRotator>(sp =>
+                // Only register encrypted rotation if encryption is enabled
+                if (options.EncryptionMode != EncryptionType.None)
                 {
-                    var opts = sp.GetRequiredService<CerbiStream.Classes.FileLogging.FileFallbackOptions>();
-                    var encryption = sp.GetRequiredService<IEncryption>();
-                    return new EncryptedFileRotator(opts, encryption);
-                });
+                    builder.Services.AddSingleton<EncryptedFileRotator>(sp =>
+                    {
+                        var opts = sp.GetRequiredService<CerbiStream.Classes.FileLogging.FileFallbackOptions>();
+                        var encryption = sp.GetRequiredService<IEncryption>();
+                        return new EncryptedFileRotator(opts, encryption);
+                    });
 
-                builder.Services.AddHostedService<EncryptedFileRotationService>();
+                    builder.Services.AddHostedService<EncryptedFileRotationService>();
+                }
             }
 
             // HealthHostedService
@@ -88,7 +103,6 @@ namespace CerbiStream.Configuration
         public static ILoggingBuilder AddCerbiStream(this ILoggingBuilder builder)
         {
             var options = new CerbiStreamOptions();
-            // Default options are fine for many apps; consumers can register and override the singleton if needed.
             builder.Services.AddSingleton(options);
 
             // Register default runtime components
@@ -104,6 +118,9 @@ namespace CerbiStream.Configuration
                 );
             });
 
+            // Register encryption from options (defaults to NoOp)
+            builder.Services.AddSingleton<IEncryption>(sp => EncryptionFactory.GetEncryption(options));
+
             builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
 
             if (options.TelemetryProvider != null)
@@ -116,12 +133,9 @@ namespace CerbiStream.Configuration
 
         /// <summary>
         /// Registers a lightweight health and metrics endpoint integration for ASP.NET Core.
-        /// This is intentionally minimal: it adds a healthcheck and a small middleware that exposes metrics
-        /// at `/cerbistream/metrics` in a Prometheus-friendly plaintext format and `/cerbistream/health` for basic readiness.
         /// </summary>
         public static ILoggingBuilder AddCerbiStreamHealthChecks(this ILoggingBuilder builder)
         {
-            // Register health checks and a small middleware component
             builder.Services.AddHealthChecks();
             builder.Services.AddSingleton<CerbiStream.Middleware.CerbiMetricsMiddleware>();
             return builder;
