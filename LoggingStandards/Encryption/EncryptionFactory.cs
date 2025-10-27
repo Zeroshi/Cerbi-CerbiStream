@@ -29,19 +29,14 @@ namespace CerbiStream.Encryption
             var key = options.EncryptionKey;
             var iv = options.EncryptionIV;
 
+            // Production behavior: require explicit key/iv when AES is selected
             if (key == null || iv == null)
-            {
-                // ✅ Force valid 16-byte fallback values
-                (key, iv) = EncryptionHelpers.GetInsecureDefaultKeyPair();
-            }
+                throw new InvalidOperationException("AES encryption requires explicit 16-byte key and IV. Configure options.WithEncryptionKey(key, iv).");
 
             if (key.Length != 16 || iv.Length != 16)
                 throw new InvalidOperationException("AES encryption requires 16-byte key and IV for AES-128.");
 
             return new AesEncryption(key, iv);
         }
-
-
     }
-
 }

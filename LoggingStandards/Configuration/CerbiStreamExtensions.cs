@@ -12,6 +12,7 @@ using CerbiStream.Observability;
 using Microsoft.AspNetCore.Builder;
 using CerbiStream.Encryption; // EncryptionFactory
 using static CerbiStream.Interfaces.IEncryptionTypeProvider;
+using CerbiStream.GovernanceRuntime.Governance;
 
 namespace CerbiStream.Configuration
 {
@@ -35,12 +36,27 @@ namespace CerbiStream.Configuration
 
             // Register CerbiStream options and logger provider
             builder.Services.AddSingleton(options);
-            builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
 
-            // Register governance runtime validator
+            // If governance is enabled, register GovernanceLoggerProvider; else dev adapter
+            if (options.EnableGovernanceChecks)
+            {
+                builder.Services.AddSingleton<ILoggerProvider>(sp =>
+                {
+                    // Expect a policy path via env or default lookup inside adapter
+                    var innerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    var adapter = new GovernanceRuntimeAdapter(profileName: "default", configPath: Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH"));
+                    return new GovernanceLoggerProvider(innerFactory, adapter);
+                });
+            }
+            else
+            {
+                builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
+            }
+
+            // Governance runtime validator (available to consumers)
             builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
             {
-                var settings = new RuntimeGovernanceSettings(); // Load from config if needed
+                var settings = new RuntimeGovernanceSettings();
                 var source = new FileGovernanceSource(settings.ConfigPath);
                 return new RuntimeGovernanceValidator(
                     isEnabled: () => settings.Enabled,
@@ -49,46 +65,42 @@ namespace CerbiStream.Configuration
                 );
             });
 
-            // Register encryption service based on options (used by file rotation and other features)
+            // Encryption service
             builder.Services.AddSingleton<IEncryption>(sp => EncryptionFactory.GetEncryption(options));
 
+            // File fallback registration
             if (options.FileFallback?.Enable == true)
             {
-                var fallbackConfig = options.FileFallback;
+                var f = options.FileFallback;
                 var fallbackOptions = new CerbiStream.Classes.FileLogging.FileFallbackOptions
                 {
-                    Enable = fallbackConfig.Enable,
-                    PrimaryFilePath = fallbackConfig.PrimaryFilePath,
-                    FallbackFilePath = fallbackConfig.FallbackFilePath,
-                    RetryCount = fallbackConfig.RetryCount,
-                    RetryDelay = fallbackConfig.RetryDelay,
-                    MaxFileSizeBytes = fallbackConfig.MaxFileSizeBytes,
-                    MaxFileAge = fallbackConfig.MaxFileAge,
-                    EncryptionKey = fallbackConfig.EncryptionKey,
-                    EncryptionIV = fallbackConfig.EncryptionIV
+                    Enable = f.Enable,
+                    PrimaryFilePath = f.PrimaryFilePath,
+                    FallbackFilePath = f.FallbackFilePath,
+                    RetryCount = f.RetryCount,
+                    RetryDelay = f.RetryDelay,
+                    MaxFileSizeBytes = f.MaxFileSizeBytes,
+                    MaxFileAge = f.MaxFileAge,
+                    EncryptionKey = f.EncryptionKey,
+                    EncryptionIV = f.EncryptionIV
                 };
-
                 builder.Services.AddSingleton(fallbackOptions);
                 builder.Services.AddSingleton<ILoggerProvider, FileFallbackProvider>();
 
-                // Only register encrypted rotation if encryption is enabled
                 if (options.EncryptionMode != EncryptionType.None)
                 {
                     builder.Services.AddSingleton<EncryptedFileRotator>(sp =>
                     {
                         var opts = sp.GetRequiredService<CerbiStream.Classes.FileLogging.FileFallbackOptions>();
-                        var encryption = sp.GetRequiredService<IEncryption>();
-                        return new EncryptedFileRotator(opts, encryption);
+                        var enc = sp.GetRequiredService<IEncryption>();
+                        return new EncryptedFileRotator(opts, enc);
                     });
-
                     builder.Services.AddHostedService<EncryptedFileRotationService>();
                 }
             }
 
-            // HealthHostedService
             builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
 
-            // Wire telemetry provider into Metrics if present
             if (options.TelemetryProvider != null)
             {
                 Metrics.TelemetryProvider = options.TelemetryProvider;
@@ -105,8 +117,9 @@ namespace CerbiStream.Configuration
             var options = new CerbiStreamOptions();
             builder.Services.AddSingleton(options);
 
-            // Register default runtime components
+            // Default: dev adapter; governance is opt-in via options overload
             builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
+
             builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
             {
                 var settings = new RuntimeGovernanceSettings();
@@ -118,9 +131,7 @@ namespace CerbiStream.Configuration
                 );
             });
 
-            // Register encryption from options (defaults to NoOp)
             builder.Services.AddSingleton<IEncryption>(sp => EncryptionFactory.GetEncryption(options));
-
             builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
 
             if (options.TelemetryProvider != null)

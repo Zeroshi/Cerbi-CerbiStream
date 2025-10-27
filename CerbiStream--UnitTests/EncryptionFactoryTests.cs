@@ -63,23 +63,11 @@ public class EncryptionFactoryTests
     }
 
     [Fact]
-    public void GetEncryption_ShouldReturn_AesEncryption_WithFallbackDefaults_WhenKeyIVNotProvided()
+    public void GetEncryption_ShouldThrow_WhenAesModeWithoutKeyIv()
     {
         var options = new CerbiStreamOptions().WithEncryptionMode(EncryptionType.AES);
-        var encryption = EncryptionFactory.GetEncryption(options);
-
-        Assert.IsType<AesEncryption>(encryption);
-        Assert.True(encryption.IsEnabled);
-        Assert.Equal(EncryptionType.AES, encryption.EncryptionMethod);
-
-        var data = "default aes";
-        var encrypted = encryption.Encrypt(data);
-        var decrypted = encryption.Decrypt(encrypted);
-
-        Assert.NotEqual(data, encrypted);
-        Assert.Equal(data, decrypted);
+        Assert.Throws<InvalidOperationException>(() => EncryptionFactory.GetEncryption(options));
     }
-
 
     [Fact]
     public void GetEncryption_ShouldReturn_NoOp_WhenEncryptionModeIsUnknown()

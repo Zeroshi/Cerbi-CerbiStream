@@ -92,7 +92,7 @@ namespace CerbiStream.Logging.Configuration
         /// <summary>
         /// Enables governance validation for structured log compliance.
         /// </summary>
-        public bool EnableGovernanceChecks { get; private set; } = true;
+        public bool EnableGovernanceChecks { get; private set; } = false;
 
         /// <summary>
         /// If true, logs will not be sent to a queue.
