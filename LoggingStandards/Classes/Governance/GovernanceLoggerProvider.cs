@@ -25,25 +25,6 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
         private readonly ILogger _inner;
         private readonly GovernanceRuntimeAdapter _adapter;
 
-        // Simple pooled dictionary to reduce per-log allocations when converting state
-        private static readonly ConcurrentBag<Dictionary<string, object>> s_dictPool = new();
-
-        private static Dictionary<string, object> RentDictionary()
-        {
-            if (s_dictPool.TryTake(out var d))
-            {
-                d.Clear();
-                return d;
-            }
-            return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        private static void ReturnDictionary(Dictionary<string, object> d)
-        {
-            d.Clear();
-            s_dictPool.Add(d);
-        }
-
         public GovernanceLogger(ILogger inner, GovernanceRuntimeAdapter adapter)
             => (_inner, _adapter) = (inner, adapter);
 
@@ -55,27 +36,19 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
         {
             if (state is IEnumerable<KeyValuePair<string, object>> kvs)
             {
-                // Rent a pooled dictionary to avoid ToDictionary / ToList allocations on hot path
-                var dict = RentDictionary();
-                try
+                // Create a fresh dictionary to hold structured state we will validate/redact.
+                var dict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kv in kvs)
                 {
-                    foreach (var kv in kvs)
-                    {
-                        // Use assignment to preserve last-writer semantics similar to ToDictionary
-                        dict[kv.Key] = kv.Value;
-                    }
-
-                    _adapter.ValidateAndRedactInPlace(dict);
-
-                    // Pass the dictionary directly as the structured state (Dictionary implements IEnumerable<KeyValuePair<,>>)
-                    _inner.Log(logLevel, eventId, (object)dict, exception, (o, e) => formatter((TState)o, e));
-                    return;
+                    // Preserve last-writer semantics similar to ToDictionary on duplicate keys
+                    dict[kv.Key] = kv.Value;
                 }
-                finally
-                {
-                    // Return dictionary to pool after inner logger processed synchronously
-                    ReturnDictionary(dict);
-                }
+
+                _adapter.ValidateAndRedactInPlace(dict);
+
+                // Pass redacted dictionary as structured state. Keep original formatter output by ignoring 'o'
+                _inner.Log(logLevel, eventId, (object)dict, exception, (_, e) => formatter(state, e));
+                return;
             }
 
             // Fallback: try JSON mapping
@@ -86,7 +59,7 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                 var root = doc.RootElement.Clone();
                 _adapter.ValidateAndRedactInPlace(root);
 
-                _inner.Log(logLevel, eventId, (object)root, exception, (o, e) => formatter((TState)o, e));
+                _inner.Log(logLevel, eventId, (object)root, exception, (_, e) => formatter(state, e));
             }
             catch
             {
