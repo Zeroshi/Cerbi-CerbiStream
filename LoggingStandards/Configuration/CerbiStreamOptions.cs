@@ -1,4 +1,5 @@
 ﻿using CerbiStream.Interfaces;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -149,6 +150,10 @@ namespace CerbiStream.Logging.Configuration
         /// </summary>
         public Func<string, Dictionary<string, object>, bool>? GovernanceValidator { get; private set; }
 
+        // NEW: Governance wiring options for AddCerbiStream governance mode
+        public string GovernanceProfileName { get; private set; } = "default";
+        public string? GovernanceConfigPath { get; private set; }
+        public Func<ILoggerFactory>? InnerFactoryProvider { get; set; }
 
         /// <summary>
         /// Switches the configuration to Minimal Mode.
@@ -312,6 +317,25 @@ namespace CerbiStream.Logging.Configuration
         public CerbiStreamOptions WithGovernanceValidator(Func<string, Dictionary<string, object>, bool> validator)
         {
             GovernanceValidator = validator;
+            return this;
+        }
+
+        // NEW: Fluent config for governance path
+        public CerbiStreamOptions WithGovernanceProfile(string profileName)
+        {
+            GovernanceProfileName = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName;
+            return this;
+        }
+
+        public CerbiStreamOptions WithGovernanceConfigPath(string? path)
+        {
+            GovernanceConfigPath = path;
+            return this;
+        }
+
+        public CerbiStreamOptions WithInnerFactoryProvider(Func<ILoggerFactory> provider)
+        {
+            InnerFactoryProvider = provider;
             return this;
         }
 

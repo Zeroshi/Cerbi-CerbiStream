@@ -42,9 +42,11 @@ namespace CerbiStream.Configuration
             {
                 builder.Services.AddSingleton<ILoggerProvider>(sp =>
                 {
-                    // Expect a policy path via env or default lookup inside adapter
-                    var innerFactory = sp.GetRequiredService<ILoggerFactory>();
-                    var adapter = new GovernanceRuntimeAdapter(profileName: "default", configPath: Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH"));
+                    // Use caller-provided inner factory when available; else minimal no-op factory (dev fallback)
+                    var innerFactory = options.InnerFactoryProvider?.Invoke() ?? LoggerFactory.Create(b => { });
+                    var profile = string.IsNullOrWhiteSpace(options.GovernanceProfileName) ? "default" : options.GovernanceProfileName;
+                    var path = options.GovernanceConfigPath ?? Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH");
+                    var adapter = new GovernanceRuntimeAdapter(profile, path);
                     return new GovernanceLoggerProvider(innerFactory, adapter);
                 });
             }
