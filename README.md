@@ -38,6 +38,10 @@ We added several small, low-risk features to make adoption and development easie
  - Pooled `HashSet<string>` for `toRedact` to avoid frequent allocations.
  - Streaming parsing of JSON-formatted `GovernanceViolations` via `Utf8JsonReader` to prevent `JsonDocument` allocations on hot paths.
 
+- Recent micro-optimization: pooled dictionary for the governance hot path
+ - The governance logger now uses a lightweight pooled `Dictionary<string, object>` when converting `IEnumerable<KeyValuePair<string, object>>` state into a mutable structure for validation/redaction. This reduces per-log allocations and GC pressure on hot paths.
+ - Caveat: if any downstream sink captures or mutates the provided dictionary asynchronously after the `Log` call returns, the pooled dictionary MUST NOT be returned to the pool until the sink is finished with it. The library's current pooling implementation returns the dictionary immediately; if your sinks capture state asynchronously, either disable pooling or switch sinks to copy the state before returning. We plan to make pooling opt-in in a future release.
+
 - Tests
  - Unit tests added for the health hosted service (`CerbiStream--UnitTests/HealthHostedServiceTests.cs`) and existing test coverage continues for options, governance and telemetry providers.
 
@@ -66,6 +70,7 @@ dotnet test CerbiStream--UnitTests/UnitTests.csproj -f net8.0
 
 ---
 
+<<<<<<< HEAD
 ## Dev & observability (new)
 CerbiStream aims to be developer-friendly and lightweight. The library includes small, optional observability helpers you can enable in apps to get immediate insight without pulling heavy dependencies.
 
@@ -73,6 +78,19 @@ CerbiStream aims to be developer-friendly and lightweight. The library includes 
  - The runtime increments three lightweight counters: `LogsProcessed`, `Redactions`, and `Violations` in `CerbiStream.Observability.Metrics`.
  - These counters are thread-safe and can be reset in tests via `Metrics.Reset()`.
  - Optionally wire metrics to a telemetry provider by setting `CerbiStreamOptions.TelemetryProvider` — the library will emit a simple `CerbiStream.Metric` event for metric updates when a provider is present.
+ - Optionally expose Prometheus-style metrics via the middleware described below.
+
+- Micro-harness for profiling (new)
+ - A small console harness `MicroHarness` is included in the solution to exercise the governance logger in a tight loop without BenchmarkDotNet. Use this when collecting profiler traces to get focused hotspots inside CerbiStream.
+ - Run locally for profiling (Release build with portable PDBs):
+
+```
+dotnet build MicroHarness -c Release -p:DebugType=portable -p:DebugSymbols=true
+PerfView.exe -> Collect -> Run
+ Program: dotnet
+ Arguments: run --project MicroHarness -c Release --no-build
+ Max Collect Secs:20–30
+```
 
 - Prometheus / health endpoints (opt-in)
  - Minimal middleware exposes two endpoints for development and lightweight monitoring:
@@ -101,6 +119,8 @@ app.UseCerbiStreamMetrics();
 
 ---
 
+=======
+>>>>>>> parent of d87f8a2 (readme update)
 ## The problem (why this exists)
 Modern apps emit high volumes of structured logs across many services and destinations. Common challenges:
 - PII and secrets accidentally logged and stored in multiple systems.
