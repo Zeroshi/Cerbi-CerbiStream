@@ -8,6 +8,8 @@ using CerbiStream.GovernanceRuntime.Governance;
 namespace CerbiStream.Benchmarks
 {
     [MemoryDiagnoser]
+    [Microsoft.VSDiagnostics.CPUUsageDiagnoser]
+    [Microsoft.VSDiagnostics.DotNetObjectAllocDiagnoser]
     public class GovernanceLoggingBench
     {
         private ILogger _baselineLogger = default!;
