@@ -6,6 +6,11 @@ This README is ordered for new users: quick overview, why it matters, how to get
 
 ---
 
+## SDK & Language
+- SDK pinned via `global.json` to .NET9 (`9.0.x`, rollForward=latestFeature, allowPrerelease=true). Plan to bump to `10.0.100` post-GA.
+- C# language version centralized to `latest` and `Nullable` is enabled via `Directory.Build.props`.
+- Target frameworks are unchanged; library and apps continue to target `net8.0`.
+
 ## Quick summary (What is CerbiStream?)
 - A runtime logging layer that validates, tags, and redacts structured logs according to a policy.
 - Works as a wrapper around your existing logging pipeline (MEL, Serilog adapters available).
@@ -79,6 +84,17 @@ Run unit tests locally:
 
 ```
 dotnet test CerbiStream--UnitTests/UnitTests.csproj -f net8.0
+```
+
+Re-baseline locally (build, tests, benchmarks):
+- Build: `dotnet build -c Release`
+- Test: `dotnet test -c Release`
+- Benchmarks: `scripts/bench.sh` (Linux/macOS) or `scripts/bench.ps1` (Windows)
+
+Install from NuGet:
+
+```
+dotnet add package CerbiStream --version 1.1.20
 ```
 
 ---

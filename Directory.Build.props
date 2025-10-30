@@ -1,0 +1,9 @@
+<Project>
+ <PropertyGroup>
+ <LangVersion>latest</LangVersion>
+ <Nullable>enable</Nullable>
+ <Deterministic>true</Deterministic>
+ <TreatWarningsAsErrors Condition="'$(IsPackable)'=='true'">true</TreatWarningsAsErrors>
+ <ContinuousIntegrationBuild Condition="'$(BUILD_BUILDNUMBER)' != '' Or '$(GITHUB_RUN_NUMBER)' != ''">true</ContinuousIntegrationBuild>
+ </PropertyGroup>
+</Project>
