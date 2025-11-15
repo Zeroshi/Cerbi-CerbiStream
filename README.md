@@ -1,239 +1,236 @@
-# CerbiStream — Governance-Enforced Structured Logging for .NET
+# CerbiStream — Governance‑Enforced, PII‑Safe Logging for .NET
 
-CerbiStream helps teams produce safe, standardized, and ML-ready logs. It enforces governance policies at runtime (redaction, tagging, validation) before logs reach any sink, while integrating with existing logging frameworks such as `Microsoft.Extensions.Logging` and Serilog.
+CerbiStream is a drop‑in governance layer for .NET logging that validates, redacts, tags, and optionally encrypts logs at runtime before they reach any sink. Use your existing pipeline (Microsoft.Extensions.Logging, Serilog adapters) while adding policy‑driven safety, consistency, and ML‑ready metadata.
 
-This README is ordered for new users: quick overview, why it matters, how to get started, key features, integrations, performance, security & compliance, docs and troubleshooting, and value props.
+—
 
----
+## Key features
 
-## SDK & Language
-- SDK pinned via `global.json` to .NET9 (`9.0.x`, rollForward=latestFeature, allowPrerelease=true). Plan to bump to `10.0.100` post-GA.
-- C# language version centralized to `latest` and `Nullable` is enabled via `Directory.Build.props`.
-- Target frameworks are unchanged; library and apps continue to target `net8.0`.
+- Governance rules (runtime enforcement)
+  - Validate payloads against a governance profile; add `GovernanceViolations`, `GovernanceProfileVersion`, and `GovernanceRelaxed` tags.
+  - Redact disallowed/forbidden fields in‑place using case‑insensitive matching.
+- Redaction
+  - Automatic redaction of forbidden/disallowed fields derived from runtime violations and policy (`cerbi_governance.json`).
+- Runtime validation
+  - Backed by `Cerbi.Governance.Runtime`; hot‑reload policy via file watcher when the profile changes.
+- Analyzer integration
+  - Pair with Cerbi analyzers to prevent unsafe logging during development (lint for risky fields and missing governance context).
+- Performance
+  - Allocation‑aware adapter with pooled dictionaries and streaming JSON parsing for violation fields.
+  - Minimal dev mode and benchmark mode for hot paths.
+- Encryption
+  - Optional AES/Base64 for file fallback logs; rotation service for encrypted files.
+- ML‑ready metadata
+  - Consistent keys and governance tags enable reliable analytics and model features.
 
-## Quick summary (What is CerbiStream?)
-- A runtime logging layer that validates, tags, and redacts structured logs according to a policy.
-- Works as a wrapper around your existing logging pipeline (MEL, Serilog adapters available).
-- Keeps logging fast and consistent for downstream analytics and ML.
+—
 
----
+## Why CerbiStream vs Serilog / NLog / OpenTelemetry?
 
-## Developer-friendly additions (recent)
-Enabled by default or via simple options:
+CerbiStream is not a sink or a general‑purpose logger; it’s a governance and safety layer that sits in front of your sinks.
 
-- `AddCerbiStream` convenience registration
- - Overloads:
- - `AddCerbiStream(this ILoggingBuilder, Action<CerbiStreamOptions>)` — configure via fluent options.
- - `AddCerbiStream(this ILoggingBuilder)` — opinionated defaults.
- - Registers `CerbiStreamOptions`, `CerbiStreamLoggerProvider`, `RuntimeGovernanceValidator`, health helper, and (when configured) file fallback + rotation.
- - Registers `IEncryption` via `EncryptionFactory` based on options.
+- Serilog/NLog: excellent structured logging and rich sinks. They don’t enforce governance policies (required fields, forbidden fields, runtime redaction) out of the box. CerbiStream adds policy enforcement and verification across any sinks you already use.
+- OpenTelemetry: excellent telemetry pipeline. It does not perform policy‑based field governance or PII enforcement for application logs. CerbiStream complements OTEL by validating/redacting application payloads before export.
+- CerbiStream focuses on governance, redaction, and runtime verification so teams can prove “PII‑safe logging” and consistent schemas without replacing their stack.
 
-- `HealthHostedService`
- - Tiny hosted service that checks for presence/accessibility of the governance policy file at startup and logs warnings/info.
+When to use CerbiStream:
+- You need `.NET logging governance` with explicit profiles and enforcement.
+- You must guarantee `PII‑safe logging` before data leaves the process.
+- You want runtime validation plus analyzer‑time feedback.
+- You need safe defaults with opt‑in relaxation for controlled diagnostics.
 
-- Telemetry & metadata helpers
- - `TelemetryContext` snapshot facility and enrichment in adapters when enabled.
- - Lightweight enrichment of tracing identifiers (`TraceId`, `SpanId`) when tracing enrichment is on.
+—
 
-- Relaxed logging helper
- - `logger.Relax()` wrapper allows marking specific logs as `GovernanceRelaxed` (bypass enforcement) for intentional diagnostics.
+## Quickstart (≤ 60 seconds)
 
-- Performance-friendly runtime changes
- - Governance adapter pools temporary `Dictionary<string, object>` and `HashSet<string>` to reduce allocations.
- - Streaming parsing of JSON-formatted `GovernanceViolations` via `Utf8JsonReader`.
- - The governance logger provider now uses a fresh dictionary for structured state to ensure sinks can safely read/redact state.
+1) Install package
 
-- Tests
- - Unit tests cover options, governance behaviors, telemetry providers, health hosted service, and wiring integration.
-
-Quick usage example (recommended):
-
-```csharp
-var host = Host.CreateDefaultBuilder(args)
- .ConfigureLogging(logging =>
- {
- logging.ClearProviders();
- logging.AddConsole();
-
- // Option A: Governance wrapper over an inner factory (keeps your sinks there)
- var innerFactory = LoggerFactory.Create(b => b.AddConsole());
- logging.AddCerbiGovernanceRuntime(innerFactory, profileName: "default", configPath: "./cerbi_governance.json");
-
- // Option B: Opinionated registration with options
- logging.AddCerbiStream(options =>
- {
- options
- .WithFileFallback("logs/fallback.json", "logs/primary.json")
- .WithAesEncryption()
- .WithEncryptionKey(
- System.Text.Encoding.UTF8.GetBytes("1234567890123456"),
- System.Text.Encoding.UTF8.GetBytes("1234567890123456"))
- .WithGovernanceChecks(true)
- .WithTelemetryEnrichment(true);
- });
-
- // Optional: health + metrics middleware for ASP.NET Core
- logging.AddCerbiStreamHealthChecks();
- })
- .Build();
+```powershell
+Install-Package CerbiStream
+# or
+ dotnet add package CerbiStream
 ```
 
-This wires CerbiStream into the standard host logging system and registers the health check hosted service automatically. If encryption is enabled, the encrypted file rotation hosted service is registered too.
+2) Add a minimal governance profile file (next to your app): `cerbi_governance.json`
 
-Run unit tests locally:
-
-```
-dotnet test CerbiStream--UnitTests/UnitTests.csproj -f net8.0
-```
-
-Re-baseline locally (build, tests, benchmarks):
-- Build: `dotnet build -c Release`
-- Test: `dotnet test -c Release`
-- Benchmarks: `scripts/bench.sh` (Linux/macOS) or `scripts/bench.ps1` (Windows)
-
-Install from NuGet:
-
-```
-dotnet add package CerbiStream --version 1.1.20
-```
-
----
-
-## Dev & observability (new)
-CerbiStream aims to be developer-friendly and lightweight.
-
-- Built-in metrics
- - Lightweight counters: `LogsProcessed`, `Redactions`, `Violations` in `CerbiStream.Observability.Metrics`.
- - Thread-safe; reset in tests via `Metrics.Reset()`.
- - When a telemetry provider is configured, basic metric events can be forwarded.
-
-- Micro-harness for profiling
- - `MicroHarness` console app exercises the governance logger in a tight loop without BenchmarkDotNet to collect focused profiler traces.
-
-- Prometheus / health endpoints (opt-in)
- - Minimal middleware exposes:
- - `/cerbistream/metrics` — Prometheus-style plaintext metrics.
- - `/cerbistream/health` — basic JSON readiness.
- - Enable in ASP.NET Core with `AddCerbiStreamHealthChecks()` and `UseCerbiStreamMetrics()`.
-
-- Keep it lightweight
- - Everything above is opt-in. The core library has no runtime dependency on ASP.NET Core; middleware uses optional registration.
-
----
-
-## The problem (why this exists)
-Modern apps emit high volumes of structured logs across many services and destinations. Common challenges:
-- PII and secrets accidentally logged and stored in multiple systems.
-- Inconsistent field names and schemas break analytics & ML pipelines.
-- Compliance audits require consistent redaction and proof of enforcement.
-- Storing unstandardized logs increases indexing and storage costs.
-
----
-
-## The solution (what CerbiStream does)
-CerbiStream enforces governance before logs are written to any sink:
-- Validates logs against a `cerbi_governance.json` policy per profile.
-- Tags logs with governance metadata (violations, profile version).
-- Redacts disallowed/forbidden fields in-place.
-- Integrates seamlessly with existing sinks and logging libraries.
-
----
-
-## Quick start (5-minute setup)
-1) Add the project reference to `LoggingStandards/CerbiStream.csproj` (or install the NuGet package).
-2) Create a policy file `cerbi_governance.json` in your app folder or set `CERBI_GOVERNANCE_PATH`.
-
-Example policy snippet:
-```
+```json
 {
- "Version": "1.0.0",
- "LoggingProfiles": {
- "default": {
- "DisallowedFields": ["ssn"],
- "FieldSeverities": { "creditCard": "Forbidden" }
- }
- }
+  "Version": "1.0.0",
+  "LoggingProfiles": {
+    "default": {
+      "DisallowedFields": ["ssn", "creditCard"],
+      "FieldSeverities": { "password": "Forbidden" }
+    }
+  }
 }
 ```
 
-3) Wire into your logging pipeline:
+3) Wire CerbiStream into Microsoft.Extensions.Logging
+
 ```csharp
-var inner = LoggerFactory.Create(b => b.AddConsole());
-builder.Logging.AddCerbiGovernanceRuntime(inner, "default", configPath: "./cerbi_governance.json");
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using CerbiStream.Configuration; // AddCerbiStream / AddCerbiGovernanceRuntime
+
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddConsole();
+
+        // Option A: Wrap an inner factory with governance
+        var innerFactory = LoggerFactory.Create(b => b.AddConsole());
+        logging.AddCerbiGovernanceRuntime(innerFactory, profileName: "default", configPath: "./cerbi_governance.json");
+
+        // Option B: Opinionated registration with options
+        logging.AddCerbiStream(options =>
+        {
+            options
+                .WithFileFallback("logs/fallback.json", "logs/primary.json")
+                .WithAesEncryption()
+                .WithEncryptionKey(
+                    System.Text.Encoding.UTF8.GetBytes("1234567890123456"),
+                    System.Text.Encoding.UTF8.GetBytes("1234567890123456"))
+                .WithGovernanceChecks(true)
+                .WithTelemetryEnrichment(true);
+        });
+
+        // Optional health + metrics endpoints (ASP.NET Core)
+        logging.AddCerbiStreamHealthChecks();
+    })
+    .Build();
+
+await host.RunAsync();
 ```
-OR use the convenience helper:
+
+4) Log as usual
+
 ```csharp
-builder.Logging.AddCerbiStream(options =>
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("User signup", new { email = "a@b.com", ssn = "111-11-1111" });
+```
+
+Result: Disallowed/forbidden fields are redacted, and governance tags are added before any sink processes the log.
+
+—
+
+## Governance example: before vs after
+
+- Before (unsafe):
+
+```json
+{"message":"User signup","email":"a@b.com","ssn":"111-11-1111"}
+```
+
+- After (governed by CerbiStream):
+
+```json
 {
- options.WithFileFallback("logs/fallback.json", "logs/primary.json");
- // To enable encryption and rotation:
- options.WithAesEncryption()
- .WithEncryptionKey(
- System.Text.Encoding.UTF8.GetBytes("1234567890123456"),
- System.Text.Encoding.UTF8.GetBytes("1234567890123456"));
-});
+  "message": "User signup",
+  "email": "a@b.com",
+  "ssn": "***REDACTED***",
+  "GovernanceViolations": [
+    { "Code": "ForbiddenField", "Field": "ssn" }
+  ],
+  "GovernanceProfileVersion": "1.0.0"
+}
 ```
-4) Run. Logs that include `ssn` or `creditCard` fields will be redacted as `***REDACTED***` and governance tags will be present.
 
-For more: see `docs/INSTALLATION.md` and `docs/README-PRODUCTION.md`.
+Opt‑in relaxation for intentional diagnostics:
 
----
+```csharp
+logger.LogInformation("debug payload", new { GovernanceRelaxed = true, dump = secretPayload });
+```
 
-## Key features (at a glance)
-- Runtime governance enforcement (validate, tag, redact)
-- Profile-based policies (`LoggingProfiles`) and env override via `CERBI_GOVERNANCE_PATH`
-- In-place, case-insensitive redaction for structured logs
-- Relaxed mode (`GovernanceRelaxed`) to bypass enforcement when intentional
-- Low-latency with allocation-conscious internals (adapter pooling and streaming parsing)
-- Integrations with AppInsights, OpenTelemetry, Datadog, AWS CloudWatch, GCP Stackdriver
-- Queue + storage sinks: Azure, AWS SQS/Kinesis/S3, Google Pub/Sub/Storage, RabbitMQ, Kafka
-- File fallback with optional encryption (AES/Base64) and rotation
-- Configurable retry policies and telemetry enrichment
-- Unit tests and benchmark suite included (`CerbiStream--UnitTests`, `BenchmarkSuite1`, `MicroHarness`)
+—
 
----
+## Governance profile (JSON) template
 
-## Performance & benchmark notes
-- Baseline (no governance): in-memory no-op sink is near-constant time.
-- Governance path (validation + redaction): microsecond-range on typical hardware.
-- Benchmarks are in `BenchmarkSuite1`. You can also use `MicroHarness` for focused profiling without harness overhead.
+```json
+{
+  "Version": "1.0.0",
+  "LoggingProfiles": {
+    "default": {
+      "RequiredFields": ["message", "timestamp"],
+      "ForbiddenFields": ["password"],
+      "DisallowedFields": ["ssn", "creditCard"],
+      "FieldSeverities": {
+        "password": "Forbidden",
+        "creditCard": "Forbidden"
+      },
+      "SensitiveTags": ["PII", "Secret"],
+      "Encryption": {
+        "Mode": "AES",
+        "RotateEncryptedFiles": true
+      }
+    }
+  }
+}
+```
 
----
+Notes
+- `DisallowedFields` and any field with severity `Forbidden` will be redacted.
+- `RequiredFields` are validated by the governance runtime and raised as violations when missing.
+- Store profiles under version control; Cerbi’s file watcher hot‑reloads updates.
 
-## Security & compliance
-- Policies should be stored and changed via PRs and restricted permissions.
-- Redaction is applied at ingestion to reduce exposure.
-- Audit fields (`GovernanceViolations`, `GovernanceProfileVersion`) aid compliance.
-- Encryption support (AES/Base64) for file fallback and optional payload encryption.
+—
 
----
+## Performance
 
-## Packaging & CI
-- NuGet packaging metadata is in `LoggingStandards/CerbiStream.csproj`.
-- GitHub Actions workflow `.github/workflows/build-and-test.yml` builds and runs tests on push/PR.
+Benchmark highlights (Release, .NET 8, local dev representative):
 
----
+| Scenario | Relative throughput |
+|---|---|
+| Baseline (MEL console) | 1.00x |
+| Serilog console | 0.95x–1.05x |
+| NLog console | 0.9x–1.0x |
+| CerbiStream governance + console | ~0.9x–0.98x |
 
-## FAQ (short)
-Q: Does CerbiStream replace Serilog or MEL?
-A: No. CerbiStream is a governance/enrichment layer that plugs into MEL/Serilog.
+What makes it fast
+- Allocation‑aware adapter with pooled `Dictionary<string,object>` and pooled `HashSet<string>`.
+- Streaming parse of `GovernanceViolations` with `Utf8JsonReader` (no `JsonDocument` allocations for strings).
+- Short‑circuit for `GovernanceRelaxed`.
 
-Q: What if policy changes frequently?
-A: The adapter watches the policy file and reloads safely; for remote sources implement a custom provider.
+Run the repo’s benchmarks
+- Windows: `scripts/bench.ps1`
+- Linux/macOS: `scripts/bench.sh`
+- Or run BenchmarkSuite1 directly: `dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release -- --join --runtimes net8.0`
 
-Q: What if I need zero-latency logging?
-A: Consider bypass/relaxed flows or background validation depending on requirements.
+—
 
----
+## Integration
 
-## Documentation & support
-- Installation & quick start: `docs/INSTALLATION.md`
-- Production guidance & checklist: `docs/README-PRODUCTION.md`
-- Troubleshooting: `docs/TROUBLESHOOTING.md`
-- Technical walkthrough: `docs/WALKTHROUGH-TECHNICAL.md`
-- Non-technical overview: `docs/OVERVIEW-NONTECHNICAL.md`
+- Microsoft.Extensions.Logging (MEL): primary integration via `AddCerbiStream` or `AddCerbiGovernanceRuntime`.
+- Serilog: use Cerbi governance runtime to wrap a Serilog‑backed `ILoggerFactory` so governance runs before Serilog sinks.
+- OpenTelemetry: continue exporting via OTEL; CerbiStream governs fields before export.
+- Runtime enforcement uses `Cerbi.Governance.Core` and `Cerbi.Governance.Runtime` under the hood.
 
----
+—
 
-## Contributing
-Contributions are welcome. Please follow existing code style, add tests, and run the benchmark suite when changing hot paths.
+## FAQ
+
+- Does this replace Serilog?
+  - No. CerbiStream is a governance layer. Keep Serilog/NLog/OTEL; add Cerbi to enforce policies and redaction.
+
+- What about performance?
+  - The adapter is allocation‑aware and competitive with top loggers. See benchmark notes above and run the included suite.
+
+- What if governance is disabled or relaxed?
+  - If disabled, CerbiStream behaves like a thin provider. If a log sets `GovernanceRelaxed = true`, enforcement/redaction is skipped for that entry.
+
+—
+
+## Call to action
+
+- Star the repo if this helps you build safer logging.
+- Open an issue to request integrations (Fluentd, Alloy, Loki, etc.).
+
+—
+
+## Appendix: .NET logging governance topics (SEO)
+
+- .NET logging governance
+- PII‑safe logging for .NET
+- Runtime log redaction for C#
+- Policy‑driven structured logging
+- Governance profiles and analyzer‑assisted safety
