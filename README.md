@@ -1,71 +1,139 @@
-# CerbiStream — Governance‑Enforced, PII‑Safe Logging for .NET
+# CerbiStream — Governance-Enforced, PII-Safe Logging for .NET
 
-CerbiStream is a drop‑in governance layer for .NET logging that validates, redacts, tags, and optionally encrypts logs at runtime before they reach any sink. Use your existing pipeline (Microsoft.Extensions.Logging, Serilog adapters) while adding policy‑driven safety, consistency, and ML‑ready metadata.
+CerbiStream is a **governance and safety layer** for .NET logging. It validates, redacts, tags, and optionally encrypts logs **before they reach any sink**.
 
-—
+Keep your existing stack:
 
-## Key features
+- `Microsoft.Extensions.Logging` (MEL)
+- Serilog
+- NLog
+- log4net
+- OpenTelemetry / OTLP exporters
 
-- Governance rules (runtime enforcement)
-  - Validate payloads against a governance profile; add `GovernanceViolations`, `GovernanceProfileVersion`, and `GovernanceRelaxed` tags.
-  - Redact disallowed/forbidden fields in‑place using case‑insensitive matching.
-- Redaction
-  - Automatic redaction of forbidden/disallowed fields derived from runtime violations and policy (`cerbi_governance.json`).
-- Runtime validation
-  - Backed by `Cerbi.Governance.Runtime`; hot‑reload policy via file watcher when the profile changes.
-- Analyzer integration
-  - Pair with Cerbi analyzers to prevent unsafe logging during development (lint for risky fields and missing governance context).
-- Performance
-  - Allocation‑aware adapter with pooled dictionaries and streaming JSON parsing for violation fields.
-  - Minimal dev mode and benchmark mode for hot paths.
-- Encryption
-  - Optional AES/Base64 for file fallback logs; rotation service for encrypted files.
-- ML‑ready metadata
-  - Consistent keys and governance tags enable reliable analytics and model features.
+…and add **policy-driven safety, consistency, and ML-ready metadata** on top.
 
-—
+---
 
-## Why CerbiStream vs Serilog / NLog / OpenTelemetry?
+## 🔑 Key Features
 
-CerbiStream is not a sink or a general‑purpose logger; it’s a governance and safety layer that sits in front of your sinks.
+### Governance rules (runtime enforcement)
 
-- Serilog/NLog: excellent structured logging and rich sinks. They don’t enforce governance policies (required fields, forbidden fields, runtime redaction) out of the box. CerbiStream adds policy enforcement and verification across any sinks you already use.
-- OpenTelemetry: excellent telemetry pipeline. It does not perform policy‑based field governance or PII enforcement for application logs. CerbiStream complements OTEL by validating/redacting application payloads before export.
-- CerbiStream focuses on governance, redaction, and runtime verification so teams can prove “PII‑safe logging” and consistent schemas without replacing their stack.
+- Validate log payloads against a **governance profile** (`cerbi_governance.json`).
+- Tag events with:
+  - `GovernanceViolations`
+  - `GovernanceProfileVersion`
+  - `GovernanceRelaxed`
+- Case-insensitive matching for forbidden/disallowed fields.
 
-When to use CerbiStream:
-- You need `.NET logging governance` with explicit profiles and enforcement.
-- You must guarantee `PII‑safe logging` before data leaves the process.
-- You want runtime validation plus analyzer‑time feedback.
-- You need safe defaults with opt‑in relaxation for controlled diagnostics.
+### Redaction
 
-—
+- Automatic **in-place redaction** of:
+  - `DisallowedFields`
+  - Fields with severity `Forbidden`
+- Works on structured payloads so you don’t leak values to downstream sinks.
 
-## Quickstart (≤ 60 seconds)
+### Runtime validation
 
-1) Install package
+- Backed by **`Cerbi.Governance.Runtime`**.
+- File watcher for **hot-reloading governance profiles** when `cerbi_governance.json` changes.
+- Consistent behavior across CerbiStream, Cerbi.MEL.Governance, and Serilog/MEL plugins.
+
+### Analyzer integration
+
+Pair CerbiStream with Cerbi analyzers to **catch issues before runtime**:
+
+- Lint for risky fields (e.g., `password`, `ssn`, `creditCard`).
+- Enforce required context and schemas during development.
+- Shift PII problems left into CI and IDEs.
+
+### Performance
+
+- Allocation-aware adapter:
+  - Pooled dictionaries for structured state
+  - Streaming JSON parsing (`Utf8JsonReader`) for violation fields
+- Minimal “dev mode” & “benchmark mode” for hot-path tuning.
+- Benchmarks show **parity with established loggers** on baseline scenarios.
+
+### Encryption
+
+- Optional **AES/Base64** encryption for **file fallback logs**.
+- Encrypted file rotation service for:
+  - `max size`
+  - `max age`
+- Centralized encryption mode selection via Cerbi options.
+
+### ML-ready metadata
+
+- Consistent, structured fields:
+  - `GovernanceViolations`
+  - `GovernanceProfileVersion`
+  - `GovernanceRelaxed`
+  - Environment/instance tags
+- Makes downstream queries and ML features **predictable and repeatable** across tools (Loki, Seq, ELK/OpenSearch, Graylog, VictoriaLogs, OpenObserve, etc.).
+
+---
+
+## 🤔 Why CerbiStream vs Serilog / NLog / OpenTelemetry?
+
+CerbiStream is **not** trying to replace Serilog/NLog/OTEL. It’s a **governance layer in front of them**.
+
+- **Serilog / NLog / log4net**
+  - Great at structured logging and sink ecosystems.
+  - Do **not** enforce:
+    - Required fields
+    - Forbidden fields
+    - Runtime redaction driven by governance profiles
+
+- **OpenTelemetry (OTEL)**
+  - Great at telemetry pipelines and exporters (OTLP, OTEL Collector, Prometheus, etc.).
+  - Does **not** enforce policy-based PII rules on application payloads.
+
+**CerbiStream complements these:**
+
+- Validates/marks/redacts logs **before**:
+  - Serilog sinks
+  - NLog targets
+  - OTEL exporters / Collector
+  - Loki / Seq / ELK / Graylog / VictoriaLogs / OpenObserve / TelemetryHarbor / Fluentd / Alloy / syslog
+
+Use CerbiStream when:
+
+- You need **.NET logging governance** with explicit profiles and enforcement.
+- You must guarantee **PII-safe logging** *before* data leaves the process.
+- You want **runtime validation** plus **analyzer-time enforcement**.
+- You prefer **safe defaults** with opt-in relaxation for diagnostics.
+
+---
+
+## ⚡ Quickstart (≤ 60 seconds)
+
+### 1) Install the package
 
 ```powershell
 Install-Package CerbiStream
 # or
- dotnet add package CerbiStream
-```
+dotnet add package CerbiStream
+````
 
-2) Add a minimal governance profile file (next to your app): `cerbi_governance.json`
+### 2) Add a minimal governance profile `cerbi_governance.json`
+
+Put this next to your app executable (or adjust `configPath`):
 
 ```json
 {
   "Version": "1.0.0",
   "LoggingProfiles": {
     "default": {
-      "DisallowedFields": ["ssn", "creditCard"],
-      "FieldSeverities": { "password": "Forbidden" }
+      "DisallowedFields": [ "ssn", "creditCard" ],
+      "FieldSeverities": {
+        "password": "Forbidden"
+      }
     }
   }
 }
 ```
 
-3) Wire CerbiStream into Microsoft.Extensions.Logging
+### 3) Wire CerbiStream into Microsoft.Extensions.Logging
 
 ```csharp
 using Microsoft.Extensions.Hosting;
@@ -78,11 +146,14 @@ var host = Host.CreateDefaultBuilder(args)
         logging.ClearProviders();
         logging.AddConsole();
 
-        // Option A: Wrap an inner factory with governance
+        // Option A: Wrap an existing factory with governance runtime
         var innerFactory = LoggerFactory.Create(b => b.AddConsole());
-        logging.AddCerbiGovernanceRuntime(innerFactory, profileName: "default", configPath: "./cerbi_governance.json");
+        logging.AddCerbiGovernanceRuntime(
+            innerFactory,
+            profileName: "default",
+            configPath: "./cerbi_governance.json");
 
-        // Option B: Opinionated registration with options
+        // Option B: Opinionated CerbiStream registration with options
         logging.AddCerbiStream(options =>
         {
             options
@@ -95,7 +166,7 @@ var host = Host.CreateDefaultBuilder(args)
                 .WithTelemetryEnrichment(true);
         });
 
-        // Optional health + metrics endpoints (ASP.NET Core)
+        // Optional: CerbiStream-driven health + metrics
         logging.AddCerbiStreamHealthChecks();
     })
     .Build();
@@ -103,26 +174,35 @@ var host = Host.CreateDefaultBuilder(args)
 await host.RunAsync();
 ```
 
-4) Log as usual
+### 4) Log as usual
 
 ```csharp
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("User signup", new { email = "a@b.com", ssn = "111-11-1111" });
+
+logger.LogInformation("User signup", new
+{
+    email = "a@b.com",
+    ssn   = "111-11-1111"
+});
 ```
 
-Result: Disallowed/forbidden fields are redacted, and governance tags are added before any sink processes the log.
+CerbiStream will **redact** disallowed/forbidden fields and **add governance tags** before any sink sees the event.
 
-—
+---
 
-## Governance example: before vs after
+## 🔍 Governance Example: Before vs After
 
-- Before (unsafe):
+**Before (unsafe):**
 
 ```json
-{"message":"User signup","email":"a@b.com","ssn":"111-11-1111"}
+{
+  "message": "User signup",
+  "email":   "a@b.com",
+  "ssn":     "111-11-1111"
+}
 ```
 
-- After (governed by CerbiStream):
+**After (governed by CerbiStream):**
 
 ```json
 {
@@ -136,29 +216,35 @@ Result: Disallowed/forbidden fields are redacted, and governance tags are added 
 }
 ```
 
-Opt‑in relaxation for intentional diagnostics:
+**Opt-in relaxation for intentional diagnostics:**
 
 ```csharp
-logger.LogInformation("debug payload", new { GovernanceRelaxed = true, dump = secretPayload });
+logger.LogInformation("debug payload", new
+{
+    GovernanceRelaxed = true,
+    dump = secretPayload
+});
 ```
 
-—
+When `GovernanceRelaxed = true` and your profile allows relax, CerbiStream **skips enforcement/redaction** for that entry but still tags it as relaxed for downstream scoring and audit.
 
-## Governance profile (JSON) template
+---
+
+## 🧾 Governance Profile (JSON) Template
 
 ```json
 {
   "Version": "1.0.0",
   "LoggingProfiles": {
     "default": {
-      "RequiredFields": ["message", "timestamp"],
-      "ForbiddenFields": ["password"],
-      "DisallowedFields": ["ssn", "creditCard"],
+      "RequiredFields": [ "message", "timestamp" ],
+      "ForbiddenFields": [ "password" ],
+      "DisallowedFields": [ "ssn", "creditCard" ],
       "FieldSeverities": {
         "password": "Forbidden",
         "creditCard": "Forbidden"
       },
-      "SensitiveTags": ["PII", "Secret"],
+      "SensitiveTags": [ "PII", "Secret" ],
       "Encryption": {
         "Mode": "AES",
         "RotateEncryptedFiles": true
@@ -168,69 +254,134 @@ logger.LogInformation("debug payload", new { GovernanceRelaxed = true, dump = se
 }
 ```
 
-Notes
-- `DisallowedFields` and any field with severity `Forbidden` will be redacted.
-- `RequiredFields` are validated by the governance runtime and raised as violations when missing.
-- Store profiles under version control; Cerbi’s file watcher hot‑reloads updates.
+Notes:
 
-—
+* `DisallowedFields` and any field with severity `Forbidden` will be redacted.
+* `RequiredFields` are validated and surfaced as violations when missing.
+* Profiles are **just JSON** – keep them in Git, and let Cerbi’s file watcher hot-reload changes.
 
-## Performance
+---
 
-Benchmark highlights (Release, .NET 8, local dev representative):
+## 📈 Performance
 
-| Scenario | Relative throughput |
-|---|---|
-| Baseline (MEL console) | 1.00x |
-| Serilog console | 0.95x–1.05x |
-| NLog console | 0.9x–1.0x |
-| CerbiStream governance + console | ~0.9x–0.98x |
+CerbiStream includes a **Benchmark & Evaluation suite** that compares it to:
 
-What makes it fast
-- Allocation‑aware adapter with pooled `Dictionary<string,object>` and pooled `HashSet<string>`.
-- Streaming parse of `GovernanceViolations` with `Utf8JsonReader` (no `JsonDocument` allocations for strings).
-- Short‑circuit for `GovernanceRelaxed`.
+* Microsoft.Extensions.Logging (MEL)
+* Serilog
+* NLog
+* log4net
 
-Run the repo’s benchmarks
-- Windows: `scripts/bench.ps1`
-- Linux/macOS: `scripts/bench.sh`
-- Or run BenchmarkSuite1 directly: `dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release -- --join --runtimes net8.0`
+**Baseline summary (Release, .NET 8, no-op sinks):**
 
-—
+| Scenario               | Relative throughput |
+| ---------------------- | ------------------- |
+| Baseline (MEL console) | 1.00x               |
+| Serilog console        | 0.95x–1.05x         |
+| NLog console           | 0.90x–1.00x         |
+| CerbiStream + console  | ~0.90x–0.98x        |
 
-## Integration
+What makes it fast:
 
-- Microsoft.Extensions.Logging (MEL): primary integration via `AddCerbiStream` or `AddCerbiGovernanceRuntime`.
-- Serilog: use Cerbi governance runtime to wrap a Serilog‑backed `ILoggerFactory` so governance runs before Serilog sinks.
-- OpenTelemetry: continue exporting via OTEL; CerbiStream governs fields before export.
-- Runtime enforcement uses `Cerbi.Governance.Core` and `Cerbi.Governance.Runtime` under the hood.
+* Allocation-aware adapter with:
 
-—
+  * Pooled `Dictionary<string, object>`
+  * Pooled `HashSet<string>`
+* Streaming parse of governance metadata via `Utf8JsonReader`
+* Immediate short-circuit when `GovernanceRelaxed` is set
 
-## FAQ
+**Run the repo’s benchmarks:**
 
-- Does this replace Serilog?
-  - No. CerbiStream is a governance layer. Keep Serilog/NLog/OTEL; add Cerbi to enforce policies and redaction.
+* Windows: `scripts/bench.ps1`
+* Linux/macOS: `scripts/bench.sh`
+* Or directly:
 
-- What about performance?
-  - The adapter is allocation‑aware and competitive with top loggers. See benchmark notes above and run the included suite.
+```bash
+dotnet run --project Cerbi-Benchmark-Tests/Cerbi-Benchmark-Tests.csproj -c Release
+```
 
-- What if governance is disabled or relaxed?
-  - If disabled, CerbiStream behaves like a thin provider. If a log sets `GovernanceRelaxed = true`, enforcement/redaction is skipped for that entry.
+For full benchmark commentary, see the **CerbiStream Benchmark & Evaluation Suite** README in this repo.
 
-—
+---
 
-## Call to action
+## 🔗 Integration Patterns
 
-- Star the repo if this helps you build safer logging.
-- Open an issue to request integrations (Fluentd, Alloy, Loki, etc.).
+* **MEL**
+  Primary integration via `AddCerbiStream` / `AddCerbiGovernanceRuntime`.
 
-—
+* **Serilog**
+  Wrap your Serilog-backed `ILoggerFactory` so Cerbi governance runs **before** Serilog sinks.
 
-## Appendix: .NET logging governance topics (SEO)
+* **NLog / log4net**
+  Integrate via MEL or by routing governed events into existing targets.
 
-- .NET logging governance
-- PII‑safe logging for .NET
-- Runtime log redaction for C#
-- Policy‑driven structured logging
-- Governance profiles and analyzer‑assisted safety
+* **OpenTelemetry**
+  Use CerbiStream in the app, then export via OTLP to the OTEL Collector. Logs arrive already governed/redacted.
+
+* **Downstream stacks**
+  CerbiStream plays nicely with:
+
+  * Grafana Loki / Promtail / Alloy
+  * Seq
+  * ELK / OpenSearch
+  * Graylog
+  * VictoriaLogs / VictoriaMetrics
+  * OpenObserve
+  * TelemetryHarbor
+  * Fluentd / Fluent Bit
+  * Journald / basic syslog + grep/tail
+
+You don’t need a **CerbiStream.Fluentd** or **CerbiStream.Alloy** NuGet package.
+You need: **CerbiStream in-process**, plus configuration for your collector/exporter to ingest those governed logs.
+
+---
+
+## ❓ FAQ
+
+**Does this replace Serilog or NLog?**
+No. CerbiStream is a **governance layer**, not a sink library. Keep Serilog/NLog/OTEL; add CerbiStream to enforce profiles and redaction before events flow into those stacks.
+
+---
+
+**What about performance overhead?**
+CerbiStream is designed to be **competitive with top loggers**. Baseline cost is close to raw MEL; governance/redaction cost is explicit and measurable in the included benchmarks.
+
+---
+
+**What happens when governance is disabled or relaxed?**
+
+* When **disabled**, CerbiStream behaves like a thin pass-through provider.
+* When **`GovernanceRelaxed = true`**, enforcement is skipped for that entry:
+
+  * No redaction
+  * Event is tagged as relaxed for downstream scoring
+
+---
+
+**Can I manage governance profiles centrally?**
+Yes. Profiles can be generated and deployed via **CerbiShield** (governance dashboard) and consumed by CerbiStream, MEL plugins, and Serilog governance adapters.
+
+---
+
+## ✅ Call to Action
+
+* ⭐ **Star the repo** if CerbiStream helps keep your logs safe and compliant.
+* 🧪 Use it side-by-side with your existing logger to evaluate governance impact.
+* 💬 Open issues for:
+
+  * Additional examples (Fluentd, Alloy, Loki, OTEL Collector configs)
+  * Feature requests
+  * Benchmark scenarios you care about
+
+---
+
+## 📚 Appendix: .NET Logging Governance Topics (SEO)
+
+* .NET logging governance
+* PII-safe logging for .NET
+* Runtime log redaction for C#
+* Policy-driven structured logging
+* Governance profiles for Serilog, NLog, MEL
+* OpenTelemetry logging with PII enforcement
+* OTEL Collector with governed logs
+* AES-encrypted log files for .NET
+* CerbiStream vs Serilog vs NLog vs log4net
