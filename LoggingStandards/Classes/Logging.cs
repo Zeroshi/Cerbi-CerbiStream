@@ -185,7 +185,7 @@ namespace CerbiClientLogging.Implementations
                 EncryptInternalSecrets(metadata);
             }
 
-            if (!_options.ValidateLog(_options.QueueType, metadata))
+            if (!_options.ValidateLog(_options.GovernanceProfileName, metadata))
             {
                 Console.WriteLine("[CerbiStream] Governance validation failed; dropping log.");
                 return Task.FromResult(false);
@@ -236,6 +236,12 @@ namespace CerbiClientLogging.Implementations
                 EncryptInternalSecrets(metadata);
             }
 
+            if (!_options.ValidateLog(_options.GovernanceProfileName, metadata))
+            {
+                Console.WriteLine("[CerbiStream] Governance validation failed; dropping log.");
+                return Task.FromResult(false);
+            }
+
             if (_governanceValidator != null)
             {
                 _governanceValidator.ValidateInPlace(metadata);
@@ -269,6 +275,12 @@ namespace CerbiClientLogging.Implementations
             {
                 EnrichMetadata(metadata);
                 EncryptInternalSecrets(metadata);
+            }
+
+            if (!_options.ValidateLog(_options.GovernanceProfileName, metadata))
+            {
+                Console.WriteLine("[CerbiStream] Governance validation failed; dropping log.");
+                return Task.FromResult(false);
             }
 
             var entry = new
