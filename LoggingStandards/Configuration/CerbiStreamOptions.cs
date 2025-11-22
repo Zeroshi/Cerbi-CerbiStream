@@ -317,6 +317,7 @@ namespace CerbiStream.Logging.Configuration
         public CerbiStreamOptions WithGovernanceValidator(Func<string, Dictionary<string, object>, bool> validator)
         {
             GovernanceValidator = validator;
+            EnableGovernanceChecks = true;
             return this;
         }
 
@@ -496,8 +497,15 @@ namespace CerbiStream.Logging.Configuration
                 .WithGovernanceChecks(false);
         }
 
-        public bool ValidateLog(string profileName, Dictionary<string, object> logData) =>
-            !EnableGovernanceChecks || (GovernanceValidator?.Invoke(profileName, logData) ?? true);
+        public bool ValidateLog(string profileName, Dictionary<string, object> logData)
+        {
+            if (GovernanceValidator is not null)
+            {
+                return GovernanceValidator(profileName, logData);
+            }
+
+            return true; // No validator configured; nothing to enforce.
+        }
 
         public bool ShouldSkipQueueSend() => DisableQueueSending;
 
