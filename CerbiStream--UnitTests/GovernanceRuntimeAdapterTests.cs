@@ -1,10 +1,12 @@
 using CerbiStream.GovernanceRuntime.Governance;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -139,6 +141,43 @@ namespace CerbiStream.Tests
  {
  if (File.Exists(temp)) File.Delete(temp);
  }
+ }
+
+ [Fact(DisplayName = "ValidateAndRedactInPlace(JsonElement) returns pooled dictionaries")]
+ public void ValidateAndRedactInPlace_JsonElement_ReturnsDictionaryToPool()
+ {
+ var adapterType = typeof(GovernanceRuntimeAdapter);
+ var poolField = adapterType.GetField("_dictPool", BindingFlags.NonPublic | BindingFlags.Static);
+ var returnMethod = adapterType.GetMethod("ReturnDictionaryToPool", BindingFlags.NonPublic | BindingFlags.Static);
+
+ Assert.NotNull(poolField);
+ Assert.NotNull(returnMethod);
+
+ var pool = (ConcurrentBag<Dictionary<string, object>>)poolField!.GetValue(null)!;
+
+ // Clear pool for deterministic counts
+ while (pool.TryTake(out _)) { }
+
+ // Seed the pool with a known dictionary
+ returnMethod!.Invoke(null, new object[] { new Dictionary<string, object>() });
+ var initialCount = pool.Count;
+
+ var temp = Path.GetTempFileName();
+ try
+ {
+ File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+ var adapter = new GovernanceRuntimeAdapter("default", temp);
+
+ var json = JsonDocument.Parse("{\"secret\":\"v\"}").RootElement;
+ adapter.ValidateAndRedactInPlace(json);
+ }
+ finally
+ {
+ if (File.Exists(temp)) File.Delete(temp);
+ }
+
+ var finalCount = pool.Count;
+ Assert.Equal(initialCount, finalCount);
  }
  }
 }
