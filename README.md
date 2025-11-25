@@ -113,7 +113,7 @@ Use CerbiStream when:
 Install-Package CerbiStream
 # or
 dotnet add package CerbiStream
-````
+```
 
 ### 2) Add a minimal governance profile `cerbi_governance.json`
 
@@ -317,6 +317,33 @@ For full benchmark commentary, see the **CerbiStream Benchmark & Evaluation Suit
 * **OpenTelemetry**
   Use CerbiStream in the app, then export via OTLP to the OTEL Collector. Logs arrive already governed/redacted.
 
+* **Azure Container Apps (ACA) / Kubernetes**
+  CerbiStream is fully compatible with containerized .NET apps:
+
+  - **Environment variables**: Set `CERBI_GOVERNANCE_PATH=/app/config/cerbi_governance.json` to override the default location.
+  - **ConfigMaps / Volumes**: Mount your governance profile as a read-only volume; the library's `FileSystemWatcher` gracefully degrades on read-only mounts, falling back to timestamp-based reload checks.
+  - **AppContext.BaseDirectory**: Falls back to `./cerbi_governance.json` next to the app executable when `CERBI_GOVERNANCE_PATH` is not set.
+  - **Performance**: Pooled dictionaries, HashSets, and streaming JSON parsing ensure minimal allocation overhead at high throughput.
+  - **Health checks**: Use `AddCerbiStreamHealthChecks()` to expose `/cerbistream/health` and `/cerbistream/metrics` endpoints for ACA/K8s probes.
+
+  Example for ACA deployment:
+  ```yaml
+  containers:
+    - name: myapp
+      image: myregistry.azurecr.io/myapp:latest
+      env:
+        - name: CERBI_GOVERNANCE_PATH
+          value: "/app/config/cerbi_governance.json"
+      volumeMounts:
+        - name: governance-config
+          mountPath: /app/config
+          readOnly: true
+  volumes:
+    - name: governance-config
+      secret:
+        secretName: cerbi-governance
+  ```
+
 * **Downstream stacks**
   CerbiStream plays nicely with:
 
@@ -330,7 +357,7 @@ For full benchmark commentary, see the **CerbiStream Benchmark & Evaluation Suit
   * Fluentd / Fluent Bit
   * Journald / basic syslog + grep/tail
 
-You don’t need a **CerbiStream.Fluentd** or **CerbiStream.Alloy** NuGet package.
+You don't need a **CerbiStream.Fluentd** or **CerbiStream.Alloy** NuGet package.
 You need: **CerbiStream in-process**, plus configuration for your collector/exporter to ingest those governed logs.
 
 ---
