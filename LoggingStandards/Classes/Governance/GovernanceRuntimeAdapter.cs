@@ -135,8 +135,18 @@ public sealed class GovernanceRuntimeAdapter
  }
  }
 
- public void ValidateAndRedactInPlace(JsonElement json)
- => ValidateAndRedactInPlace(ToDictionary(json));
+    public void ValidateAndRedactInPlace(JsonElement json)
+    {
+        var dict = ToDictionary(json);
+        try
+        {
+            ValidateAndRedactInPlace(dict);
+        }
+        finally
+        {
+            ReturnDictionaryToPool(dict);
+        }
+    }
 
  private static bool IsRelaxed(IDictionary<string, object> data)
  => data.TryGetValue("GovernanceRelaxed", out var v) && v is true;

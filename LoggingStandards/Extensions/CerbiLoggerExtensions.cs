@@ -30,6 +30,7 @@ namespace CerbiStream.Extensions
 
         private static bool _useAsyncConsole = false;
         private static AsyncConsoleDispatcher? _dispatcher;
+        private static int _dispatcherUsers = 0;
 
         public static void EnableAsyncConsole(bool enabled = true, int capacity = 8192)
         {
@@ -41,6 +42,11 @@ namespace CerbiStream.Extensions
         public CerbiLoggerWrapper(ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            if (_useAsyncConsole)
+            {
+                Interlocked.Increment(ref _dispatcherUsers);
+            }
         }
 
         public void LogTrace(string message) => Log(LogLevel.Trace, message);
@@ -75,7 +81,17 @@ namespace CerbiStream.Extensions
 
         public void Dispose()
         {
-            _dispatcher?.Dispose();
+            if (_useAsyncConsole && _dispatcher != null)
+            {
+                var remaining = Interlocked.Decrement(ref _dispatcherUsers);
+                if (remaining <= 0)
+                {
+                    _dispatcher.Dispose();
+                    _dispatcher = null;
+                    _useAsyncConsole = false;
+                    _dispatcherUsers = 0;
+                }
+            }
         }
     }
 
@@ -99,7 +115,17 @@ namespace CerbiStream.Extensions
 
         public void Enqueue(string message)
         {
-            _channel.Writer.TryWrite(message);
+            if (!_channel.Writer.TryWrite(message))
+            {
+                try
+                {
+                    Console.WriteLine(message);
+                }
+                catch
+                {
+                    // Swallow write errors to avoid surfacing console failures to callers
+                }
+            }
         }
 
         private async Task ProcessAsync()
