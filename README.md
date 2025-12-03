@@ -2,6 +2,8 @@
 
 CerbiStream is a **governance and safety layer** for .NET logging. It validates, redacts, tags, and optionally encrypts logs **before they reach any sink**.
 
+**Target frameworks:** .NET 8.0 (LTS) and .NET 9.0
+
 Keep your existing stack:
 
 - `Microsoft.Extensions.Logging` (MEL)

@@ -3,6 +3,8 @@
 
 > This guide covers how to configure optional advanced features for **CerbiStream** to maximize reliability, observability, and compliance.
 
+**Target frameworks:** .NET 8.0 (LTS) and .NET 9.0
+
 ---
 
 ## 1. Retry Policies (Queue Failures)
