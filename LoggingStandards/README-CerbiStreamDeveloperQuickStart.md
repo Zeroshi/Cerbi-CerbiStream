@@ -3,7 +3,7 @@
 
 > This guide covers how to configure optional advanced features for **CerbiStream** to maximize reliability, observability, and compliance.
 
-**Target frameworks:** .NET 8.0 (LTS) and .NET 9.0
+**Targets .NET 8.0 and .NET 9.0.** .NET 10+ is supported via compatibility (computed frameworks on NuGet).
 
 ---
 
