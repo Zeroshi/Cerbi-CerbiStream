@@ -1,6 +1,7 @@
 ﻿using Cerbi.Governance; // RuntimeGovernanceValidator, IRuntimeGovernanceSource, FileGovernanceSource
 using CerbiStream.Observability;
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -101,6 +102,7 @@ public sealed class GovernanceRuntimeAdapter
  {
  //1) Tag using the runtime validator (adds GovernanceViolations[], GovernanceProfileVersion, etc.)
  _validator.ValidateInPlace(working);
+ NormalizeGovernanceMetadata(working);
 
  //2a) From runtime violations
  long violationCount =0;
@@ -195,10 +197,10 @@ public sealed class GovernanceRuntimeAdapter
  if (!data.TryGetValue("GovernanceViolations", out var v) || v is null)
  yield break;
 
- // (1) IEnumerable<object> form
- if (v is IEnumerable<object> list)
+ // (1) IEnumerable (supports GovernanceViolation, Dictionary, etc.)
+ if (v is IEnumerable enumerable && v is not string)
  {
- foreach (var item in list)
+ foreach (var item in enumerable)
  {
  var field = TryGetViolationField(item);
  if (field is not null) yield return field;
@@ -297,23 +299,26 @@ public sealed class GovernanceRuntimeAdapter
 
  private static string? TryGetViolationField(object item)
  {
- // object dictionary
- if (item is IDictionary<string, object> d)
- {
- if (!d.TryGetValue("Code", out var code)) return null;
- if (!IsForbiddenCode(code?.ToString())) return null;
- return d.TryGetValue("Field", out var f) ? f?.ToString() : null;
- }
-
- // JsonElement
- if (item is JsonElement el && el.ValueKind == JsonValueKind.Object)
- {
- var code = el.TryGetProperty("Code", out var c) ? c.GetString() : null;
- if (!IsForbiddenCode(code)) return null;
- return el.TryGetProperty("Field", out var f) ? f.GetString() : null;
- }
-
- return null;
+  switch (item)
+  {
+  case GovernanceViolation gv:
+  return gv.Field;
+  case IDictionary<string, object> d:
+  {
+  if (!d.TryGetValue("Code", out var code) && !d.TryGetValue("RuleId", out code)) return null;
+  var ruleId = code?.ToString();
+  if (!IsForbiddenCode(ruleId)) return null;
+  return d.TryGetValue("Field", out var f) ? f?.ToString() : null;
+  }
+  case JsonElement el when el.ValueKind == JsonValueKind.Object:
+  {
+  var code = el.TryGetProperty("Code", out var c) ? c.GetString() : (el.TryGetProperty("RuleId", out var r) ? r.GetString() : null);
+  if (!IsForbiddenCode(code)) return null;
+  return el.TryGetProperty("Field", out var f) ? f.GetString() : null;
+  }
+  default:
+  return null;
+  }
  }
 
  private static bool IsForbiddenCode(string? code) =>
@@ -502,4 +507,153 @@ public sealed class GovernanceRuntimeAdapter
  s.Clear();
  _hashSetPool.Add(s);
  }
+
+ private static void NormalizeGovernanceMetadata(Dictionary<string, object> data)
+ {
+  if (data.TryGetValue("GovernanceViolations", out var rawViolations))
+  {
+  var normalized = ToGovernanceViolations(rawViolations);
+  if (normalized.Count >0)
+  {
+  data["GovernanceViolations"] = normalized;
+  }
+  }
+
+  NormalizeStringTag(data, "GovernanceProfileUsed");
+  NormalizeStringTag(data, "GovernanceMode");
+  NormalizeBoolTag(data, "GovernanceEnforced");
+  }
+
+  private static void NormalizeStringTag(Dictionary<string, object> data, string key)
+  {
+  if (data.TryGetValue(key, out var value) && value is not string && value is not null)
+  {
+  data[key] = value.ToString() ?? string.Empty;
+  }
+  }
+
+  private static void NormalizeBoolTag(Dictionary<string, object> data, string key)
+  {
+  if (data.TryGetValue(key, out var value) && value is not bool && value is not null)
+  {
+  if (bool.TryParse(value.ToString(), out var parsed))
+  {
+  data[key] = parsed;
+  }
+  }
+  }
+
+  private static List<GovernanceViolation> ToGovernanceViolations(object? raw)
+  {
+  if (raw is List<GovernanceViolation> typedList) return typedList;
+
+  if (raw is IEnumerable enumerable && raw is not string)
+  {
+  var list = new List<GovernanceViolation>();
+  foreach (var item in enumerable)
+  {
+  var mapped = MapViolation(item);
+  if (mapped is not null) list.Add(mapped);
+  }
+  return list;
+  }
+
+  if (raw is JsonElement el && el.ValueKind == JsonValueKind.Array)
+  {
+  var list = new List<GovernanceViolation>();
+  foreach (var item in el.EnumerateArray())
+  {
+  var mapped = MapViolation(item);
+  if (mapped is not null) list.Add(mapped);
+  }
+  return list;
+  }
+
+  if (raw is string s)
+  {
+  return ParseViolationsFromJsonString(s).ToList();
+  }
+
+  return new List<GovernanceViolation>();
+  }
+
+  private static GovernanceViolation? MapViolation(object item) => item switch
+  {
+  GovernanceViolation gv => gv,
+  IDictionary<string, object> d => MapViolationFromDictionary(d),
+  JsonElement el when el.ValueKind == JsonValueKind.Object => MapViolationFromJsonElement(el),
+  _ => null
+  };
+
+  private static GovernanceViolation? MapViolationFromDictionary(IDictionary<string, object> d)
+  {
+  var ruleId = GetValueAsString(d, "RuleId") ?? GetValueAsString(d, "Code");
+  var field = GetValueAsString(d, "Field");
+  var severity = GetValueAsString(d, "Severity");
+  var message = GetValueAsString(d, "Message");
+
+  if (ruleId is null && field is null && severity is null && message is null) return null;
+
+  return new GovernanceViolation
+  {
+  RuleId = ruleId ?? string.Empty,
+  Field = field,
+  Severity = severity ?? "Error",
+  Message = message ?? string.Empty
+  };
+  }
+
+  private static GovernanceViolation? MapViolationFromJsonElement(JsonElement el)
+  {
+  string? ruleId = null;
+  if (el.TryGetProperty("RuleId", out var rid)) ruleId = rid.GetString();
+  else if (el.TryGetProperty("Code", out var code)) ruleId = code.GetString();
+
+  var field = el.TryGetProperty("Field", out var f) ? f.GetString() : null;
+  var severity = el.TryGetProperty("Severity", out var s) ? s.GetString() : null;
+  var message = el.TryGetProperty("Message", out var m) ? m.GetString() : null;
+
+  if (ruleId is null && field is null && severity is null && message is null) return null;
+
+  return new GovernanceViolation
+  {
+  RuleId = ruleId ?? string.Empty,
+  Field = field,
+  Severity = severity ?? "Error",
+  Message = message ?? string.Empty
+  };
+  }
+
+  private static string? GetValueAsString(IDictionary<string, object> dict, string key)
+  {
+  foreach (var kv in dict)
+  {
+  if (string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase))
+  {
+  return kv.Value?.ToString();
+  }
+  }
+  return null;
+  }
+
+  private static IEnumerable<GovernanceViolation> ParseViolationsFromJsonString(string json)
+  {
+  try
+  {
+  using var doc = JsonDocument.Parse(json);
+  if (doc.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<GovernanceViolation>();
+
+  var list = new List<GovernanceViolation>();
+  foreach (var item in doc.RootElement.EnumerateArray())
+  {
+  var mapped = MapViolationFromJsonElement(item);
+  if (mapped is not null) list.Add(mapped);
+  }
+  return list;
+  }
+  catch
+  {
+  return Array.Empty<GovernanceViolation>();
+  }
+  }
 }

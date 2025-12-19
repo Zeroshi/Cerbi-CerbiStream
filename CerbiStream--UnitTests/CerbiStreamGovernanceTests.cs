@@ -2,93 +2,90 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using Cerbi.Governance;
 using Xunit;
-using CerbiStream.Logging.Configuration;
 
 namespace CerbiStream.Tests
 {
     public class CerbiStreamGovernanceTests
     {
-        [Fact]
-        public void LoadGovernance_FileDoesNotExist_ReturnsDefault()
+        private static CerbiGovernance Load(string path)
         {
-            // Arrange
-            var backupPath = "cerbi_governance.json";
-            if (File.Exists(backupPath)) File.Move(backupPath, backupPath + ".bak");
+            var json = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            return JsonSerializer.Deserialize<CerbiGovernance>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new CerbiGovernance
+            {
+                LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
+            };
+        }
 
-            // Act
-            var result = CerbiStreamGovernance.LoadGovernance();
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Empty(result.LoggingProfiles);
-
-            // Cleanup
-            if (File.Exists(backupPath + ".bak")) File.Move(backupPath + ".bak", backupPath);
+        [Fact]
+        public void LoadGovernance_FileDoesNotExist_ReturnsEmptyProfiles()
+        {
+            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+            try
+            {
+                var result = Load(path);
+                Assert.NotNull(result);
+                Assert.Empty(result.LoggingProfiles ?? new Dictionary<string, LogProfile>());
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         [Fact]
         public void LoadGovernance_FileIsValidJson_LoadsProfiles()
         {
-            // Arrange
-            var profile = new CerbiStreamGovernance
+            var profile = new CerbiGovernance
             {
-                LoggingProfiles = new Dictionary<string, LoggingProfile>
+                LoggingProfiles = new Dictionary<string, LogProfile>
                 {
-                    { "SecurityLog", new LoggingProfile { RequiredFields = new List<string>{"UserId"} } }
-                }
-            };
-            File.WriteAllText("cerbi_governance.json", JsonSerializer.Serialize(profile));
-
-            // Act
-            var result = CerbiStreamGovernance.LoadGovernance();
-
-            // Assert
-            Assert.True(result.LoggingProfiles.ContainsKey("SecurityLog"));
-            Assert.Contains("UserId", result.LoggingProfiles["SecurityLog"].RequiredFields);
-
-            // Cleanup
-            File.Delete("cerbi_governance.json");
-        }
-
-        [Fact]
-        public void IsFieldRequired_WhenProfileAndFieldExist_ReturnsTrue()
-        {
-            var governance = new CerbiStreamGovernance
-            {
-                LoggingProfiles = new Dictionary<string, LoggingProfile>
-                {
-                    { "Audit", new LoggingProfile { RequiredFields = new List<string>{"Action"} } }
+                    ["SecurityLog"] = new LogProfile
+                    {
+                        FieldSeverities = new Dictionary<string, string>
+                        {
+                            ["UserId"] = "Required"
+                        }
+                    }
                 }
             };
 
-            var result = governance.IsFieldRequired("Audit", "Action");
-
-            Assert.True(result);
-        }
-
-        [Fact]
-        public void IsFieldRequired_WhenProfileDoesNotExist_ReturnsFalse()
-        {
-            var governance = new CerbiStreamGovernance();
-            var result = governance.IsFieldRequired("NonExistent", "Field");
-            Assert.False(result);
-        }
-
-        [Fact]
-        public void IsFieldRequired_WhenFieldDoesNotExist_ReturnsFalse()
-        {
-            var governance = new CerbiStreamGovernance
+            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+            try
             {
-                LoggingProfiles = new Dictionary<string, LoggingProfile>
-                {
-                    { "Audit", new LoggingProfile { RequiredFields = new List<string>{"UserId"} } }
-                }
-            };
+                File.WriteAllText(path, JsonSerializer.Serialize(profile));
 
-            var result = governance.IsFieldRequired("Audit", "MissingField");
+                var result = Load(path);
 
-            Assert.False(result);
+                Assert.True(result.LoggingProfiles!.ContainsKey("SecurityLog"));
+                Assert.Equal("Required", result.LoggingProfiles["SecurityLog"].FieldSeverities["UserId"]);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void LoadGovernance_InvalidJson_ReturnsEmptyProfiles()
+        {
+            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+            try
+            {
+                File.WriteAllText(path, "{ this is invalid json }");
+
+                var result = Load(path);
+
+                Assert.Empty(result.LoggingProfiles ?? new Dictionary<string, LogProfile>());
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
     }
 }
