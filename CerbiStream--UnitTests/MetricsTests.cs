@@ -8,6 +8,7 @@ namespace CerbiStream.Tests
  [Fact(DisplayName = "Metrics - counters increment and reset")]
  public void Metrics_IncrementAndReset()
  {
+ Metrics.Reset();
  // Capture baseline to avoid flakiness from parallel tests
  var beforeLogs = Metrics.LogsProcessed;
  var beforeRedactions = Metrics.Redactions;

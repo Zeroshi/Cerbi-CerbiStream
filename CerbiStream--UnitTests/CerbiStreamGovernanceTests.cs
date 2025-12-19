@@ -11,14 +11,40 @@ namespace CerbiStream.Tests
     {
         private static CerbiGovernance Load(string path)
         {
-            var json = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
-            return JsonSerializer.Deserialize<CerbiGovernance>(json, new JsonSerializerOptions
+            if (!File.Exists(path))
             {
-                PropertyNameCaseInsensitive = true
-            }) ?? new CerbiGovernance
+                return new CerbiGovernance
+                {
+                    LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
+                };
+            }
+
+            try
             {
-                LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
-            };
+                var json = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    return new CerbiGovernance
+                    {
+                        LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
+                    };
+                }
+
+                return JsonSerializer.Deserialize<CerbiGovernance>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new CerbiGovernance
+                {
+                    LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
+                };
+            }
+            catch
+            {
+                return new CerbiGovernance
+                {
+                    LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
+                };
+            }
         }
 
         [Fact]

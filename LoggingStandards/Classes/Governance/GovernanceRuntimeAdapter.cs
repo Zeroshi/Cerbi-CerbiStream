@@ -102,7 +102,14 @@ public sealed class GovernanceRuntimeAdapter
  {
  //1) Tag using the runtime validator (adds GovernanceViolations[], GovernanceProfileVersion, etc.)
  _validator.ValidateInPlace(working);
+
+ //2b) From policy file (disallowed + forbidden)
+ var policyFields = GetFieldsToRedactFromPolicy().ToList();
+ foreach (var f in policyFields)
+ toRedact.Add(f);
+
  NormalizeGovernanceMetadata(working);
+ EnsurePolicyViolations(working, policyFields);
 
  //2a) From runtime violations
  long violationCount =0;
@@ -112,10 +119,6 @@ public sealed class GovernanceRuntimeAdapter
  violationCount++;
  }
  if (violationCount >0) Metrics.IncrementViolations(violationCount);
-
- //2b) From policy file (disallowed + forbidden)
- foreach (var f in GetFieldsToRedactFromPolicy())
- toRedact.Add(f);
 
  //3) Apply redaction
  long redacted =0;
@@ -137,18 +140,18 @@ public sealed class GovernanceRuntimeAdapter
  }
  }
 
-    public void ValidateAndRedactInPlace(JsonElement json)
-    {
-        var dict = ToDictionary(json);
-        try
-        {
-            ValidateAndRedactInPlace(dict);
-        }
-        finally
-        {
-            ReturnDictionaryToPool(dict);
-        }
-    }
+ public void ValidateAndRedactInPlace(JsonElement json)
+ {
+ var dict = ToDictionary(json);
+ try
+ {
+ ValidateAndRedactInPlace(dict);
+ }
+ finally
+ {
+ ReturnDictionaryToPool(dict);
+ }
+ }
 
  private static bool IsRelaxed(IDictionary<string, object> data)
  => data.TryGetValue("GovernanceRelaxed", out var v) && v is true;
@@ -513,10 +516,11 @@ public sealed class GovernanceRuntimeAdapter
   if (data.TryGetValue("GovernanceViolations", out var rawViolations))
   {
   var normalized = ToGovernanceViolations(rawViolations);
-  if (normalized.Count >0)
-  {
   data["GovernanceViolations"] = normalized;
   }
+  else
+  {
+  data["GovernanceViolations"] = new List<GovernanceViolation>();
   }
 
   NormalizeStringTag(data, "GovernanceProfileUsed");
@@ -656,4 +660,27 @@ public sealed class GovernanceRuntimeAdapter
   return Array.Empty<GovernanceViolation>();
   }
   }
+
+  private static void EnsurePolicyViolations(Dictionary<string, object> data, IReadOnlyCollection<string> policyFields)
+  {
+  if (policyFields.Count ==0) return;
+  var violations = data.TryGetValue("GovernanceViolations", out var raw)
+  ? ToGovernanceViolations(raw)
+  : new List<GovernanceViolation>();
+
+  if (violations.Count ==0)
+  {
+  foreach (var f in policyFields)
+  {
+  violations.Add(new GovernanceViolation
+  {
+  RuleId = "PolicyDisallowedField",
+  Field = f,
+  Severity = "Error",
+  Message = "Field disallowed by policy"
+  });
+  }
+  data["GovernanceViolations"] = violations;
+  }
+ }
 }
