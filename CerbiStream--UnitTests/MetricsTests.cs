@@ -3,6 +3,7 @@ using CerbiStream.Observability;
 
 namespace CerbiStream.Tests
 {
+ [Collection("MetricsIsolation")]
  public class MetricsTests
  {
  [Fact(DisplayName = "Metrics - counters increment and reset")]

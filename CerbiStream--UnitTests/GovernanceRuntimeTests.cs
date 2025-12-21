@@ -1,11 +1,14 @@
 ﻿using CerbiStream.GovernanceRuntime.Governance;
+using CerbiStream.Observability;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Linq;
 using Cerbi.Governance;
 using Xunit;
 
 namespace CerbiStream.Tests;
 
+[Collection("MetricsIsolation")]
 public class GovernanceRuntimeTests
 {
     [Fact(DisplayName = "Governance: Forbidden field is redacted and violation tagged")]
@@ -35,6 +38,96 @@ public class GovernanceRuntimeTests
         var kvs = sink.Events[0].State as IEnumerable<KeyValuePair<string, object>> ?? Array.Empty<KeyValuePair<string, object>>();
         var ssn = kvs.First(k => k.Key == "ssn").Value;
         Assert.Equal("***REDACTED***", ssn);
+    }
+
+    [Fact(DisplayName = "Governance: Forbidden field is retained with violation metadata")]
+    public void Forbidden_Field_Is_Retained_With_Violation_Metadata()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        File.WriteAllText(tmp,
+@"{
+  ""Version"": ""1.0.0"",
+  ""LoggingProfiles"": {
+    ""default"": {
+      ""DisallowedFields"": [""ssn""]
+    }
+  }
+}");
+
+        try
+        {
+            var sink = new TestSink();
+            var inner = LoggerFactory.Create(b => b.AddProvider(sink));
+            var adapter = new GovernanceRuntimeAdapter("default", tmp);
+            var provider = new GovernanceLoggerProvider(inner, adapter);
+            var logger = LoggerFactory.Create(b => b.AddProvider(provider)).CreateLogger("test");
+
+            logger.LogInformation("{ssn} {userId}", "111-22-3333", "u1");
+
+            var kvs = sink.Events[0].State as IEnumerable<KeyValuePair<string, object>> ?? Array.Empty<KeyValuePair<string, object>>();
+            var dict = kvs.ToDictionary(k => k.Key, k => k.Value, StringComparer.OrdinalIgnoreCase);
+
+            Assert.True(dict.ContainsKey("ssn"));
+            Assert.Equal("***REDACTED***", dict["ssn"]);
+            Assert.True(dict.ContainsKey("GovernanceViolations"));
+
+            var violations = Assert.IsType<List<GovernanceViolation>>(dict["GovernanceViolations"]);
+            var violation = Assert.Single(violations);
+            Assert.Equal("ssn", violation.Field);
+            Assert.False(string.IsNullOrWhiteSpace(violation.RuleId));
+            Assert.False(string.IsNullOrWhiteSpace(violation.Severity));
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+    }
+
+    [Fact(DisplayName = "Governance: Relax bypass produces zero-impact scoring")]
+    public void Relax_Bypasses_Enforcement_With_Zero_Score_Impact()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        File.WriteAllText(tmp,
+@"{ ""LoggingProfiles"": { ""default"": { ""DisallowedFields"": [""secret""] } } }");
+
+        try
+        {
+            Metrics.Reset();
+
+            var sink = new TestSink();
+            var inner = LoggerFactory.Create(b => b.AddProvider(sink));
+            var adapter = new GovernanceRuntimeAdapter("default", tmp);
+            var provider = new GovernanceLoggerProvider(inner, adapter);
+            var logger = LoggerFactory.Create(b => b.AddProvider(provider)).CreateLogger("test");
+            var relaxed = logger.RelaxGovernance();
+
+            var state = new List<KeyValuePair<string, object?>>
+            {
+                new("secret", "value"),
+                new("userId", "u1")
+            };
+
+            relaxed.Log(LogLevel.Information, new EventId(0), state, null, (_, __) => "relaxed");
+
+            var kvs = sink.Events[0].State as IEnumerable<KeyValuePair<string, object>> ?? Array.Empty<KeyValuePair<string, object>>();
+            var dict = kvs.ToDictionary(k => k.Key, k => k.Value, StringComparer.OrdinalIgnoreCase);
+
+            Assert.Equal("value", dict["secret"]);
+            Assert.True(dict.TryGetValue("GovernanceRelaxed", out var relaxedFlag) && Equals(relaxedFlag, true));
+
+            if (dict.TryGetValue("ScoreImpact", out var scoreImpact))
+            {
+                Assert.Equal(0, Convert.ToInt32(scoreImpact));
+            }
+            else
+            {
+                Assert.Equal(0, Metrics.Violations);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
     }
 
     [Fact(DisplayName = "Governance: Relax tag bypasses redaction")]
