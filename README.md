@@ -190,6 +190,16 @@ logger.LogInformation("User signup", new
 
 CerbiStream will **redact** disallowed/forbidden fields and **add governance tags** before any sink sees the event.
 
+### Governance Runtime & Analyzer Compatibility
+
+| TFM      | CerbiStream package | Cerbi.Governance.Runtime | CerbiStream.GovernanceAnalyzer |
+|----------|---------------------|--------------------------|--------------------------------|
+| net8.0   | 1.1.21              | 1.1.7                    | 1.1.21                         |
+| net9.0   | 1.1.21              | 1.1.7                    | 1.1.21                         |
+| net10.0  | 1.1.21              | 1.1.7                    | 1.5.48                         |
+
+`AddCerbiGovernanceRuntime` is compiled against the current Cerbi.Governance.Runtime API. Use the versions above to avoid `Method not found: RuntimeGovernanceValidator..ctor` when pairing governed logging with runtime validation.
+
 ---
 
 ## 🔍 Governance Example: Before vs After

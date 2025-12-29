@@ -1,3 +1,5 @@
+extern alias GovernanceCore;
+
 using Cerbi.Governance;
 using CerbiStream.GovernanceRuntime.Governance;
 using System;
@@ -10,6 +12,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
+using GovernanceViolation = GovernanceCore::Cerbi.Governance.GovernanceViolation;
 
 namespace CerbiStream.Tests
 {

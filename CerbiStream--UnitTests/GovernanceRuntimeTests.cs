@@ -1,10 +1,13 @@
-﻿using CerbiStream.GovernanceRuntime.Governance;
+extern alias GovernanceCore;
+
+using CerbiStream.GovernanceRuntime.Governance;
 using CerbiStream.Observability;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Linq;
 using Cerbi.Governance;
 using Xunit;
+using GovernanceViolation = GovernanceCore::Cerbi.Governance.GovernanceViolation;
 
 namespace CerbiStream.Tests;
 

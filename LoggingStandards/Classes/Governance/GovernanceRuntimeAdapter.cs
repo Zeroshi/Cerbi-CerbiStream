@@ -1,4 +1,7 @@
-﻿using Cerbi.Governance; // RuntimeGovernanceValidator, IRuntimeGovernanceSource, FileGovernanceSource
+extern alias GovernanceCore;
+
+using Cerbi.Governance; // RuntimeGovernanceValidator, IRuntimeGovernanceSource, FileGovernanceSource
+using GovernanceViolation = GovernanceCore::Cerbi.Governance.GovernanceViolation;
 using CerbiStream.Observability;
 using System;
 using System.Collections;
@@ -49,11 +52,12 @@ public sealed class GovernanceRuntimeAdapter
 
  IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath);
 
- // ctor: (isEnabled, profileName, source)
- _validator = new RuntimeGovernanceValidator(
- isEnabled: () => true,
- profileName: _profileName,
- source: source);
+    // ctor: (isEnabled, profileName, source, plugins)
+    _validator = new RuntimeGovernanceValidator(
+        isEnabled: () => true,
+        profileName: _profileName,
+        source: source,
+        plugins: Array.Empty<IRuntimeGovernancePlugin>());
 
  TryInitWatcher();
  }
