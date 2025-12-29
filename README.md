@@ -105,6 +105,14 @@ Use CerbiStream when:
 - You want **runtime validation** plus **analyzer-time enforcement**.
 - You prefer **safe defaults** with opt-in relaxation for diagnostics.
 
+## 🧪 Demo API for hands-on testing
+
+Want to see CerbiStream governance in action without wiring up your own project? Try the public demo API built for quick evaluation:
+
+- Repository: [Cerbistream.Governance.Demo.API](https://github.com/Zeroshi/Cerbistream.Governance.Demo.API)
+- Includes ready-to-run .NET API endpoints that emit governed logs using CerbiStream.
+- Pair it with the demo’s `cerbi_governance.json` to watch runtime validation and redaction behaviors end-to-end.
+
 ---
 
 ## ⚡ Quickstart (≤ 60 seconds)
