@@ -1,19 +1,23 @@
-﻿using System;
+extern alias GovernanceCore;
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using Cerbi.Governance;
+using CerbiGovernanceModel = GovernanceCore::Cerbi.Governance.CerbiGovernance;
+using LogProfile = GovernanceCore::Cerbi.Governance.LogProfile;
 using Xunit;
 
 namespace CerbiStream.Tests
 {
     public class CerbiStreamGovernanceTests
     {
-        private static CerbiGovernance Load(string path)
+        private static CerbiGovernanceModel Load(string path)
         {
             if (!File.Exists(path))
             {
-                return new CerbiGovernance
+                return new CerbiGovernanceModel
                 {
                     LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
                 };
@@ -24,23 +28,23 @@ namespace CerbiStream.Tests
                 var json = File.ReadAllText(path);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    return new CerbiGovernance
+                    return new CerbiGovernanceModel
                     {
                         LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
                     };
                 }
 
-                return JsonSerializer.Deserialize<CerbiGovernance>(json, new JsonSerializerOptions
+                return JsonSerializer.Deserialize<CerbiGovernanceModel>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
-                }) ?? new CerbiGovernance
+                }) ?? new CerbiGovernanceModel
                 {
                     LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
                 };
             }
             catch
             {
-                return new CerbiGovernance
+                return new CerbiGovernanceModel
                 {
                     LoggingProfiles = new Dictionary<string, LogProfile>(StringComparer.OrdinalIgnoreCase)
                 };
@@ -66,7 +70,7 @@ namespace CerbiStream.Tests
         [Fact]
         public void LoadGovernance_FileIsValidJson_LoadsProfiles()
         {
-            var profile = new CerbiGovernance
+            var profile = new CerbiGovernanceModel
             {
                 LoggingProfiles = new Dictionary<string, LogProfile>
                 {
