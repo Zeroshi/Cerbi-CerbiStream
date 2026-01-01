@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.1.22] - 2026-01-01
+### Security
+- Added an explicit reference to `System.Text.Encodings.Web` 8.0.0 to ensure builds consume a version that addresses CVE-2021-26701.
+
 ## [1.1.20] -2025-10-30
 ### Changed
 - Pinned build to .NET9 SDK via `global.json` (roll-forward latestFeature; allowPrerelease=true). Planned post-GA bump to `10.0.100`.
