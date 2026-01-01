@@ -24,7 +24,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.1.21</Version>
+    <Version>1.1.22</Version>
 
     <!-- NuGet metadata -->
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -70,6 +70,7 @@
     <PackageReference Include="Polly" Version="8.6.3" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.8" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="8.0.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.8" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
