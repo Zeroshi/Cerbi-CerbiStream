@@ -16,14 +16,96 @@ using CerbiStream.GovernanceRuntime.Governance;
 
 namespace CerbiStream.Configuration
 {
+    /// <summary>
+    /// Extension methods for adding CerbiStream to your application.
+    /// </summary>
+    /// <example>
+    /// Minimal setup (zero-config, just works):
+    /// <code>
+    /// builder.Logging.AddCerbiStream();
+    /// </code>
+    /// 
+    /// With governance enabled:
+    /// <code>
+    /// builder.Logging.AddCerbiStream(options => options.EnableDeveloperMode());
+    /// </code>
+    /// 
+    /// Production setup:
+    /// <code>
+    /// builder.Logging.AddCerbiStream(options => options
+    ///     .ForProduction()
+    ///     .WithGovernanceProfile("myapp"));
+    /// </code>
+    /// </example>
     public static class CerbiStreamExtensions
     {
+        private const string DefaultGovernanceFileName = "cerbi_governance.json";
+        private const string DefaultGovernanceContent = @"{
+  ""Version"": ""1.0"",
+  ""LoggingProfiles"": {
+    ""default"": {
+      ""DisallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
+      ""FieldSeverities"": {}
+    }
+  }
+}";
+
         /// <summary>
-        /// Adds CerbiStream logging to the application's logging pipeline, including optional file fallback support.
+        /// Adds CerbiStream logging with zero configuration. Just works out of the box.
+        /// Auto-detects environment variables if set, otherwise uses developer mode defaults.
+        /// Creates a default governance policy if none exists.
         /// </summary>
+        /// <example>
+        /// <code>
+        /// // That's it! One line to add secure, governed logging:
+        /// builder.Logging.AddCerbiStream();
+        /// 
+        /// // Behavior controlled by environment variables:
+        /// // CERBISTREAM_MODE=production → production settings
+        /// // CERBISTREAM_MODE=development → development settings (default)
+        /// </code>
+        /// </example>
+        public static ILoggingBuilder AddCerbiStream(this ILoggingBuilder builder)
+        {
+            // Auto-detect: if environment variables are set, use them; otherwise use developer mode
+            if (CerbiStreamOptions.ShouldUseEnvironmentConfig())
+            {
+                return builder.AddCerbiStream(options => options.FromEnvironment());
+            }
+            return builder.AddCerbiStream(options => options.EnableDeveloperMode());
+        }
+
+        /// <summary>
+        /// Adds CerbiStream logging configured entirely from environment variables.
+        /// Use this when you want explicit environment-based configuration.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// // Explicit environment configuration
+        /// builder.Logging.AddCerbiStreamFromEnvironment();
+        /// </code>
+        /// </example>
+        public static ILoggingBuilder AddCerbiStreamFromEnvironment(this ILoggingBuilder builder)
+        {
+            return builder.AddCerbiStream(options => options.FromEnvironment());
+        }
+
+        /// <summary>
+        /// Adds CerbiStream logging with custom configuration.
+        /// </summary>
+        /// <param name="builder">The logging builder.</param>
+        /// <param name="configureOptions">Action to configure CerbiStream options.</param>
+        /// <example>
+        /// <code>
+        /// builder.Logging.AddCerbiStream(options => options
+        ///     .ForProduction()
+        ///     .WithGovernanceProfile("myservice")
+        ///     .WithQueueRetries(true, retryCount: 3));
+        /// </code>
+        /// </example>
         public static ILoggingBuilder AddCerbiStream(
-    this ILoggingBuilder builder,
-    Action<CerbiStreamOptions> configureOptions)
+            this ILoggingBuilder builder,
+            Action<CerbiStreamOptions> configureOptions)
         {
             var options = new CerbiStreamOptions();
             configureOptions(options);
@@ -105,41 +187,11 @@ namespace CerbiStream.Configuration
 
             if (options.TelemetryProvider != null)
             {
-                Metrics.TelemetryProvider = options.TelemetryProvider;
+            Metrics.TelemetryProvider = options.TelemetryProvider;
             }
 
-            return builder;
-        }
-
-        /// <summary>
-        /// Convenience overload that binds options from IConfiguration using the typical pattern.
-        /// </summary>
-        public static ILoggingBuilder AddCerbiStream(this ILoggingBuilder builder)
-        {
-            var options = new CerbiStreamOptions();
-            builder.Services.AddSingleton(options);
-
-            // Default: dev adapter; governance is opt-in via options overload
-            builder.Services.AddSingleton<ILoggerProvider, CerbiStreamLoggerProvider>();
-
-            builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
-            {
-                var settings = new RuntimeGovernanceSettings();
-                var source = new FileGovernanceSource(settings.ConfigPath);
-                return new RuntimeGovernanceValidator(
-                    isEnabled: () => settings.Enabled,
-                    profileName: settings.Profile,
-                    source: source
-                );
-            });
-
-            builder.Services.AddSingleton<IEncryption>(sp => EncryptionFactory.GetEncryption(options));
-            builder.Services.AddHostedService<HealthHostedService>(sp => new HealthHostedService(sp.GetRequiredService<ILogger<HealthHostedService>>()));
-
-            if (options.TelemetryProvider != null)
-            {
-                Metrics.TelemetryProvider = options.TelemetryProvider;
-            }
+            // Auto-generate default governance config if missing and governance is enabled
+            EnsureGovernanceConfigExists(options);
 
             return builder;
         }
@@ -158,6 +210,31 @@ namespace CerbiStream.Configuration
         {
             app.UseMiddleware<CerbiStream.Middleware.CerbiMetricsMiddleware>();
             return app;
+        }
+
+        /// <summary>
+        /// Ensures a governance config file exists. Creates one with sensible defaults if missing.
+        /// </summary>
+        private static void EnsureGovernanceConfigExists(CerbiStreamOptions options)
+        {
+            if (!options.EnableGovernanceChecks) return;
+
+            var configPath = options.GovernanceConfigPath
+                ?? Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH")
+                ?? Path.Combine(AppContext.BaseDirectory, DefaultGovernanceFileName);
+
+            if (!File.Exists(configPath))
+            {
+                try
+                {
+                    File.WriteAllText(configPath, DefaultGovernanceContent);
+                    Console.WriteLine($"[CerbiStream] Created default governance config at: {configPath}");
+                }
+                catch
+                {
+                    // Silent fail - governance will use in-memory defaults
+                }
+            }
         }
     }
 }

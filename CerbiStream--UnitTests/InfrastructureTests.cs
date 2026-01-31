@@ -23,9 +23,12 @@ public class InfrastructureTests
  var options = provider.GetService<CerbiStreamOptions>();
  Assert.NotNull(options);
 
- // CerbiStreamLoggerProvider should be registered
+ // Logger provider should be registered (CerbiStreamLoggerProvider or GovernanceLoggerProvider)
  var providers = provider.GetServices<ILoggerProvider>().ToList();
- Assert.Contains(providers, p => p.GetType().Name.Contains("CerbiStreamLoggerProvider") || p.GetType().Name.Contains("CerbiStream"));
+ Assert.Contains(providers, p => 
+  p.GetType().Name.Contains("CerbiStreamLoggerProvider") || 
+  p.GetType().Name.Contains("GovernanceLoggerProvider") ||
+  p.GetType().Name.Contains("CerbiStream"));
 
  // HealthHostedService should be registered as an IHostedService
  var hosted = provider.GetServices<IHostedService>().ToList();

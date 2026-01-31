@@ -8,6 +8,29 @@ using FileFallbackOptions = CerbiStream.Classes.FileLogging.FileFallbackOptions;
 
 namespace CerbiStream.Logging.Configuration
 {
+    /// <summary>
+    /// Configuration options for CerbiStream logging.
+    /// Use fluent methods to configure, or use preset methods for common scenarios.
+    /// </summary>
+    /// <example>
+    /// Quick setup for development:
+    /// <code>
+    /// builder.Logging.AddCerbiStream(); // Uses EnableDeveloperMode() by default
+    /// </code>
+    /// 
+    /// Production setup:
+    /// <code>
+    /// builder.Logging.AddCerbiStream(o => o.ForProduction());
+    /// </code>
+    /// 
+    /// Custom configuration:
+    /// <code>
+    /// builder.Logging.AddCerbiStream(o => o
+    ///     .WithGovernanceChecks(true)
+    ///     .WithQueueRetries(true, 5, 500)
+    ///     .WithAesEncryption());
+    /// </code>
+    /// </example>
     public class CerbiStreamOptions
     {
         /// <summary>
@@ -497,6 +520,80 @@ namespace CerbiStream.Logging.Configuration
                 .WithGovernanceChecks(false);
         }
 
+        // ============================================
+        // DEVELOPER-FIRST PRESET METHODS
+        // ============================================
+
+        /// <summary>
+        /// 🚀 Quick setup for development. Console output enabled, governance auto-configured.
+        /// This is the default when calling AddCerbiStream() with no parameters.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// builder.Logging.AddCerbiStream(); // Uses this preset automatically
+        /// // or explicitly:
+        /// builder.Logging.AddCerbiStream(o => o.EnableDeveloperMode());
+        /// </code>
+        /// </example>
+        public CerbiStreamOptions EnableDeveloperMode()
+        {
+            return WithConsoleOutput(true)
+                .WithTelemetryEnrichment(false)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(true)  // PII protection even in dev
+                .WithDisableQueue(true)       // No queue in dev by default
+                .EnableMinimalMode();
+        }
+
+        /// <summary>
+        /// 🏭 Production-ready configuration with full governance, telemetry, and queue enabled.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// builder.Logging.AddCerbiStream(o => o.ForProduction());
+        /// </code>
+        /// </example>
+        public CerbiStreamOptions ForProduction()
+        {
+            return WithConsoleOutput(false)
+                .WithTelemetryEnrichment(true)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(true)
+                .WithDisableQueue(false)
+                .WithQueueRetries(true, 3, 200)
+                .EnableFullMode();
+        }
+
+        /// <summary>
+        /// 🧪 Testing configuration - governance enabled but no external dependencies.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// builder.Logging.AddCerbiStream(o => o.ForTesting());
+        /// </code>
+        /// </example>
+        public CerbiStreamOptions ForTesting()
+        {
+            return WithConsoleOutput(true)
+                .WithTelemetryEnrichment(false)
+                .WithMetadataInjection(true)
+                .WithGovernanceChecks(true)
+                .WithDisableQueue(true);
+        }
+
+        /// <summary>
+        /// ⚡ Maximum performance - all enrichment disabled.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// builder.Logging.AddCerbiStream(o => o.ForPerformance());
+        /// </code>
+        /// </example>
+        public CerbiStreamOptions ForPerformance()
+        {
+            return EnableBenchmarkMode();
+        }
+
         public bool ValidateLog(string profileName, Dictionary<string, object> logData)
         {
             if (GovernanceValidator is not null)
@@ -533,5 +630,138 @@ namespace CerbiStream.Logging.Configuration
             !EnableTelemetryEnrichment &&
             EnableMetadataInjection &&
             !EnableGovernanceChecks;
+
+        // ============================================
+        // ENVIRONMENT VARIABLE CONFIGURATION
+        // ============================================
+
+        /// <summary>
+        /// Configures CerbiStream from environment variables.
+        /// Call this to enable zero-code configuration across environments.
+        /// </summary>
+        /// <remarks>
+        /// Environment variables override defaults but can be further overridden by fluent methods.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Auto-configure from environment
+        /// builder.Logging.AddCerbiStream(o => o.FromEnvironment());
+        /// 
+        /// // Environment + code overrides
+        /// builder.Logging.AddCerbiStream(o => o
+        ///     .FromEnvironment()
+        ///     .WithGovernanceProfile("custom")); // Override env setting
+        /// </code>
+        /// </example>
+        public CerbiStreamOptions FromEnvironment()
+        {
+            // Step 1: Apply mode preset if set
+            var mode = CerbiStreamEnvironment.GetMode();
+            if (mode != null)
+            {
+                _ = mode switch
+                {
+                    CerbiStreamMode.Development => EnableDeveloperMode(),
+                    CerbiStreamMode.Production => ForProduction(),
+                    CerbiStreamMode.Testing => ForTesting(),
+                    CerbiStreamMode.Performance => ForPerformance(),
+                    _ => this
+                };
+            }
+
+            // Step 2: Apply individual overrides (these take precedence over mode)
+            ApplyEnvironmentOverrides();
+
+            return this;
+        }
+
+        /// <summary>
+        /// Applies individual environment variable overrides on top of current configuration.
+        /// Useful for fine-tuning after applying a preset.
+        /// </summary>
+        public CerbiStreamOptions ApplyEnvironmentOverrides()
+        {
+            // Governance
+            var govEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.GOVERNANCE_ENABLED);
+            if (govEnabled.HasValue) WithGovernanceChecks(govEnabled.Value);
+
+            var govProfile = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_PROFILE);
+            if (!string.IsNullOrEmpty(govProfile)) WithGovernanceProfile(govProfile);
+
+            var govPath = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_PATH);
+            if (!string.IsNullOrEmpty(govPath)) WithGovernanceConfigPath(govPath);
+
+            // Queue
+            var queueEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.QUEUE_ENABLED);
+            if (queueEnabled.HasValue) WithDisableQueue(!queueEnabled.Value);
+
+            var queueType = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.QUEUE_TYPE);
+            var queueConn = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.QUEUE_CONNECTION);
+            var queueName = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.QUEUE_NAME);
+            if (!string.IsNullOrEmpty(queueType) && !string.IsNullOrEmpty(queueConn) && !string.IsNullOrEmpty(queueName))
+            {
+                WithQueue(queueType, queueConn, queueName);
+            }
+
+            var retriesEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.QUEUE_RETRIES_ENABLED);
+            var retryCount = CerbiStreamEnvironment.GetInt(CerbiStreamEnvironment.QUEUE_RETRY_COUNT);
+            var retryDelay = CerbiStreamEnvironment.GetInt(CerbiStreamEnvironment.QUEUE_RETRY_DELAY_MS);
+            if (retriesEnabled.HasValue || retryCount.HasValue || retryDelay.HasValue)
+            {
+                WithQueueRetries(
+                    retriesEnabled ?? EnableQueueRetries,
+                    retryCount ?? QueueRetryCount,
+                    retryDelay ?? QueueRetryDelayMilliseconds);
+            }
+
+            // Encryption
+            var encMode = CerbiStreamEnvironment.GetEncryptionMode();
+            if (encMode.HasValue) WithEncryptionMode(encMode.Value);
+
+            var encKey = CerbiStreamEnvironment.GetEncryptionKey();
+            var encIv = CerbiStreamEnvironment.GetEncryptionIV();
+            if (encKey != null && encIv != null) WithEncryptionKey(encKey, encIv);
+
+            // Console/Telemetry
+            var console = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.CONSOLE_OUTPUT);
+            if (console.HasValue) WithConsoleOutput(console.Value);
+
+            var telemetryEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.TELEMETRY_ENABLED);
+            if (telemetryEnabled.HasValue) WithTelemetryLogging(telemetryEnabled.Value);
+
+            var telemetryEnrich = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.TELEMETRY_ENRICHMENT);
+            if (telemetryEnrich.HasValue) WithTelemetryEnrichment(telemetryEnrich.Value);
+
+            var metadataInject = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.METADATA_INJECTION);
+            if (metadataInject.HasValue) WithMetadataInjection(metadataInject.Value);
+
+            // File Fallback
+            var fallbackEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.FILE_FALLBACK_ENABLED);
+            var primaryPath = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.FILE_PRIMARY_PATH);
+            var fallbackPath = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.FILE_FALLBACK_PATH);
+
+            if (fallbackEnabled == true && !string.IsNullOrEmpty(fallbackPath))
+            {
+                WithFileFallback(
+                    fallbackPath,
+                    primaryPath ?? "logs/log-primary.json");
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Checks if CerbiStream should auto-configure from environment.
+        /// Returns true if CERBISTREAM_MODE or any config env vars are set.
+        /// </summary>
+        public static bool ShouldUseEnvironmentConfig() =>
+            CerbiStreamEnvironment.HasAnyConfiguration();
+
+        /// <summary>
+        /// Gets diagnostic info about which environment variables are currently set.
+        /// Useful for troubleshooting configuration issues.
+        /// </summary>
+        public static Dictionary<string, string> GetEnvironmentDiagnostics() =>
+            CerbiStreamEnvironment.GetAllSetVariables();
     }
 }

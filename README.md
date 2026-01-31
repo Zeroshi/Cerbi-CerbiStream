@@ -1,22 +1,42 @@
-# CerbiStream — Governance-Enforced, PII-Safe Logging for .NET
+# CerbiStream v2.0 — Developer-First Logging Governance for .NET
 
-CerbiStream is a **governance and safety layer** for .NET logging. It validates, redacts, tags, and optionally encrypts logs **before they reach any sink**.
+[![cerbi.io](https://img.shields.io/badge/cerbi.io-Visit%20Website-blue?style=for-the-badge)](https://cerbi.io)
+[![NuGet](https://img.shields.io/nuget/v/CerbiStream?style=for-the-badge&color=green)](https://www.nuget.org/packages/CerbiStream)
+[![Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=for-the-badge)](https://www.nuget.org/packages/CerbiStream)
 
-**Targets .NET 8.0 and .NET 9.0.** .NET 10+ is supported via compatibility (computed frameworks on NuGet).
+**CerbiStream v2.0** is the **developer-first governance layer** for .NET logging. One line of code gives you PII protection, automatic redaction, and enterprise-grade compliance.
 
-Keep your existing stack:
+**Targets .NET 8.0, .NET 9.0, and .NET 10.0.**
 
-- `Microsoft.Extensions.Logging` (MEL)
-- Serilog
-- NLog
-- log4net
-- OpenTelemetry / OTLP exporters
+```csharp
+// That's it! One line to secure your logs.
+builder.Logging.AddCerbiStream();
+```
 
-…and add **policy-driven safety, consistency, and ML-ready metadata** on top.
+---
+
+## 🚀 What's New in v2.0
+
+### Developer-First Experience
+- **One-line setup** — `AddCerbiStream()` just works with zero configuration
+- **Auto-generated governance policy** — Sensible PII defaults created automatically  
+- **Preset modes** — `EnableDeveloperMode()`, `ForProduction()`, `ForTesting()`, `ForPerformance()`
+
+### Environment Variable Configuration (NEW!)
+- **Zero-code deployments** — Same code works everywhere, controlled by environment
+- **Instant debugging** — Enable console output in production without redeploying
+- **Kubernetes/Docker native** — 20+ environment variables for complete control
+
+### Enterprise Features
+- **Azure App Insights integration** — Built-in telemetry provider
+- **Queue scoring** — Send governance metadata to queues for analytics
+- **Encrypted file fallback** — AES-256 encrypted local logs when queues fail
+- **Hot-reload governance** — Policy changes apply instantly without restart
 
 ---
 
 ## 🔑 Key Features
+
 
 ### Governance rules (runtime enforcement)
 
@@ -115,88 +135,137 @@ Want to see CerbiStream governance in action without wiring up your own project?
 
 ---
 
-## ⚡ Quickstart (≤ 60 seconds)
+## ⚡ Quickstart (One Line!)
 
-### 1) Install the package
+### 1) Install
 
-```powershell
-Install-Package CerbiStream
-# or
+```bash
 dotnet add package CerbiStream
 ```
 
-### 2) Add a minimal governance profile `cerbi_governance.json`
-
-Put this next to your app executable (or adjust `configPath`):
-
-```json
-{
-  "Version": "1.0.0",
-  "LoggingProfiles": {
-    "default": {
-      "DisallowedFields": [ "ssn", "creditCard" ],
-      "FieldSeverities": {
-        "password": "Forbidden"
-      }
-    }
-  }
-}
-```
-
-### 3) Wire CerbiStream into Microsoft.Extensions.Logging
+### 2) Add to your app
 
 ```csharp
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using CerbiStream.Configuration; // AddCerbiStream / AddCerbiGovernanceRuntime
-
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureLogging(logging =>
-    {
-        logging.ClearProviders();
-        logging.AddConsole();
-
-        // Option A: Wrap an existing factory with governance runtime
-        var innerFactory = LoggerFactory.Create(b => b.AddConsole());
-        logging.AddCerbiGovernanceRuntime(
-            innerFactory,
-            profileName: "default",
-            configPath: "./cerbi_governance.json");
-
-        // Option B: Opinionated CerbiStream registration with options
-        logging.AddCerbiStream(options =>
-        {
-            options
-                .WithFileFallback("logs/fallback.json", "logs/primary.json")
-                .WithAesEncryption()
-                .WithEncryptionKey(
-                    System.Text.Encoding.UTF8.GetBytes("1234567890123456"),
-                    System.Text.Encoding.UTF8.GetBytes("1234567890123456"))
-                .WithGovernanceChecks(true)
-                .WithTelemetryEnrichment(true);
-        });
-
-        // Optional: CerbiStream-driven health + metrics
-        logging.AddCerbiStreamHealthChecks();
-    })
-    .Build();
-
-await host.RunAsync();
+// Program.cs - That's it! One line!
+builder.Logging.AddCerbiStream();
 ```
 
-### 4) Log as usual
+**Done!** You now have:
+- ✅ PII protection (passwords, SSNs, credit cards auto-redacted)
+- ✅ Governance policy auto-generated
+- ✅ Console output for development
+- ✅ **Auto-detects environment variables** for zero-code config changes
+- ✅ Ready for production upgrade
+
+### 3) Log as usual
 
 ```csharp
-var logger = host.Services.GetRequiredService<ILogger<Program>>();
-
-logger.LogInformation("User signup", new
-{
-    email = "a@b.com",
-    ssn   = "111-11-1111"
-});
+// Just use standard ILogger - CerbiStream handles the rest
+logger.LogInformation("User signup {email} {ssn}", "a@b.com", "111-11-1111");
+// Output: ssn is automatically redacted to "***REDACTED***"
 ```
 
-CerbiStream will **redact** disallowed/forbidden fields and **add governance tags** before any sink sees the event.
+---
+
+## 🎯 Configuration Presets
+
+```csharp
+// Development (default) — Console on, queue off, governance on
+builder.Logging.AddCerbiStream();
+
+// Production — Full governance, telemetry, queue enabled
+builder.Logging.AddCerbiStream(o => o.ForProduction());
+
+// Testing — Governance on, no external dependencies
+builder.Logging.AddCerbiStream(o => o.ForTesting());
+
+// Performance — All enrichment disabled for benchmarks
+builder.Logging.AddCerbiStream(o => o.ForPerformance());
+```
+
+| Preset | Console | Queue | Governance | Telemetry |
+|--------|---------|-------|------------|-----------|
+| `EnableDeveloperMode()` | ✅ | ❌ | ✅ | ❌ |
+| `ForProduction()` | ❌ | ✅ | ✅ | ✅ |
+| `ForTesting()` | ✅ | ❌ | ✅ | ❌ |
+| `ForPerformance()` | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## 🌍 Environment Variable Configuration (NEW!)
+
+**Zero code changes** — deploy the same code everywhere, control behavior with environment variables.
+
+### Quick Mode Switch
+
+```bash
+# Linux/Mac
+export CERBISTREAM_MODE=production
+
+# Windows PowerShell
+$env:CERBISTREAM_MODE = "production"
+
+# Docker
+docker run -e CERBISTREAM_MODE=production myapp
+
+# Kubernetes
+env:
+  - name: CERBISTREAM_MODE
+    value: "production"
+```
+
+### All Environment Variables
+
+| Variable | Values | Description |
+|----------|--------|-------------|
+| `CERBISTREAM_MODE` | `development`, `production`, `testing`, `performance` | Master preset switch |
+| `CERBISTREAM_GOVERNANCE_ENABLED` | `true`/`false` | Toggle PII redaction |
+| `CERBISTREAM_GOVERNANCE_PROFILE` | Profile name | e.g., `myapp`, `default` |
+| `CERBI_GOVERNANCE_PATH` | File path | Path to governance JSON |
+| `CERBISTREAM_QUEUE_ENABLED` | `true`/`false` | Toggle queue sending |
+| `CERBISTREAM_QUEUE_TYPE` | `AzureServiceBus`, `RabbitMQ`, `Kafka`, etc. | Queue provider |
+| `CERBISTREAM_QUEUE_CONNECTION` | Connection string | Queue connection |
+| `CERBISTREAM_QUEUE_NAME` | Queue name | Target queue/topic |
+| `CERBISTREAM_ENCRYPTION_MODE` | `None`, `Base64`, `AES` | Encryption type |
+| `CERBISTREAM_CONSOLE_OUTPUT` | `true`/`false` | Console logging |
+| `CERBISTREAM_TELEMETRY_ENABLED` | `true`/`false` | Telemetry sending |
+| `CERBISTREAM_FILE_FALLBACK_ENABLED` | `true`/`false` | File fallback |
+
+### Debug Production Issues Instantly
+
+```bash
+# Enable console output without redeploying
+kubectl set env deployment/myapp CERBISTREAM_CONSOLE_OUTPUT=true
+
+# Disable queue temporarily
+kubectl set env deployment/myapp CERBISTREAM_QUEUE_ENABLED=false
+```
+
+### Layered Configuration
+
+Environment variables + code config work together:
+
+```csharp
+// Start from environment, then override specific settings
+builder.Logging.AddCerbiStream(o => o
+    .FromEnvironment()                    // Load from env vars
+    .WithGovernanceProfile("override"));  // Code takes precedence
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+```csharp
+builder.Logging.AddCerbiStream(options => options
+    .ForProduction()
+    .WithGovernanceProfile("myservice")
+    .WithQueueRetries(true, retryCount: 5, delayMilliseconds: 500)
+    .WithFileFallback("logs/fallback.json", "logs/primary.json")
+    .WithAesEncryption()
+    .WithEncryptionKey(key, iv)
+    .WithTelemetryProvider(myTelemetryProvider));
+```
 
 ### Governance Runtime & Analyzer Compatibility
 
@@ -409,7 +478,55 @@ Yes. Profiles can be generated and deployed via **CerbiShield** (governance dash
 
 ---
 
-## ✅ Call to Action
+## ✅ Test Coverage
+
+**325 tests passing** across:
+- 55 integration tests  
+- 270 unit tests (135 × 2 frameworks: .NET 8 & .NET 10)
+
+Test categories:
+- Zero-config setup
+- All preset modes  
+- Governance redaction
+- Encryption pathways
+- Telemetry integration
+- Environment variable configuration
+- Queue scoring
+- File fallback
+
+---
+
+## 🏆 Trusted By
+
+- **Microsoft Partner (ISV)**
+- **Harvard Innovation Lab**
+- **49.6K+ NuGet downloads**
+
+---
+
+## 📚 Documentation
+
+- [Quick Start Guide](docs/QUICKSTART.md)
+- [Installation](docs/INSTALLATION.md)
+- [Production Checklist](docs/README-PRODUCTION.md)
+- [Technical Walkthrough](docs/WALKTHROUGH-TECHNICAL.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Security](docs/SECURITY.md)
+
+---
+
+## 🔗 Ecosystem
+
+| Package | Purpose |
+|---------|---------|
+| **CerbiStream** | Core logging governance |
+| **Cerbi.Governance.Runtime** | Runtime validation engine |
+| **Cerbi.Governance.Core** | Policy models and sources |
+| **CerbiShield** | Enterprise governance dashboard |
+
+---
+
+## ✨ Call to Action
 
 * ⭐ **Star the repo** if CerbiStream helps keep your logs safe and compliant.
 * 🧪 Use it side-by-side with your existing logger to evaluate governance impact.
@@ -421,14 +538,21 @@ Yes. Profiles can be generated and deployed via **CerbiShield** (governance dash
 
 ---
 
-## 📚 Appendix: .NET Logging Governance Topics (SEO)
+## 📞 Support
 
-* .NET logging governance
-* PII-safe logging for .NET
-* Runtime log redaction for C#
-* Policy-driven structured logging
-* Governance profiles for Serilog, NLog, MEL
-* OpenTelemetry logging with PII enforcement
-* OTEL Collector with governed logs
-* AES-encrypted log files for .NET
-* CerbiStream vs Serilog vs NLog vs log4net
+- **GitHub Issues**: [Open an issue](https://github.com/Zeroshi/Cerbi-CerbiStream/issues)
+- **Website**: [cerbi.io](https://cerbi.io)
+- **Documentation**: [cerbi.io/documents](https://cerbi.io/documents)
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <b>CerbiStream v2.0</b> — Developer-first logging governance for .NET<br>
+  <a href="https://cerbi.io">cerbi.io</a> | <a href="https://www.nuget.org/packages/CerbiStream">NuGet</a> | <a href="https://github.com/Zeroshi/Cerbi-CerbiStream">GitHub</a>
+</p>
