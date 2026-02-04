@@ -92,7 +92,7 @@ namespace CerbiStream.Scoring
                 }
                 catch (Exception ex)
                 {
-                    LogInternal("[CerbiStream.ScoringService] Worker error: {0}", ex.Message);
+                    LogInternal("[CerbiStream.Scoring] Worker error: {0}", ex.Message);
                 }
             }
 
@@ -119,7 +119,7 @@ namespace CerbiStream.Scoring
         {
             if (_serviceBusSender == null)
             {
-                LogInternal("[CerbiStream.ScoringService] Service Bus sender not configured, dropping {0} events", batch.Count);
+                LogInternal("[CerbiStream.Scoring] Service Bus sender not configured, dropping {0} events", batch.Count);
                 return;
             }
 
@@ -137,11 +137,11 @@ namespace CerbiStream.Scoring
                     };
                     await _serviceBusSender.SendMessageAsync(message, _cts.Token).ConfigureAwait(false);
                 }
-                LogInternal("[CerbiStream.ScoringService] Sent {0} events to Service Bus", batch.Count);
+                LogInternal("[CerbiStream.Scoring] Sent {0} events to Service Bus", batch.Count);
             }
             catch (Exception ex)
             {
-                LogInternal("[CerbiStream.ScoringService] Service Bus send failed: {0}", ex.Message);
+                LogInternal("[CerbiStream.Scoring] Service Bus send failed: {0}", ex.Message);
             }
         }
 
@@ -172,7 +172,7 @@ namespace CerbiStream.Scoring
         {
             if (string.IsNullOrWhiteSpace(options.ConnectionString) || string.IsNullOrWhiteSpace(options.QueueName))
             {
-                LogInternal("[CerbiStream.ScoringService] Service Bus not configured");
+                LogInternal("[CerbiStream.Scoring] Service Bus not configured");
                 return (null, null);
             }
 
@@ -180,12 +180,12 @@ namespace CerbiStream.Scoring
             {
                 var client = new ServiceBusClient(options.ConnectionString);
                 var sender = client.CreateSender(options.QueueName);
-                LogInternal("[CerbiStream.ScoringService] Connected to Service Bus queue: {0}", options.QueueName);
+                LogInternal("[CerbiStream.Scoring] Connected to Service Bus queue: {0}", options.QueueName);
                 return (client, sender);
             }
             catch (Exception ex)
             {
-                LogInternal("[CerbiStream.ScoringService] Failed to create Service Bus sender: {0}", ex.Message);
+                LogInternal("[CerbiStream.Scoring] Failed to create Service Bus sender: {0}", ex.Message);
                 return (null, null);
             }
         }
