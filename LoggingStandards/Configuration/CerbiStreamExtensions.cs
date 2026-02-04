@@ -1,4 +1,4 @@
-﻿using Cerbi.Governance;
+using Cerbi.Governance;
 using CerbiClientLogging.Interfaces;
 using CerbiStream.Classes.FileLogging;
 using CerbiStream.FileLogging;
@@ -61,8 +61,8 @@ namespace CerbiStream.Configuration
         /// builder.Logging.AddCerbiStream();
         /// 
         /// // Behavior controlled by environment variables:
-        /// // CERBISTREAM_MODE=production → production settings
-        /// // CERBISTREAM_MODE=development → development settings (default)
+        /// // CERBISTREAM_MODE=production ? production settings
+        /// // CERBISTREAM_MODE=development ? development settings (default)
         /// </code>
         /// </example>
         public static ILoggingBuilder AddCerbiStream(this ILoggingBuilder builder)
@@ -119,6 +119,34 @@ namespace CerbiStream.Configuration
             // Register CerbiStream options and logger provider
             builder.Services.AddSingleton(options);
 
+            // Check if scoring should be enabled (tenantId in governance config or explicit queue config)
+            var governancePath = options.GovernanceConfigPath 
+                ?? Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH")
+                ?? Path.Combine(AppContext.BaseDirectory, DefaultGovernanceFileName);
+            var tenantIdFromConfig = TryGetTenantIdFromGovernanceConfig(governancePath);
+            var scoringEnabled = !string.IsNullOrWhiteSpace(tenantIdFromConfig) 
+                || (!options.DisableQueueSending && !string.IsNullOrWhiteSpace(options.QueueHost));
+
+            // Register ScoringService if tenantId exists in governance config OR queue is explicitly configured
+            if (scoringEnabled && !string.IsNullOrWhiteSpace(options.QueueHost))
+            {
+                builder.Services.AddSingleton<Scoring.IScoringService>(sp =>
+                {
+                    Console.WriteLine($"[CerbiStream.Scoring] Enabled - TenantId: {tenantIdFromConfig ?? "from options"}, Queue: {options.QueueName}");
+                    var scoringOptions = new Scoring.ScoringOptions { Enabled = true, LicenseAllowsScoring = true };
+                    var sbOptions = new Scoring.ServiceBusOptions
+                    {
+                        ConnectionString = options.QueueHost,
+                        QueueName = options.QueueName ?? "cerbishield.log-scoring"
+                    };
+                    return new Scoring.ScoringService(scoringOptions, sbOptions);
+                });
+            }
+            else if (!string.IsNullOrWhiteSpace(tenantIdFromConfig))
+            {
+                Console.WriteLine($"[CerbiStream.Scoring] TenantId found ({tenantIdFromConfig}) but no queue configured - scoring disabled");
+            }
+
             // If governance is enabled, register GovernanceLoggerProvider; else dev adapter
             if (options.EnableGovernanceChecks)
             {
@@ -129,7 +157,8 @@ namespace CerbiStream.Configuration
                     var profile = string.IsNullOrWhiteSpace(options.GovernanceProfileName) ? "default" : options.GovernanceProfileName;
                     var path = options.GovernanceConfigPath ?? Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH");
                     var adapter = new GovernanceRuntimeAdapter(profile, path);
-                    return new GovernanceLoggerProvider(innerFactory, adapter);
+                    var ScoringService = sp.GetService<Scoring.IScoringService>();
+                    return new GovernanceLoggerProvider(innerFactory, adapter, options, ScoringService);
                 });
             }
             else
@@ -210,6 +239,37 @@ namespace CerbiStream.Configuration
         {
             app.UseMiddleware<CerbiStream.Middleware.CerbiMetricsMiddleware>();
             return app;
+        }
+
+        /// <summary>
+        /// Tries to extract tenantId from the governance config file.
+        /// If tenantId exists, scoring will be enabled automatically.
+        /// </summary>
+        private static string? TryGetTenantIdFromGovernanceConfig(string? configPath)
+        {
+            if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
+                return null;
+
+            try
+            {
+                var json = File.ReadAllText(configPath);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                // Check for tenantId at root level
+                if (doc.RootElement.TryGetProperty("tenantId", out var tenantIdProp) ||
+                    doc.RootElement.TryGetProperty("TenantId", out tenantIdProp))
+                {
+                    var value = tenantIdProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(value) && value != "unknown")
+                        return value;
+                }
+            }
+            catch
+            {
+                // Silent fail - config parsing errors shouldn't break startup
+            }
+
+            return null;
         }
 
         /// <summary>

@@ -1,5 +1,4 @@
-using Cerbi.Contracts;
-using Cerbi.Contracts.Scoring;
+using Cerbi.Contracts.Contracts;
 using CerbiStream.GovernanceRuntime.Governance;
 using CerbiStream.Logging.Configuration;
 using System;
@@ -75,7 +74,6 @@ public static class ScoringEventTransformer
             {
                 GovernanceRelaxed = ExtractBool(data, "GovernanceRelaxed")
             },
-            RawPayload = data,
 
             // v1.1 identity fields - auto-detected
             AppVersion = EnvironmentDetector.AppVersion,
