@@ -250,6 +250,20 @@ namespace CerbiStream.Logging.Configuration
         /// </summary>
         public string? OriginApp { get; private set; }
 
+        /// <summary>
+        /// Tenant identifier for multi-tenant support. Required for ScoringEventDto.
+        /// </summary>
+        public string? TenantId { get; private set; }
+
+        /// <summary>
+        /// Sets the tenant identifier for multi-tenant scoring.
+        /// </summary>
+        public CerbiStreamOptions WithTenantId(string tenantId)
+        {
+            TenantId = tenantId;
+            return this;
+        }
+
         public CerbiStreamOptions WithEncryptionKey(byte[] key, byte[] iv)
         {
             EncryptionKey = key;

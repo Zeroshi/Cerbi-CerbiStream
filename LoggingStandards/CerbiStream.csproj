@@ -76,6 +76,7 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
+    <!-- Cerbi.Contracts types are inline in Contracts/ScoringContracts.cs until package is published -->
   </ItemGroup>
 
   <ItemGroup>

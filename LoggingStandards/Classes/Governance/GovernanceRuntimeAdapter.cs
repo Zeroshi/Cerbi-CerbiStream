@@ -30,6 +30,11 @@ public sealed class GovernanceRuntimeAdapter
  private HashSet<string> _policyRedactFields = new(StringComparer.OrdinalIgnoreCase);
  private readonly object _policyLock = new();
 
+ // Cache for TenantId from config file
+ private string? _cachedTenantId;
+ private DateTime _tenantIdLoadedUtc;
+ private readonly object _tenantIdLock = new();
+
  // File watcher to avoid checking file timestamp on every validation
  private volatile int _policyStale;
  private FileSystemWatcher? _policyWatcher;
@@ -60,6 +65,62 @@ public sealed class GovernanceRuntimeAdapter
         plugins: Array.Empty<IRuntimeGovernancePlugin>());
 
  TryInitWatcher();
+ }
+
+ /// <summary>
+ /// Gets the TenantId from the governance config file.
+ /// Returns null if not specified in the config.
+ /// </summary>
+ public string? GetTenantId()
+ {
+  try
+  {
+   if (!File.Exists(_configPath))
+    return null;
+
+   // Check if we need to reload (file changed or not loaded yet)
+   if (_cachedTenantId == null || Interlocked.Exchange(ref _policyStale, 0) == 1)
+   {
+    lock (_tenantIdLock)
+    {
+     var lastWrite = File.GetLastWriteTimeUtc(_configPath);
+     if (_cachedTenantId == null || _tenantIdLoadedUtc < lastWrite)
+     {
+      _cachedTenantId = ParseTenantIdFromConfig(_configPath);
+      _tenantIdLoadedUtc = lastWrite;
+     }
+    }
+   }
+
+   return _cachedTenantId;
+  }
+  catch
+  {
+   return null;
+  }
+ }
+
+ private static string? ParseTenantIdFromConfig(string path)
+ {
+  try
+  {
+   using var fs = File.OpenRead(path);
+   using var doc = JsonDocument.Parse(fs);
+   var root = doc.RootElement;
+
+   // Look for TenantId at root level (case-insensitive)
+   if (TryGetPropertyCI(root, "TenantId", out var tenantEl) &&
+       tenantEl.ValueKind == JsonValueKind.String)
+   {
+    return tenantEl.GetString();
+   }
+
+   return null;
+  }
+  catch
+  {
+   return null;
+  }
  }
 
  private void TryInitWatcher()

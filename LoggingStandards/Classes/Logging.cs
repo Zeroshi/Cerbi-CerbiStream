@@ -4,6 +4,7 @@ using CerbiClientLogging.Interfaces.SendMessage;
 using CerbiStream.Classes;
 using CerbiStream.Interfaces;
 using CerbiStream.Logging.Configuration;
+using CerbiStream.Services;
 using Microsoft.Extensions.Logging;
 using Polly;
 using System;
@@ -294,21 +295,26 @@ namespace CerbiClientLogging.Implementations
 
         /// <summary>
         /// Sends a log entry asynchronously to the logging queue or system.
+        /// Transforms to ScoringEventDto format (score is null - computed by Scoring API).
         /// </summary>
         /// <param name="logEntry">The log entry object containing log details and metadata to be sent.</param>
+        /// <param name="enrichedData">Optional enriched metadata dictionary.</param>
         /// <returns>A task representing the asynchronous operation, containing a boolean value indicating
         /// whether the log entry was successfully sent.</returns>
-        private async Task<bool> SendLogAsync(object logEntry)
+        private async Task<bool> SendLogAsync(object logEntry, IDictionary<string, object>? enrichedData = null)
         {
             try
             {
                 var logId = Guid.NewGuid().ToString();
 
-                string payload = _jsonConverter.ConvertMessageToJson(new
-                {
-                    LogId = logId,
-                    LogData = logEntry
-                });
+                // Transform to ScoringEventDto format (score is null - Scoring API computes it)
+                var scoringEvent = ScoringEventTransformer.Transform(
+                    logEntry,
+                    logId,
+                    _options,
+                    enrichedData);
+
+                string payload = _jsonConverter.ConvertMessageToJson(scoringEvent);
 
                 if (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled)
                 {
@@ -337,11 +343,11 @@ namespace CerbiClientLogging.Implementations
                             });
 
                     var sentWithRetry = await policy.ExecuteAsync(() => _queue.SendMessageAsync(payload, logId));
-                    return sentWithRetry || (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled);
+                    return sentWithRetry;
                 }
 
-                var sentNoRetry = await _queue.SendMessageAsync(payload, logId);
-                return sentNoRetry || (_options.EncryptionMode != IEncryptionTypeProvider.EncryptionType.None && _encryption.IsEnabled);
+                var sent = await _queue.SendMessageAsync(payload, logId);
+                return sent;
             }
             catch (Exception ex)
             {
