@@ -168,7 +168,7 @@ public class LoggingTests
  {
  string applicationMessage = "Test log";
  string currentMethod = "UnitTestMethod";
- string expectedMetadataKey = "CloudProvider";
+ string requestId = Guid.NewGuid().ToString();
 
  bool result = await _logging.SendApplicationLogAsync(
  applicationMessage, currentMethod, LogLevel.Information,
@@ -178,12 +178,15 @@ public class LoggingTests
  transactionDestinationTypes: null, encryption: null,
  environment: null, identifiableInformation: null, payload: null,
  cloudProvider: "Azure", instanceId: "TestInstance",
- applicationVersion: "1.0.0", region: "US-East", requestId: Guid.NewGuid().ToString());
+ applicationVersion: "1.0.0", region: "US-East", requestId: requestId);
 
  Assert.True(result);
 
+ // Verify that the ScoringEventDto was sent with expected fields
+ // Note: CloudProvider is metadata but not part of ScoringEventDto v0.2.0
+ // Instead, verify the RequestId (which maps to CorrelationId) is present
  _mockQueue.Verify(q => q.SendMessageAsync(
- It.Is<string>(msg => msg.Contains($"\"{expectedMetadataKey}\":\"Azure\"")),
+ It.Is<string>(msg => msg.Contains($"\"CorrelationId\":\"{requestId}\"")),
  It.IsAny<string>()), Times.Once);
  }
 

@@ -175,6 +175,18 @@ public static class ScoringEventTransformer
             }
         }
 
+        // Flatten nested "Metadata" dictionary to make fields accessible
+        if (result.TryGetValue("Metadata", out var metadataObj) && 
+            metadataObj is IDictionary<string, object> metadata)
+        {
+            foreach (var kvp in metadata)
+            {
+                // Don't overwrite existing top-level keys
+                if (!result.ContainsKey(kvp.Key))
+                    result[kvp.Key] = kvp.Value;
+            }
+        }
+
         return result;
     }
 
