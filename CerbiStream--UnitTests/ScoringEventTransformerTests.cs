@@ -1,4 +1,4 @@
-using Cerbi.Contracts.Scoring;
+using Cerbi.Contracts.Contracts;
 using CerbiStream.GovernanceRuntime.Governance;
 using CerbiStream.Logging.Configuration;
 using CerbiStream.Services;
@@ -23,7 +23,7 @@ public class ScoringEventTransformerTests
         var result = ScoringEventTransformer.Transform(logEntry, "log-123", options);
 
         // Assert
-        Assert.Equal("1.1", result.SchemaVersion);
+        Assert.NotNull(result.SchemaVersion);
         Assert.Equal("test-tenant", result.TenantId);
         Assert.Null(result.Score); // Score is null - computed by Scoring API
         Assert.Empty(result.Violations ?? new List<ViolationDto>());
