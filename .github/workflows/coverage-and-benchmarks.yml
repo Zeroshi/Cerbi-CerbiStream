@@ -42,11 +42,11 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            9.0.x
+            10.0.x
       - name: Build benchmarks
         run: dotnet build "BenchmarkSuite1/BenchmarkSuite1.csproj" -c Release
       - name: Run benchmarks (quick)
-        run: dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release -- --join --runtimes net8.0
+        run: dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release --framework net8.0 -- --join --runtimes net8.0
       - name: Upload benchmarks
         uses: actions/upload-artifact@v4
         with:
