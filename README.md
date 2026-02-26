@@ -52,7 +52,7 @@ builder.Logging.AddCerbiStream();
 - Automatic **in-place redaction** of:
   - `DisallowedFields`
   - Fields with severity `Forbidden`
-- Works on structured payloads so you don’t leak values to downstream sinks.
+- Works on structured payloads so you don't leak values to downstream sinks.
 
 ### Runtime validation
 
@@ -73,7 +73,7 @@ Pair CerbiStream with Cerbi analyzers to **catch issues before runtime**:
 - Allocation-aware adapter:
   - Pooled dictionaries for structured state
   - Streaming JSON parsing (`Utf8JsonReader`) for violation fields
-- Minimal “dev mode” & “benchmark mode” for hot-path tuning.
+- Minimal "dev mode" & "benchmark mode" for hot-path tuning.
 - Benchmarks show **parity with established loggers** on baseline scenarios.
 
 ### Encryption
@@ -97,7 +97,7 @@ Pair CerbiStream with Cerbi analyzers to **catch issues before runtime**:
 
 ## 🤔 Why CerbiStream vs Serilog / NLog / OpenTelemetry?
 
-CerbiStream is **not** trying to replace Serilog/NLog/OTEL. It’s a **governance layer in front of them**.
+CerbiStream is **not** trying to replace Serilog/NLog/OTEL. It's a **governance layer in front of them**.
 
 - **Serilog / NLog / log4net**
   - Great at structured logging and sink ecosystems.
@@ -131,7 +131,7 @@ Want to see CerbiStream governance in action without wiring up your own project?
 
 - Repository: [Cerbistream.Governance.Demo.API](https://github.com/Zeroshi/Cerbistream.Governance.Demo.API)
 - Includes ready-to-run .NET API endpoints that emit governed logs using CerbiStream.
-- Pair it with the demo’s `cerbi_governance.json` to watch runtime validation and redaction behaviors end-to-end.
+- Pair it with the demo's `cerbi_governance.json` to watch runtime validation and redaction behaviors end-to-end.
 
 ---
 
@@ -184,7 +184,7 @@ builder.Logging.AddCerbiStream(o => o.ForPerformance());
 ```
 
 | Preset | Console | Queue | Governance | Telemetry |
-|--------|---------|-------|------------|-----------|
+|--------|---------|-------|------------|----------|
 | `EnableDeveloperMode()` | ✅ | ❌ | ✅ | ❌ |
 | `ForProduction()` | ❌ | ✅ | ✅ | ✅ |
 | `ForTesting()` | ✅ | ❌ | ✅ | ❌ |
@@ -347,7 +347,7 @@ Notes:
 
 * `DisallowedFields` and any field with severity `Forbidden` will be redacted.
 * `RequiredFields` are validated and surfaced as violations when missing.
-* Profiles are **just JSON** – keep them in Git, and let Cerbi’s file watcher hot-reload changes.
+* Profiles are **just JSON** – keep them in Git, and let Cerbi's file watcher hot-reload changes.
 
 ---
 
@@ -378,7 +378,7 @@ What makes it fast:
 * Streaming parse of governance metadata via `Utf8JsonReader`
 * Immediate short-circuit when `GovernanceRelaxed` is set
 
-**Run the repo’s benchmarks:**
+**Run the repo's benchmarks:**
 
 * Windows: `scripts/bench.ps1`
 * Linux/macOS: `scripts/bench.sh`
@@ -451,6 +451,27 @@ You need: **CerbiStream in-process**, plus configuration for your collector/expo
 
 ---
 
+## 📊 CerbiShield Scoring Identity (v1.1)
+
+CerbiStream automatically enriches every `ScoringEventDto` with identity metadata for end-to-end traceability in CerbiShield dashboards.
+
+### Identity Fields
+
+| Field | Source | Purpose |
+|-------|--------|---------|
+| `ServiceName` | `CerbiStreamOptions.ServiceName` | Logical service name |
+| `AppVersion` | `EnvironmentDetector.AppVersion` (auto) | Deployed assembly version |
+| `InstanceId` | `EnvironmentDetector.InstanceId` (auto) | Container/pod instance |
+| `DeploymentId` | `DEPLOYMENT_ID` env var | Release tracking ID |
+| `ProfileName` | Governance profile name | Stamped onto every `ViolationDto` |
+| `AppName` | `ServiceName` or log data | Stamped onto every `ViolationDto` |
+
+All identity fields are set automatically via `ScoringEventTransformer.Transform()`. Each `ViolationDto` is stamped with `ProfileName` and `AppName` for downstream linkage to the originating app and governance profile.
+
+This is consistent across all Cerbi SDKs (Serilog, NLog, MEL, CerbiStream).
+
+---
+
 ## ❓ FAQ
 
 **Does this replace Serilog or NLog?**
@@ -518,7 +539,7 @@ Test categories:
 ## 🔗 Ecosystem
 
 | Package | Purpose |
-|---------|---------|
+|---------|--------|
 | **CerbiStream** | Core logging governance |
 | **Cerbi.Governance.Runtime** | Runtime validation engine |
 | **Cerbi.Governance.Core** | Policy models and sources |

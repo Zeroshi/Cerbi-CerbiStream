@@ -47,20 +47,41 @@ public static class ScoringEventTransformer
             ?? ExtractString(data, "TenantId")
             ?? "unknown";
 
+        // Stamp ProfileName/AppName onto each ViolationDto for downstream linkage
+        var profileName = options.GovernanceProfileName
+            ?? ExtractString(data, "GovernanceProfileUsed")
+            ?? "default";
+        var appName = options.ServiceName
+            ?? ExtractString(data, "ApplicationName")
+            ?? "unknown";
+        for (var i = 0; i < violations.Count; i++)
+        {
+            var v = violations[i];
+            violations[i] = new ViolationDto
+            {
+                RuleId = v.RuleId,
+                Code = v.Code,
+                Field = v.Field,
+                Severity = v.Severity,
+                Message = v.Message,
+                Description = v.Description,
+                ProfileName = v.ProfileName ?? profileName,
+                AppName = v.AppName ?? appName
+            };
+        }
+
         return new ScoringEventDto
         {
             SchemaVersion = ContractVersions.ScoringEventSchemaVersion,
             TenantId = tenantId,
-            AppName = options.ServiceName ?? ExtractString(data, "ApplicationName") ?? "unknown",
+            AppName = appName,
             ServiceName = options.ServiceName,
             Environment = ExtractString(data, "Environment") ?? EnvironmentDetector.Environment,
             Runtime = "dotnet",
             LogId = logId,
             CorrelationId = ExtractString(data, "CorrelationId") ?? ExtractString(data, "RequestId"),
             TimestampUtc = DateTime.UtcNow,
-            GovernanceProfile = options.GovernanceProfileName
-                ?? ExtractString(data, "GovernanceProfileUsed")
-                ?? "default",
+            GovernanceProfile = profileName,
             GovernanceMode = ExtractString(data, "GovernanceMode") ?? "Strict",
             LogLevel = ExtractString(data, "LogLevel") ?? "Information",
 
