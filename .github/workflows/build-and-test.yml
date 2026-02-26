@@ -44,31 +44,29 @@ jobs:
           reportgenerator -reports:"$cov" -targetdir:"coverage-report" -reporttypes:Html
 
       - name: Check coverage threshold (line-rate >=80%)
+        shell: bash
         run: |
           cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
-          python3 - <<'PY'
-import sys, xml.etree.ElementTree as ET
-cov_file = sys.argv[1]
-threshold = 80.0
-try:
-    tree = ET.parse(cov_file)
-    root = tree.getroot()
-    # cobertura root has 'line-rate' attribute
-    line_rate = root.attrib.get('line-rate')
-    if line_rate is None:
-        print('line-rate attribute not found in coverage file')
-        sys.exit(1)
-    pct = float(line_rate) * 100.0
-    print(f'Line coverage: {pct:.2f}%')
-    if pct + 1e-6 < threshold:
-        print(f'Coverage {pct:.2f}% is below threshold {threshold}%')
-        sys.exit(1)
-    sys.exit(0)
-except Exception as e:
-    print('Failed to parse coverage file:', e)
-    sys.exit(1)
-PY
-          "${cov}"
+          if [ -z "$cov" ]; then echo "Coverage file not found"; exit 1; fi
+          python3 -c "
+          import sys, xml.etree.ElementTree as ET
+          threshold = 80.0
+          try:
+              tree = ET.parse(sys.argv[1])
+              root = tree.getroot()
+              line_rate = root.attrib.get('line-rate')
+              if line_rate is None:
+                  print('line-rate attribute not found in coverage file')
+                  sys.exit(1)
+              pct = float(line_rate) * 100.0
+              print(f'Line coverage: {pct:.2f}%')
+              if pct + 1e-6 < threshold:
+                  print(f'Coverage {pct:.2f}% is below threshold {threshold}%')
+                  sys.exit(1)
+          except Exception as e:
+              print('Failed to parse coverage file:', e)
+              sys.exit(1)
+          " "$cov"
 
       - name: Upload test results
         if: always()
