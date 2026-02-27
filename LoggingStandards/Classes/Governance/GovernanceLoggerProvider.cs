@@ -1,4 +1,4 @@
-using Cerbi.Contracts.Contracts;
+using CerbiShield.Contracts.Scoring;
 using CerbiStream.Configuration;
 using CerbiStream.Scoring;
 using CerbiStream.Services;

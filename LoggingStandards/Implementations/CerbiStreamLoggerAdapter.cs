@@ -1,4 +1,4 @@
-using Cerbi.Contracts.Contracts;
+using CerbiShield.Contracts.Scoring;
 using CerbiStream.Classes.OpenTelemetry;
 using CerbiStream.Configuration;
 using CerbiStream.Scoring;

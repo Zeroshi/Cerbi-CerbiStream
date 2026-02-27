@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Cerbi.Contracts.Contracts;
+using CerbiShield.Contracts.Scoring;
 
 namespace CerbiStream.Scoring
 {
