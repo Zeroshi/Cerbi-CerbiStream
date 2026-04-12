@@ -34,9 +34,8 @@ jobs:
         run: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.1.23
 
       - name: Generate coverage report
-        env:
-          PATH: ${{ runner.tool_cache }}:$HOME/.dotnet/tools:$PATH
         run: |
+          export PATH="$HOME/.dotnet/tools:$PATH"
           # find cobertura xml produced by coverlet
           cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
           echo "Found coverage file: $cov"
