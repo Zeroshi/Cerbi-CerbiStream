@@ -210,12 +210,15 @@ namespace CerbiStream.Logging.Configuration
 
 
         /// <summary>
-        /// Sets the application hosting model and business service role for log metadata enrichment.
+        /// Sets the application hosting model, business service role, and optional service name.
+        /// If serviceName is provided, it is also set as ServiceName for scoring identity.
         /// </summary>
-        public CerbiStreamOptions WithApplicationIdentity(string applicationType, string serviceType)
+        public CerbiStreamOptions WithApplicationIdentity(string applicationType, string serviceType, string? serviceName = null)
         {
             ApplicationType = applicationType;
             ServiceType = serviceType;
+            if (!string.IsNullOrWhiteSpace(serviceName))
+                ServiceName = serviceName;
             return this;
         }
 
@@ -241,6 +244,7 @@ namespace CerbiStream.Logging.Configuration
         /// <summary>
         /// Logical service name used to tag logs (e.g., OrderService, AuthService).
         /// Helps distinguish different services inside the same app environment.
+        /// Also used as AppName in ScoringEventDto for CerbiShield dashboard traceability.
         /// </summary>
         public string? ServiceName { get; private set; }
 
@@ -261,6 +265,25 @@ namespace CerbiStream.Logging.Configuration
         public CerbiStreamOptions WithTenantId(string tenantId)
         {
             TenantId = tenantId;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the logical service name for scoring identity.
+        /// This value is used as AppName in ScoringEventDto for CerbiShield dashboards.
+        /// </summary>
+        public CerbiStreamOptions WithServiceName(string serviceName)
+        {
+            ServiceName = serviceName;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the origin application name for distributed tracing.
+        /// </summary>
+        public CerbiStreamOptions WithOriginApp(string originApp)
+        {
+            OriginApp = originApp;
             return this;
         }
 
