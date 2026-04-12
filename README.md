@@ -3,6 +3,9 @@
 [![cerbi.io](https://img.shields.io/badge/cerbi.io-Visit%20Website-blue?style=for-the-badge)](https://cerbi.io)
 [![NuGet](https://img.shields.io/nuget/v/CerbiStream?style=for-the-badge&color=green)](https://www.nuget.org/packages/CerbiStream)
 [![Downloads](https://img.shields.io/nuget/dt/CerbiStream?style=for-the-badge)](https://www.nuget.org/packages/CerbiStream)
+[![CerbiSuite](https://img.shields.io/badge/CerbiSuite-Compatible-brightgreen?style=for-the-badge)](https://cerbi.io)
+
+> ✅ **Now working with CerbiSuite** — Fully integrated with CerbiShield scoring, governance dashboards, and end-to-end traceability across all Cerbi logging SDKs.
 
 **CerbiStream v2.0** is the **developer-first governance layer** for .NET logging. One line of code gives you PII protection, automatic redaction, and enterprise-grade compliance.
 
@@ -22,13 +25,7 @@ builder.Logging.AddCerbiStream();
 - **Auto-generated governance policy** — Sensible PII defaults created automatically  
 - **Preset modes** — `EnableDeveloperMode()`, `ForProduction()`, `ForTesting()`, `ForPerformance()`
 
-### Built-in Sensitive Field Detection (NEW!)
-- **11 high-confidence PII patterns** detected automatically — `password`, `secret`, `apikey`, `ssn`, `creditcard`, and more
-- **Zero-config protection** — works even without a governance profile
-- **Value from day zero** — install, log, and immediately get governance feedback
-- **Customer overrides** — profile-level settings always take precedence over built-in defaults
-
-### Environment Variable Configuration
+### Environment Variable Configuration (NEW!)
 - **Zero-code deployments** — Same code works everywhere, controlled by environment
 - **Instant debugging** — Enable console output in production without redeploying
 - **Kubernetes/Docker native** — 20+ environment variables for complete control
@@ -43,24 +40,6 @@ builder.Logging.AddCerbiStream();
 
 ## 🔑 Key Features
 
-### 🛡️ Built-in Sensitive Field Detection
-
-CerbiStream automatically detects common sensitive fields in your logs via `SensitiveFieldCatalog` — **no governance profile needed**. This provides instant value from the moment you install the package.
-
-**11 built-in patterns**: `password`, `secret`, `accesstoken`, `refreshtoken`, `authtoken`, `bearertoken`, `apikey`, `connectionstring`, `privatekey`, `ssn`, `creditcard`
-
-Field names are normalized (lowercase, strip hyphens/underscores) so `AccessToken`, `access_token`, and `access-token` all match.
-
-```csharp
-// Install CerbiStream → log with sensitive fields → get instant governance feedback
-builder.Logging.AddCerbiStream();
-
-logger.LogInformation("Login attempt {password} {userId}", "secret123", "u-123");
-// → GovernanceViolation: "password" matched built-in sensitive field pattern
-// → No profile configuration needed!
-```
-
-Profile-level configuration **always takes precedence** — if your profile explicitly addresses a field, the built-in default is skipped.
 
 ### Governance rules (runtime enforcement)
 
@@ -80,7 +59,7 @@ Profile-level configuration **always takes precedence** — if your profile expl
 
 ### Runtime validation
 
-- Backed by **`Cerbi.Governance.Runtime`** v2.0.23.
+- Backed by **`Cerbi.Governance.Runtime`**.
 - File watcher for **hot-reloading governance profiles** when `cerbi_governance.json` changes.
 - Consistent behavior across CerbiStream, Cerbi.MEL.Governance, and Serilog/MEL plugins.
 
@@ -99,7 +78,6 @@ Pair CerbiStream with Cerbi analyzers to **catch issues before runtime**:
   - Streaming JSON parsing (`Utf8JsonReader`) for violation fields
 - Minimal "dev mode" & "benchmark mode" for hot-path tuning.
 - Benchmarks show **parity with established loggers** on baseline scenarios.
-- Built-in sensitive field catalog uses **static readonly arrays** — zero allocation after initialization.
 
 ### Encryption
 
@@ -176,8 +154,7 @@ builder.Logging.AddCerbiStream();
 ```
 
 **Done!** You now have:
-- ✅ PII protection (passwords, SSNs, credit cards auto-detected via built-in catalog)
-- ✅ 11 sensitive field patterns active out of the box
+- ✅ PII protection (passwords, SSNs, credit cards auto-redacted)
 - ✅ Governance policy auto-generated
 - ✅ Console output for development
 - ✅ **Auto-detects environment variables** for zero-code config changes
@@ -218,7 +195,7 @@ builder.Logging.AddCerbiStream(o => o.ForPerformance());
 
 ---
 
-## 🌍 Environment Variable Configuration
+## 🌍 Environment Variable Configuration (NEW!)
 
 **Zero code changes** — deploy the same code everywhere, control behavior with environment variables.
 
@@ -295,13 +272,13 @@ builder.Logging.AddCerbiStream(options => options
 
 ### Governance Runtime & Analyzer Compatibility
 
-| TFM      | CerbiStream package | Cerbi.Governance.Core | Cerbi.Governance.Runtime | CerbiStream.GovernanceAnalyzer |
-|----------|---------------------|-----------------------|--------------------------|--------------------------------|
-| net8.0   | latest              | 2.2.29                | 2.0.23                   | latest                         |
-| net9.0   | latest              | 2.2.29                | 2.0.23                   | latest                         |
-| net10.0  | latest              | 2.2.29                | 2.0.23                   | latest                         |
+| TFM      | CerbiStream package | Cerbi.Governance.Runtime | CerbiStream.GovernanceAnalyzer |
+|----------|---------------------|--------------------------|--------------------------------|
+| net8.0   | 1.1.21              | 1.1.7                    | 1.1.21                         |
+| net9.0   | 1.1.21              | 1.1.7                    | 1.1.21                         |
+| net10.0  | 1.1.21              | 1.1.7                    | 1.5.48                         |
 
-All packages now use the canonical `Profile` model and `CerbiShield.Contracts v1.2.1` for consistent governance enforcement across the entire ecosystem.
+`AddCerbiGovernanceRuntime` is compiled against the current Cerbi.Governance.Runtime API. Use the versions above to avoid `Method not found: RuntimeGovernanceValidator..ctor` when pairing governed logging with runtime validation.
 
 ---
 
@@ -345,38 +322,35 @@ When `GovernanceRelaxed = true` and your profile allows relax, CerbiStream **ski
 
 ---
 
-## 🧾 Governance Profile (Canonical JSON)
+## 🧾 Governance Profile (JSON) Template
 
 ```json
 {
-  "name": "PII Protection",
-  "appName": "my-service",
-  "version": "1.0.0",
-  "status": "Published",
-  "metadata": {
-    "description": "Prevents PII leakage in application logs",
-    "owner": "security-team"
-  },
-  "requiredFields": ["message", "timestamp"],
-  "disallowedFields": ["ssn", "creditCard"],
-  "fieldSeverities": {
-    "password": "Forbidden",
-    "creditCard": "Forbidden"
-  },
-  "encryption": {
-    "mode": "AES",
-    "encryptedFields": ["ssn", "email"]
-  },
-  "allowRelax": false
+  "Version": "1.0.0",
+  "LoggingProfiles": {
+    "default": {
+      "RequiredFields": [ "message", "timestamp" ],
+      "ForbiddenFields": [ "password" ],
+      "DisallowedFields": [ "ssn", "creditCard" ],
+      "FieldSeverities": {
+        "password": "Forbidden",
+        "creditCard": "Forbidden"
+      },
+      "SensitiveTags": [ "PII", "Secret" ],
+      "Encryption": {
+        "Mode": "AES",
+        "RotateEncryptedFiles": true
+      }
+    }
+  }
 }
 ```
 
 Notes:
 
-* `disallowedFields` and any field with severity `Forbidden` will be redacted.
-* `requiredFields` are validated and surfaced as violations when missing.
+* `DisallowedFields` and any field with severity `Forbidden` will be redacted.
+* `RequiredFields` are validated and surfaced as violations when missing.
 * Profiles are **just JSON** – keep them in Git, and let Cerbi's file watcher hot-reload changes.
-* Built-in sensitive field detection provides a safety net even without a profile.
 
 ---
 
@@ -406,7 +380,6 @@ What makes it fast:
   * Pooled `HashSet<string>`
 * Streaming parse of governance metadata via `Utf8JsonReader`
 * Immediate short-circuit when `GovernanceRelaxed` is set
-* SensitiveFieldCatalog uses static readonly arrays — zero allocation per-request
 
 **Run the repo's benchmarks:**
 
@@ -510,7 +483,7 @@ No. CerbiStream is a **governance layer**, not a sink library. Keep Serilog/NLog
 ---
 
 **What about performance overhead?**
-CerbiStream is designed to be **competitive with top loggers**. Baseline cost is close to raw MEL; governance/redaction cost is explicit and measurable in the included benchmarks. The built-in SensitiveFieldCatalog uses static readonly arrays — zero allocation per request.
+CerbiStream is designed to be **competitive with top loggers**. Baseline cost is close to raw MEL; governance/redaction cost is explicit and measurable in the included benchmarks.
 
 ---
 
@@ -521,11 +494,6 @@ CerbiStream is designed to be **competitive with top loggers**. Baseline cost is
 
   * No redaction
   * Event is tagged as relaxed for downstream scoring
-
----
-
-**Do I need a governance profile to get value?**
-No! CerbiStream's built-in `SensitiveFieldCatalog` detects 11 common sensitive field patterns (passwords, API keys, SSNs, credit cards, etc.) with **zero configuration**. Install, log, and immediately get governance feedback. Profiles give you fine-grained control when you're ready.
 
 ---
 
@@ -573,16 +541,12 @@ Test categories:
 
 ## 🔗 Ecosystem
 
-| Package | Version | Purpose |
-|---------|---------|--------|
-| **CerbiStream** | latest | Core logging governance with built-in sensitive field detection |
-| **Cerbi.Governance.Core** | 2.2.29 | Canonical Profile model, SensitiveFieldCatalog, validation helpers |
-| **Cerbi.Governance.Runtime** | 2.0.23 | Runtime validation engine with CompiledProfile and scoring |
-| **Cerbi.GovernanceAnalyzer** | 1.0.0 | Roslyn analyzer — 9 compile-time diagnostics (CERBI001-009) |
-| **Cerbi.Serilog.GovernanceAnalyzer** | latest | Serilog runtime governance enforcement |
-| **Cerbi.MEL.Governance** | latest | MEL runtime governance enforcement |
-| **Cerbi.NLog.GovernanceAnalyzer** | latest | NLog runtime governance enforcement |
-| **CerbiShield** | — | Enterprise governance dashboard |
+| Package | Purpose |
+|---------|--------|
+| **CerbiStream** | Core logging governance |
+| **Cerbi.Governance.Runtime** | Runtime validation engine |
+| **Cerbi.Governance.Core** | Policy models and sources |
+| **CerbiShield** | Enterprise governance dashboard |
 
 ---
 
