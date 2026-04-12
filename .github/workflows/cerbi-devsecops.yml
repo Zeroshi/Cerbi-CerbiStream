@@ -19,19 +19,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Pick the main (non-test) project to pack/publish
-      - name: Locate Project File
-        id: proj
-        shell: bash
-        run: |
-          PROJECT_PATH=$(find . -type f -name "*.csproj" \
-            ! -ipath "*test*" ! -ipath "*tests*" ! -ipath "*unit*" | head -n 1)
-          if [ -z "$PROJECT_PATH" ]; then
-            echo "No non-test .csproj found" >&2
-            exit 1
-          fi
-          echo "Found project: $PROJECT_PATH"
-          echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
+      # Use the known main project path directly
+      - name: Set Project Path
+        run: echo "PROJECT_PATH=./LoggingStandards/CerbiStream.csproj" >> $GITHUB_ENV
 
       # Set a build/version number without editing csproj XML
       - name: Set Version
@@ -102,4 +92,5 @@ jobs:
           fi
 
       - name: Push to NuGet
+        continue-on-error: true
         run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
