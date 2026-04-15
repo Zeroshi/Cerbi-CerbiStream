@@ -25,7 +25,7 @@ jobs:
 
       # Set a build/version number without editing csproj XML
       - name: Set Version
-        run: echo "VERSION=1.1.${{ github.run_number }}" >> $GITHUB_ENV
+        run: echo "VERSION=2.0.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
