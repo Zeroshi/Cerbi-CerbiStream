@@ -454,6 +454,41 @@ You need: **CerbiStream in-process**, plus configuration for your collector/expo
 
 ---
 
+## 🔗 Field Aliases
+
+Field aliases let governance profiles map alternative field names to canonical required/forbidden fields. When a team logs `user_id` instead of `userId`, aliases ensure governance validation still matches.
+
+### How It Works
+
+`GovernanceRuntimeAdapter` intercepts log payloads **before** `ValidateInPlace` and expands aliases:
+
+1. On config load (and file-watcher reload), `ParseFieldAliasesFromConfig` builds a **reverse alias map** (alias → canonical key) cached in `_aliasReverseMap`.
+2. `ExpandAliases()` scans the log dictionary for alias keys and copies their values to the canonical field name.
+3. The core governance engine then validates against canonical names as usual.
+
+### Configuration
+
+Add `fieldAliases` to your governance profile:
+
+```json
+{
+  "LoggingProfiles": {
+    "default": {
+      "FieldSeverities": {
+        "userId": "Required"
+      },
+      "fieldAliases": {
+        "userId": ["user_id", "uid", "UserId"]
+      }
+    }
+  }
+}
+```
+
+Aliases are automatically reloaded when `cerbi_governance.json` changes (via the existing `FileSystemWatcher`).
+
+---
+
 ## 📊 CerbiShield Scoring Identity (v1.1)
 
 CerbiStream automatically enriches every `ScoringEventDto` with identity metadata for end-to-end traceability in CerbiShield dashboards.

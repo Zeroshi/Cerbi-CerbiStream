@@ -52,7 +52,9 @@ public static class ScoringEventTransformer
         var profileName = options.GovernanceProfileName
             ?? ExtractString(data, "GovernanceProfileUsed")
             ?? "default";
+        // AppName fallback chain: ServiceName -> ApplicationType -> data -> "unknown"
         var appName = options.ServiceName
+            ?? options.ApplicationType
             ?? ExtractString(data, "ApplicationName")
             ?? "unknown";
         for (var i = 0; i < violations.Count; i++)

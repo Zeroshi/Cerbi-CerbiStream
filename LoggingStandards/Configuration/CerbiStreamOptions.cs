@@ -211,14 +211,16 @@ namespace CerbiStream.Logging.Configuration
 
         /// <summary>
         /// Sets the application hosting model, business service role, and optional service name.
-        /// If serviceName is provided, it is also set as ServiceName for scoring identity.
+        /// ServiceName is automatically set from applicationType if not explicitly provided,
+        /// ensuring the scoring payload always carries a meaningful AppName.
         /// </summary>
         public CerbiStreamOptions WithApplicationIdentity(string applicationType, string serviceType, string? serviceName = null)
         {
             ApplicationType = applicationType;
             ServiceType = serviceType;
-            if (!string.IsNullOrWhiteSpace(serviceName))
-                ServiceName = serviceName;
+            // Always set ServiceName: explicit value takes priority, otherwise use applicationType.
+            // ServiceName drives AppName in ScoringEventDto for CerbiShield dashboard traceability.
+            ServiceName = !string.IsNullOrWhiteSpace(serviceName) ? serviceName : applicationType;
             return this;
         }
 

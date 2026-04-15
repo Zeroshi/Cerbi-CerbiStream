@@ -30,6 +30,11 @@ public sealed class GovernanceRuntimeAdapter
  private HashSet<string> _policyRedactFields = new(StringComparer.OrdinalIgnoreCase);
  private readonly object _policyLock = new();
 
+ // Cache for field aliases (alias → canonical field name)
+ private Dictionary<string, string> _aliasReverseMap = new(StringComparer.OrdinalIgnoreCase);
+ private DateTime _aliasLoadedUtc;
+ private readonly object _aliasLock = new();
+
  // Cache for TenantId from config file
  private string? _cachedTenantId;
  private DateTime _tenantIdLoadedUtc;
@@ -165,6 +170,9 @@ public sealed class GovernanceRuntimeAdapter
  var toRedact = RentHashSet();
  try
  {
+ //0b) Expand field aliases so the compiled validator sees canonical field names
+ ExpandAliases(working);
+
  //1) Tag using the runtime validator (adds GovernanceViolations[], GovernanceProfileVersion, etc.)
  _validator.ValidateInPlace(working);
 
@@ -408,7 +416,9 @@ public sealed class GovernanceRuntimeAdapter
  if (_policyRedactFields.Count ==0 || _lastLoadedUtc < File.GetLastWriteTimeUtc(_configPath))
  {
  _policyRedactFields = ParsePolicyRedactFields(_configPath, _profileName);
+ _aliasReverseMap = ParseFieldAliasesFromConfig(_configPath, _profileName);
  _lastLoadedUtc = File.GetLastWriteTimeUtc(_configPath);
+ _aliasLoadedUtc = _lastLoadedUtc;
  }
  }
  }
@@ -419,6 +429,112 @@ public sealed class GovernanceRuntimeAdapter
  {
  return Array.Empty<string>();
  }
+ }
+
+ private void ExpandAliases(Dictionary<string, object> data)
+ {
+ var map = GetAliasReverseMap();
+ if (map.Count == 0) return;
+
+ // Snapshot keys to avoid modifying during iteration
+ var keys = new List<string>(data.Keys);
+ foreach (var key in keys)
+ {
+ if (map.TryGetValue(key, out var canonical) &&
+     !string.Equals(key, canonical, StringComparison.OrdinalIgnoreCase) &&
+     !data.ContainsKey(canonical))
+ {
+ data[canonical] = data[key];
+ }
+ }
+ }
+
+ private Dictionary<string, string> GetAliasReverseMap()
+ {
+ try
+ {
+ if (!File.Exists(_configPath))
+ return _aliasReverseMap;
+
+ // Piggyback on the policy reload — if policy was just reloaded, aliases were too
+ if (_aliasReverseMap.Count == 0 && _aliasLoadedUtc == default)
+ {
+ lock (_aliasLock)
+ {
+ if (_aliasReverseMap.Count == 0 && _aliasLoadedUtc == default)
+ {
+ _aliasReverseMap = ParseFieldAliasesFromConfig(_configPath, _profileName);
+ _aliasLoadedUtc = File.GetLastWriteTimeUtc(_configPath);
+ }
+ }
+ }
+
+ return _aliasReverseMap;
+ }
+ catch
+ {
+ return _aliasReverseMap;
+ }
+ }
+
+ private static Dictionary<string, string> ParseFieldAliasesFromConfig(string path, string profileName)
+ {
+ var reverseMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+ try
+ {
+ using var fs = File.OpenRead(path);
+ using var doc = JsonDocument.Parse(fs);
+ var root = doc.RootElement;
+
+ // Try root-level fieldAliases first
+ if (TryParseAliasesElement(root, reverseMap))
+ return reverseMap;
+
+ // Try LoggingProfiles → profileName → fieldAliases
+ if (TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) &&
+     profilesEl.ValueKind == JsonValueKind.Object)
+ {
+ foreach (var p in profilesEl.EnumerateObject())
+ {
+ if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
+ {
+ TryParseAliasesElement(p.Value, reverseMap);
+ break;
+ }
+ }
+ }
+ }
+ catch
+ {
+ // Malformed JSON: return empty map
+ }
+ return reverseMap;
+ }
+
+ private static bool TryParseAliasesElement(JsonElement element, Dictionary<string, string> reverseMap)
+ {
+ if (element.ValueKind != JsonValueKind.Object)
+ return false;
+
+ if (!TryGetPropertyCI(element, "fieldAliases", out var aliasEl) ||
+     aliasEl.ValueKind != JsonValueKind.Object)
+ return false;
+
+ foreach (var prop in aliasEl.EnumerateObject())
+ {
+ if (prop.Value.ValueKind != JsonValueKind.Array) continue;
+ foreach (var item in prop.Value.EnumerateArray())
+ {
+ if (item.ValueKind == JsonValueKind.String)
+ {
+ var alias = item.GetString();
+ if (!string.IsNullOrWhiteSpace(alias) && !reverseMap.ContainsKey(alias!))
+ reverseMap[alias!] = prop.Name;
+ }
+ }
+ }
+
+ return reverseMap.Count > 0;
  }
 
  private static HashSet<string> ParsePolicyRedactFields(string path, string profileName)
