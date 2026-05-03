@@ -24,7 +24,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
 
     <!-- NuGet metadata -->
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -65,8 +65,8 @@
     <PackageReference Include="Moq" Version="4.20.72" PrivateAssets="All" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
     <PackageReference Include="NUnit" Version="4.4.0" PrivateAssets="All" />
-    <PackageReference Include="OpenTelemetry" Version="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
+    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
     <PackageReference Include="Polly" Version="8.6.3" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.8" />
