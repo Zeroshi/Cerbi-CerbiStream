@@ -36,9 +36,10 @@ namespace CerbiStream.Scoring
     /// <summary>
     /// Interface for score shipping.
     /// </summary>
-    public interface IScoringService : IDisposable
+    public interface IScoringService : IDisposable, IAsyncDisposable
     {
         void Enqueue(ScoringEventDto ev);
+        Task FlushAndDisposeAsync();
     }
 
     /// <summary>
@@ -84,7 +85,7 @@ namespace CerbiStream.Scoring
                 try
                 {
                     await Task.Delay(flushInterval, _cts.Token).ConfigureAwait(false);
-                    await FlushAsync().ConfigureAwait(false);
+                    await FlushAsync(_cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -96,26 +97,31 @@ namespace CerbiStream.Scoring
                 }
             }
 
-            // Final flush on shutdown
-            try { await FlushAsync().ConfigureAwait(false); } catch { }
+            // Final flush on shutdown — use CancellationToken.None so the already-cancelled
+            // _cts token does not abort the in-flight Service Bus sends.
+            try { await FlushAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
         }
 
-        private async Task FlushAsync()
+        private async Task FlushAsync(CancellationToken ct)
         {
             if (_queue.IsEmpty) return;
 
-            var batch = new System.Collections.Generic.List<ScoringEventDto>(_options.BatchSize);
-            while (batch.Count < _options.BatchSize && _queue.TryDequeue(out var ev))
+            // Drain the entire queue in batches, not just one batch.
+            while (!_queue.IsEmpty)
             {
-                batch.Add(ev);
+                var batch = new System.Collections.Generic.List<ScoringEventDto>(_options.BatchSize);
+                while (batch.Count < _options.BatchSize && _queue.TryDequeue(out var ev))
+                {
+                    batch.Add(ev);
+                }
+
+                if (batch.Count == 0) break;
+
+                await SendToServiceBusAsync(batch, ct).ConfigureAwait(false);
             }
-
-            if (batch.Count == 0) return;
-
-            await SendToServiceBusAsync(batch).ConfigureAwait(false);
         }
 
-        private async Task SendToServiceBusAsync(System.Collections.Generic.List<ScoringEventDto> batch)
+        private async Task SendToServiceBusAsync(System.Collections.Generic.List<ScoringEventDto> batch, CancellationToken ct)
         {
             if (_serviceBusSender == null)
             {
@@ -135,7 +141,7 @@ namespace CerbiStream.Scoring
                         CorrelationId = ev.CorrelationId,
                         Subject = ev.GovernanceProfile
                     };
-                    await _serviceBusSender.SendMessageAsync(message, _cts.Token).ConfigureAwait(false);
+                    await _serviceBusSender.SendMessageAsync(message, ct).ConfigureAwait(false);
                 }
                 LogInternal("[CerbiStream.Scoring] Sent {0} events to Service Bus", batch.Count);
             }
@@ -148,11 +154,31 @@ namespace CerbiStream.Scoring
         public void Dispose()
         {
             _cts.Cancel();
-            try { _worker.Wait(2000); } catch { }
+            // Give the worker enough time to complete the final flush to Service Bus.
+            try { _worker.Wait(15_000); } catch { }
             _cts.Dispose();
 
-            try { _serviceBusSender?.DisposeAsync().AsTask().Wait(500); } catch { }
-            try { _serviceBusClient?.DisposeAsync().AsTask().Wait(500); } catch { }
+            try { _serviceBusSender?.DisposeAsync().AsTask().Wait(5_000); } catch { }
+            try { _serviceBusClient?.DisposeAsync().AsTask().Wait(5_000); } catch { }
+        }
+
+        /// <summary>
+        /// Signals shutdown, waits for the final queue flush to complete, and disposes
+        /// the Service Bus resources. Prefer this over <see cref="Dispose"/> from async contexts.
+        /// </summary>
+        public async Task FlushAndDisposeAsync()
+        {
+            _cts.Cancel();
+            try { await _worker.ConfigureAwait(false); } catch { }
+            _cts.Dispose();
+
+            if (_serviceBusSender != null) try { await _serviceBusSender.DisposeAsync().ConfigureAwait(false); } catch { }
+            if (_serviceBusClient != null) try { await _serviceBusClient.DisposeAsync().ConfigureAwait(false); } catch { }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await FlushAndDisposeAsync().ConfigureAwait(false);
         }
 
         private static void LogInternal(string message, params object?[] args)
