@@ -60,6 +60,7 @@ namespace CerbiStream.Scoring
         private readonly Task _worker;
         private readonly ServiceBusClient? _serviceBusClient;
         private readonly ServiceBusSender? _serviceBusSender;
+        private int _disposed = 0;
 
         public ScoringService(ScoringOptions options, ServiceBusOptions sbOptions)
         {
@@ -153,6 +154,7 @@ namespace CerbiStream.Scoring
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             _cts.Cancel();
             // Give the worker enough time to complete the final flush to Service Bus.
             try { _worker.Wait(15_000); } catch { }
@@ -168,6 +170,7 @@ namespace CerbiStream.Scoring
         /// </summary>
         public async Task FlushAndDisposeAsync()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             _cts.Cancel();
             try { await _worker.ConfigureAwait(false); } catch { }
             _cts.Dispose();
