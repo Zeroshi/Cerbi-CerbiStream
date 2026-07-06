@@ -73,7 +73,7 @@ public static class ScoringEventTransformer
             };
         }
 
-        return new ScoringEventDto
+        var dto = new ScoringEventDto
         {
             SchemaVersion = ContractVersions.ScoringEventSchemaVersion,
             TenantId = tenantId,
@@ -104,6 +104,14 @@ public static class ScoringEventTransformer
             InstanceId = EnvironmentDetector.InstanceId,
             DeploymentId = System.Environment.GetEnvironmentVariable("DEPLOYMENT_ID")
         };
+
+        SetPropertyIfExists(dto, "GovernanceProfileId", ExtractString(data, "GovernanceProfileId"));
+        SetPropertyIfExists(dto, "GovernanceProfileVersion", ExtractString(data, "GovernanceProfileVersion"));
+        SetPropertyIfExists(dto, "GovernanceProfileHash", ExtractString(data, "GovernanceProfileHash") ?? governanceAdapter?.GetPolicyEvidence().ProfileHash);
+        SetPropertyIfExists(dto, "GovernanceDecision", ExtractString(data, "GovernanceDecision"));
+        SetPropertyIfExists(dto, "EnforcementAction", ExtractString(data, "EnforcementAction"));
+
+        return dto;
     }
 
     /// <summary>
@@ -212,6 +220,16 @@ public static class ScoringEventTransformer
         }
 
         return result;
+    }
+
+    private static void SetPropertyIfExists(object target, string propertyName, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        var property = target.GetType().GetProperty(propertyName);
+        if (property?.CanWrite == true && property.PropertyType == typeof(string))
+            property.SetValue(target, value);
     }
 
     private static string? ExtractString(IDictionary<string, object> data, string key)

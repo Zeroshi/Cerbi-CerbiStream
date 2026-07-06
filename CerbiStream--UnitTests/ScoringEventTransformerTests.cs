@@ -202,4 +202,39 @@ public class ScoringEventTransformerTests
         // Assert - Data TenantId is used
         Assert.Equal("data-tenant", result.TenantId);
     }
+
+    [Fact]
+    public void Transform_PopulatesGovernanceEvidenceMetadata_WhenStampedOnLogEntry()
+    {
+        var options = new CerbiStreamOptions().WithTenantId("test-tenant");
+        var logEntry = new Dictionary<string, object>
+        {
+            ["Message"] = "Test",
+            ["GovernanceProfileId"] = "default",
+            ["GovernanceProfileVersion"] = "2026.07",
+            ["GovernanceProfileHash"] = "abc123",
+            ["GovernanceDecision"] = "allowed",
+            ["EnforcementAction"] = "none"
+        };
+
+        var result = ScoringEventTransformer.Transform(logEntry, "log-evidence", options);
+
+        Assert.Equal("abc123", result.GetType().GetProperty("GovernanceProfileHash")?.GetValue(result)?.ToString());
+        Assert.Equal("allowed", result.GetType().GetProperty("GovernanceDecision")?.GetValue(result)?.ToString());
+        Assert.Equal("none", result.GetType().GetProperty("EnforcementAction")?.GetValue(result)?.ToString());
+    }
+
+    [Fact]
+    public void Transform_MissingConfigAdapter_DoesNotThrowAndStillEmitsEvent()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), $"missing_{Guid.NewGuid():N}.json");
+        var adapter = new GovernanceRuntimeAdapter("default", missing);
+        var options = new CerbiStreamOptions().WithTenantId("test-tenant");
+
+        var result = ScoringEventTransformer.Transform(new { Message = "Test" }, "log-missing-config", options, null, adapter);
+
+        Assert.Equal("log-missing-config", result.LogId);
+        Assert.Equal("test-tenant", result.TenantId);
+    }
+
 }
