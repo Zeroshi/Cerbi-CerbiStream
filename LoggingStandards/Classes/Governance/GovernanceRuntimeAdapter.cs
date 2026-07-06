@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 
@@ -39,6 +40,11 @@ public sealed class GovernanceRuntimeAdapter
  private string? _cachedTenantId;
  private DateTime _tenantIdLoadedUtc;
  private readonly object _tenantIdLock = new();
+
+ // Cache for policy evidence metadata from config file
+ private GovernancePolicyEvidence _cachedPolicyEvidence = GovernancePolicyEvidence.Empty;
+ private DateTime _policyEvidenceLoadedUtc;
+ private readonly object _policyEvidenceLock = new();
 
  // File watcher to avoid checking file timestamp on every validation
  private volatile int _policyStale;
@@ -105,6 +111,41 @@ public sealed class GovernanceRuntimeAdapter
   }
  }
 
+
+ /// <summary>
+ /// Gets stable policy evidence metadata for the active governance profile.
+ /// Hashing uses the canonical active profile JSON when available, otherwise the full config JSON.
+ /// Returns empty values if the config is missing or malformed.
+ /// </summary>
+ public GovernancePolicyEvidence GetPolicyEvidence()
+ {
+  try
+  {
+   if (!File.Exists(_configPath))
+    return GovernancePolicyEvidence.Empty;
+
+   var lastWrite = File.GetLastWriteTimeUtc(_configPath);
+   if (_policyEvidenceLoadedUtc >= lastWrite && !_cachedPolicyEvidence.IsEmpty)
+    return _cachedPolicyEvidence;
+
+   lock (_policyEvidenceLock)
+   {
+    lastWrite = File.GetLastWriteTimeUtc(_configPath);
+    if (_policyEvidenceLoadedUtc < lastWrite || _cachedPolicyEvidence.IsEmpty)
+    {
+     _cachedPolicyEvidence = ParsePolicyEvidence(_configPath, _profileName);
+     _policyEvidenceLoadedUtc = lastWrite;
+    }
+   }
+
+   return _cachedPolicyEvidence;
+  }
+  catch
+  {
+   return GovernancePolicyEvidence.Empty;
+  }
+ }
+
  private static string? ParseTenantIdFromConfig(string path)
  {
   try
@@ -125,6 +166,146 @@ public sealed class GovernanceRuntimeAdapter
   catch
   {
    return null;
+  }
+ }
+
+
+ private void StampPolicyEvidence(IDictionary<string, object> data)
+ {
+  var evidence = GetPolicyEvidence();
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileId))
+   data["GovernanceProfileId"] = evidence.ProfileId!;
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileVersion))
+   data["GovernanceProfileVersion"] = evidence.ProfileVersion!;
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileHash))
+   data["GovernanceProfileHash"] = evidence.ProfileHash!;
+ }
+
+ private static void StampGovernanceDecision(IDictionary<string, object> data, long redactedCount)
+ {
+  if (IsRelaxed(data))
+  {
+   data["GovernanceDecision"] = "relaxed";
+   data["EnforcementAction"] = "allow";
+   return;
+  }
+
+  if (redactedCount > 0)
+  {
+   data["GovernanceDecision"] = "redacted";
+   data["EnforcementAction"] = "redact";
+   return;
+  }
+
+  var hasViolations = data.TryGetValue("GovernanceViolations", out var raw) && HasAnyViolation(raw);
+  data["GovernanceDecision"] = hasViolations ? "warned" : "allowed";
+  data["EnforcementAction"] = hasViolations ? "warn" : "none";
+ }
+
+ private static bool HasAnyViolation(object? raw)
+ {
+  if (raw is null) return false;
+  if (raw is string s)
+  {
+   if (string.IsNullOrWhiteSpace(s)) return false;
+   try
+   {
+    using var doc = JsonDocument.Parse(s);
+    return doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0;
+   }
+   catch { return false; }
+  }
+  if (raw is JsonElement el)
+  {
+   return el.ValueKind == JsonValueKind.Array && el.GetArrayLength() > 0;
+  }
+  if (raw is IEnumerable enumerable)
+  {
+   foreach (var _ in enumerable) return true;
+  }
+  return false;
+ }
+
+ private static GovernancePolicyEvidence ParsePolicyEvidence(string path, string profileName)
+ {
+  try
+  {
+   using var fs = File.OpenRead(path);
+   using var doc = JsonDocument.Parse(fs);
+   var root = doc.RootElement;
+   var profile = TryGetActiveProfile(root, profileName, out var profileNameFromConfig) ? profileNameFromConfig.Profile : default;
+   var hashElement = profile.ValueKind == JsonValueKind.Object ? profile : root;
+   var hash = ComputeCanonicalJsonHash(hashElement);
+   var id = ExtractStringProperty(profile, "GovernanceProfileId") ?? ExtractStringProperty(profile, "ProfileId") ?? profileNameFromConfig.Name;
+   var version = ExtractStringProperty(profile, "GovernanceProfileVersion") ?? ExtractStringProperty(profile, "Version") ?? ExtractStringProperty(root, "Version");
+   return new GovernancePolicyEvidence(id, version, hash);
+  }
+  catch
+  {
+   return GovernancePolicyEvidence.Empty;
+  }
+ }
+
+ private static bool TryGetActiveProfile(JsonElement root, string profileName, out (string? Name, JsonElement Profile) result)
+ {
+  result = default;
+  if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) || profilesEl.ValueKind != JsonValueKind.Object)
+   return false;
+  JsonProperty? first = null;
+  foreach (var p in profilesEl.EnumerateObject())
+  {
+   first ??= p;
+   if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
+   {
+    result = (p.Name, p.Value);
+    return true;
+   }
+  }
+  if (first.HasValue)
+  {
+   result = (first.Value.Name, first.Value.Value);
+   return true;
+  }
+  return false;
+ }
+
+ private static string? ExtractStringProperty(JsonElement element, string name)
+ {
+  if (element.ValueKind != JsonValueKind.Object || !TryGetPropertyCI(element, name, out var value)) return null;
+  return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+ }
+
+ private static string ComputeCanonicalJsonHash(JsonElement element)
+ {
+  using var stream = new MemoryStream();
+  using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
+  {
+   WriteCanonicalJson(writer, element);
+  }
+  return Convert.ToHexString(SHA256.HashData(stream.ToArray())).ToLowerInvariant();
+ }
+
+ private static void WriteCanonicalJson(Utf8JsonWriter writer, JsonElement element)
+ {
+  switch (element.ValueKind)
+  {
+   case JsonValueKind.Object:
+    writer.WriteStartObject();
+    foreach (var prop in element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+    {
+     writer.WritePropertyName(prop.Name);
+     WriteCanonicalJson(writer, prop.Value);
+    }
+    writer.WriteEndObject();
+    break;
+   case JsonValueKind.Array:
+    writer.WriteStartArray();
+    foreach (var item in element.EnumerateArray()) WriteCanonicalJson(writer, item);
+    writer.WriteEndArray();
+    break;
+   default:
+    element.WriteTo(writer);
+    break;
   }
  }
 
@@ -160,6 +341,8 @@ public sealed class GovernanceRuntimeAdapter
  if (IsRelaxed(data))
  {
  data["GovernanceRelaxed"] = true;
+ StampPolicyEvidence(data);
+ StampGovernanceDecision(data, redactedCount: 0);
  return;
  }
 
@@ -200,6 +383,9 @@ public sealed class GovernanceRuntimeAdapter
  if (RedactIfPresentAndCount(working, field)) redacted++;
  }
  if (redacted >0) Metrics.IncrementRedactions(redacted);
+
+ StampPolicyEvidence(working);
+ StampGovernanceDecision(working, redacted);
 
  //4) Copy changes back into original IDictionary if a different instance was created
  if (!ReferenceEquals(working, data))
@@ -863,5 +1049,10 @@ public sealed class GovernanceRuntimeAdapter
   }
   data["GovernanceViolations"] = violations;
   }
+ }
+ public sealed record GovernancePolicyEvidence(string? ProfileId, string? ProfileVersion, string? ProfileHash)
+ {
+  public static GovernancePolicyEvidence Empty { get; } = new(null, null, null);
+  public bool IsEmpty => string.IsNullOrWhiteSpace(ProfileId) && string.IsNullOrWhiteSpace(ProfileVersion) && string.IsNullOrWhiteSpace(ProfileHash);
  }
 }
