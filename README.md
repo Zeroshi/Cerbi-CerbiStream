@@ -235,7 +235,7 @@ MIT
 
 ### v2.0.3 — Security patch
 - Upgraded OpenTelemetry and OpenTelemetry.Exporter.Console from 1.12.0 to **1.13.0** to resolve a known CVE in OTel 1.12.x.
-- 1.13.0 is the last stable OTel release compatible with Microsoft.Extensions.Logging.Configuration 9.x (net8 target). Versions ≥ 1.14.0 require net10-tier transitive deps and are not compatible with this package's net8 target.
+- At the time of v2.0.3, 1.13.0 was the highest OTel version that worked with the then-pinned Microsoft.Extensions.* 9.x dependency set.
 
 ### v2.0.2 — OTel upgrade attempt (reverted)
 - Initial attempt to upgrade OTel to 1.15.3 introduced restore failures due to Microsoft.Extensions.Configuration 9.0.8 pins. Rolled back in v2.0.3.
