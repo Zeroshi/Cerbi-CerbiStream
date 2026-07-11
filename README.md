@@ -230,6 +230,9 @@ MIT
 
 ## 📦 Changelog
 
+### v2.0.6 — Security patch
+- Upgraded OpenTelemetry and OpenTelemetry.Exporter.Console from 1.15.3 to **1.16.0** to remediate CVE-2026-40894 in the transitive OpenTelemetry.Api chain.
+
 ### v2.0.3 — Security patch
 - Upgraded OpenTelemetry and OpenTelemetry.Exporter.Console from 1.12.0 to **1.13.0** to resolve a known CVE in OTel 1.12.x.
 - 1.13.0 is the last stable OTel release compatible with Microsoft.Extensions.Logging.Configuration 9.x (net8 target). Versions ≥ 1.14.0 require net10-tier transitive deps and are not compatible with this package's net8 target.
