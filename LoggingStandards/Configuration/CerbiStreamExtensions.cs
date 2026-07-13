@@ -170,7 +170,7 @@ namespace CerbiStream.Configuration
             builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
             {
                 var settings = new RuntimeGovernanceSettings();
-                var source = new FileGovernanceSource(settings.ConfigPath);
+                var source = new FileGovernanceSource(settings.ConfigPath, settings.Profile);
                 return new RuntimeGovernanceValidator(
                     isEnabled: () => settings.Enabled,
                     profileName: settings.Profile,

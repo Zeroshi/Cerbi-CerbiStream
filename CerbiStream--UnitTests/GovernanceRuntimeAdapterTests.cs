@@ -101,6 +101,85 @@ namespace CerbiStream.Tests
             Assert.False(enumerator.MoveNext());
         }
 
+
+        [Fact(DisplayName = "GovernanceRuntimeAdapter - wrapped profiles use requested profile")]
+        public void WrappedProfiles_UsesRequestedProfile()
+        {
+            var temp = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""default"":{""DisallowedFields"":[""defaultSecret""],""FieldSeverities"":{}},""orders"":{""DisallowedFields"":[""orderSecret""],""FieldSeverities"":{}}}}}");
+                var adapter = new GovernanceRuntimeAdapter("orders", temp);
+                var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["defaultSecret"] = "keep",
+                    ["orderSecret"] = "redact"
+                };
+
+                adapter.ValidateAndRedactInPlace(data);
+
+                Assert.Equal("keep", data["defaultSecret"]);
+                Assert.Equal("***REDACTED***", data["orderSecret"]);
+            }
+            finally { File.Delete(temp); }
+        }
+
+        [Fact(DisplayName = "GovernanceRuntimeAdapter - exact wrapped profile wins over case-insensitive fallback")]
+        public void WrappedProfiles_SelectsExactProfileWhenSimilarNamesExist()
+        {
+            var temp = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""orders"":{""DisallowedFields"":[""lowerSecret""],""FieldSeverities"":{}},""Orders"":{""DisallowedFields"":[""exactSecret""],""FieldSeverities"":{}}}}}");
+                var adapter = new GovernanceRuntimeAdapter("Orders", temp);
+                var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["lowerSecret"] = "keep",
+                    ["exactSecret"] = "redact"
+                };
+
+                adapter.ValidateAndRedactInPlace(data);
+
+                Assert.Equal("keep", data["lowerSecret"]);
+                Assert.Equal("***REDACTED***", data["exactSecret"]);
+            }
+            finally { File.Delete(temp); }
+        }
+
+        [Fact(DisplayName = "GovernanceRuntimeAdapter - root canonical profile loads")]
+        public void RootCanonicalProfile_Loads()
+        {
+            var temp = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(temp, @"{""GovernanceProfileId"":""root"",""GovernanceProfileVersion"":""2026.07"",""DisallowedFields"":[""rootSecret""],""FieldSeverities"":{}}");
+                var adapter = new GovernanceRuntimeAdapter("default", temp);
+                var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["rootSecret"] = "redact" };
+
+                adapter.ValidateAndRedactInPlace(data);
+
+                Assert.Equal("***REDACTED***", data["rootSecret"]);
+                Assert.Equal("redacted", data["GovernanceDecision"]);
+            }
+            finally { File.Delete(temp); }
+        }
+
+        [Fact(DisplayName = "GovernanceRuntimeAdapter - missing wrapped profile does not load another profile")]
+        public void WrappedProfiles_MissingRequestedProfile_DoesNotSelectAnotherProfile()
+        {
+            var temp = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""default"":{""DisallowedFields"":[""defaultSecret""],""FieldSeverities"":{}}}}}");
+                var adapter = new GovernanceRuntimeAdapter("orders", temp);
+                var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["defaultSecret"] = "keep" };
+
+                Assert.Throws<InvalidDataException>(() => adapter.ValidateAndRedactInPlace(data));
+                Assert.Equal("keep", data["defaultSecret"]);
+            }
+            finally { File.Delete(temp); }
+        }
+
         [Fact(DisplayName = "ValidateAndRedactInPlace - Redacts fields from policy file")]
         public void ValidateAndRedactInPlace_RedactsFromPolicy()
         {

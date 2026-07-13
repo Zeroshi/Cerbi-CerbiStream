@@ -66,7 +66,7 @@ public sealed class GovernanceRuntimeAdapter
  : (Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH")
  ?? Path.Combine(AppContext.BaseDirectory, "cerbi_governance.json"));
 
- IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath);
+ IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath, _profileName);
 
     // ctor: (isEnabled, profileName, source, plugins)
     _validator = new RuntimeGovernanceValidator(
@@ -249,23 +249,31 @@ public sealed class GovernanceRuntimeAdapter
  private static bool TryGetActiveProfile(JsonElement root, string profileName, out (string? Name, JsonElement Profile) result)
  {
   result = default;
+
   if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) || profilesEl.ValueKind != JsonValueKind.Object)
-   return false;
-  JsonProperty? first = null;
+  {
+   result = (ExtractStringProperty(root, "Name") ?? ExtractStringProperty(root, "ProfileName") ?? profileName, root);
+   return root.ValueKind == JsonValueKind.Object;
+  }
+
   foreach (var p in profilesEl.EnumerateObject())
   {
-   first ??= p;
+   if (string.Equals(p.Name, profileName, StringComparison.Ordinal))
+   {
+    result = (p.Name, p.Value);
+    return true;
+   }
+  }
+
+  foreach (var p in profilesEl.EnumerateObject())
+  {
    if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
    {
     result = (p.Name, p.Value);
     return true;
    }
   }
-  if (first.HasValue)
-  {
-   result = (first.Value.Name, first.Value.Value);
-   return true;
-  }
+
   return false;
  }
 
@@ -676,18 +684,10 @@ public sealed class GovernanceRuntimeAdapter
  if (TryParseAliasesElement(root, reverseMap))
  return reverseMap;
 
- // Try LoggingProfiles → profileName → fieldAliases
- if (TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) &&
-     profilesEl.ValueKind == JsonValueKind.Object)
+ // Try LoggingProfiles → profileName → fieldAliases. Match exact first, then case-insensitive.
+ if (TryGetActiveProfile(root, profileName, out var activeProfile))
  {
- foreach (var p in profilesEl.EnumerateObject())
- {
- if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
- {
- TryParseAliasesElement(p.Value, reverseMap);
- break;
- }
- }
+ TryParseAliasesElement(activeProfile.Profile, reverseMap);
  }
  }
  catch
@@ -727,61 +727,49 @@ public sealed class GovernanceRuntimeAdapter
  {
  try
  {
- // Parse from stream to avoid allocating a temporary large string
- using var fs = File.OpenRead(path);
- using var doc = JsonDocument.Parse(fs);
- var root = doc.RootElement;
+  // Parse from stream to avoid allocating a temporary large string
+  using var fs = File.OpenRead(path);
+  using var doc = JsonDocument.Parse(fs);
+  var root = doc.RootElement;
+  var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
- // Find LoggingProfiles (case-insensitive)
- if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) ||
- profilesEl.ValueKind != JsonValueKind.Object)
- return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  if (!TryGetActiveProfile(root, profileName, out var activeProfile) ||
+      activeProfile.Profile.ValueKind != JsonValueKind.Object)
+  {
+   return result;
+  }
 
- // Find the target profile (case-insensitive by key), else first
- JsonElement? profileEl = null;
- foreach (var p in profilesEl.EnumerateObject())
- {
- if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
- {
- profileEl = p.Value;
- break;
- }
- }
- profileEl ??= profilesEl.EnumerateObject().FirstOrDefault().Value;
+  var profileEl = activeProfile.Profile;
 
- var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
- if (profileEl is null || profileEl.Value.ValueKind != JsonValueKind.Object)
- return result;
+  // DisallowedFields
+  if (TryGetPropertyCI(profileEl, "DisallowedFields", out var dis) &&
+  dis.ValueKind == JsonValueKind.Array)
+  {
+  foreach (var s in dis.EnumerateArray())
+  if (s.ValueKind == JsonValueKind.String)
+  result.Add(s.GetString()!);
+  }
 
- // DisallowedFields
- if (TryGetPropertyCI(profileEl.Value, "DisallowedFields", out var dis) &&
- dis.ValueKind == JsonValueKind.Array)
- {
- foreach (var s in dis.EnumerateArray())
- if (s.ValueKind == JsonValueKind.String)
- result.Add(s.GetString()!);
- }
+  // FieldSeverities: any == "Forbidden"
+  if (TryGetPropertyCI(profileEl, "FieldSeverities", out var sev) &&
+  sev.ValueKind == JsonValueKind.Object)
+  {
+  foreach (var kv in sev.EnumerateObject())
+  {
+  if (kv.Value.ValueKind == JsonValueKind.String &&
+  string.Equals(kv.Value.GetString(), "Forbidden", StringComparison.OrdinalIgnoreCase))
+  {
+  result.Add(kv.Name);
+  }
+  }
+  }
 
- // FieldSeverities: any == "Forbidden"
- if (TryGetPropertyCI(profileEl.Value, "FieldSeverities", out var sev) &&
- sev.ValueKind == JsonValueKind.Object)
- {
- foreach (var kv in sev.EnumerateObject())
- {
- if (kv.Value.ValueKind == JsonValueKind.String &&
- string.Equals(kv.Value.GetString(), "Forbidden", StringComparison.OrdinalIgnoreCase))
- {
- result.Add(kv.Name);
- }
- }
- }
-
- return result;
+  return result;
  }
  catch
  {
- // Malformed JSON or IO error: return empty set rather than throw to keep runtime resilient
- return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  // Malformed JSON or IO error: return empty set rather than throw to keep runtime resilient
+  return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
  }
  }
 
