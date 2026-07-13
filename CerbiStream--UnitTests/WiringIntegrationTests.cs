@@ -21,8 +21,13 @@ namespace CerbiStream.Tests
  var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
  File.WriteAllText(tmp,
  "{" +
- "\n \"Version\": \"1.0.0\"," +
- "\n \"LoggingProfiles\": {\n \"default\": {\n \"DisallowedFields\": [\"ssn\"]\n }\n }\n}");
+ "\n \"EnforcementMode\": \"Strict\"," +
+ "\n \"LoggingProfiles\": {\n \"default\": {" +
+ "\n \"name\": \"default\"," +
+ "\n \"version\": \"2026.07\"," +
+ "\n \"disallowedFields\": [\"ssn\"]," +
+ "\n \"fieldSeverities\": {}" +
+ "\n }\n }\n}");
 
  var sink = new TestSink();
  using var innerFactory = LoggerFactory.Create(b => b.AddProvider(sink));

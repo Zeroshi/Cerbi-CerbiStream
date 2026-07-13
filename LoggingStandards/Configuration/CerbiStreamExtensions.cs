@@ -41,11 +41,13 @@ namespace CerbiStream.Configuration
     {
         private const string DefaultGovernanceFileName = "cerbi_governance.json";
         private const string DefaultGovernanceContent = @"{
-  ""Version"": ""1.0"",
+  ""EnforcementMode"": ""Strict"",
   ""LoggingProfiles"": {
     ""default"": {
-      ""DisallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
-      ""FieldSeverities"": {}
+      ""name"": ""default"",
+      ""version"": ""2026.07"",
+      ""disallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
+      ""fieldSeverities"": {}
     }
   }
 }";

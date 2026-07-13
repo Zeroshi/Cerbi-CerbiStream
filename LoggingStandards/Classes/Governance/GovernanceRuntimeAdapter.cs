@@ -250,12 +250,16 @@ public sealed class GovernanceRuntimeAdapter
  {
   result = default;
 
-  if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) || profilesEl.ValueKind != JsonValueKind.Object)
+  if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl))
   {
    result = (ExtractStringProperty(root, "Name") ?? ExtractStringProperty(root, "ProfileName") ?? profileName, root);
    return root.ValueKind == JsonValueKind.Object;
   }
 
+  if (profilesEl.ValueKind != JsonValueKind.Object)
+   throw new InvalidDataException("LoggingProfiles must be a JSON object when present.");
+
+  var caseInsensitiveMatches = new List<JsonProperty>();
   foreach (var p in profilesEl.EnumerateObject())
   {
    if (string.Equals(p.Name, profileName, StringComparison.Ordinal))
@@ -263,16 +267,20 @@ public sealed class GovernanceRuntimeAdapter
     result = (p.Name, p.Value);
     return true;
    }
+
+   if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
+    caseInsensitiveMatches.Add(p);
   }
 
-  foreach (var p in profilesEl.EnumerateObject())
+  if (caseInsensitiveMatches.Count == 1)
   {
-   if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
-   {
-    result = (p.Name, p.Value);
-    return true;
-   }
+   var match = caseInsensitiveMatches[0];
+   result = (match.Name, match.Value);
+   return true;
   }
+
+  if (caseInsensitiveMatches.Count > 1)
+   throw new InvalidDataException($"Multiple LoggingProfiles entries match profile '{profileName}' case-insensitively.");
 
   return false;
  }

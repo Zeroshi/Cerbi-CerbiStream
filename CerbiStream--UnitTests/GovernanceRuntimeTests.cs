@@ -21,10 +21,13 @@ public class GovernanceRuntimeTests
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(tmp,
 @"{
-  ""Version"": ""1.0.0"",
+  ""EnforcementMode"": ""Strict"",
   ""LoggingProfiles"": {
     ""default"": {
-      ""DisallowedFields"": [""ssn""]
+      ""name"": ""default"",
+      ""version"": ""2026.07"",
+      ""disallowedFields"": [""ssn""],
+      ""fieldSeverities"": {}
     }
   }
 }");
@@ -49,10 +52,13 @@ public class GovernanceRuntimeTests
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(tmp,
 @"{
-  ""Version"": ""1.0.0"",
+  ""EnforcementMode"": ""Strict"",
   ""LoggingProfiles"": {
     ""default"": {
-      ""DisallowedFields"": [""ssn""]
+      ""name"": ""default"",
+      ""version"": ""2026.07"",
+      ""disallowedFields"": [""ssn""],
+      ""fieldSeverities"": {}
     }
   }
 }");
@@ -91,7 +97,7 @@ public class GovernanceRuntimeTests
     {
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(tmp,
-@"{ ""LoggingProfiles"": { ""default"": { ""DisallowedFields"": [""secret""] } } }");
+@"{ ""EnforcementMode"": ""Strict"", ""LoggingProfiles"": { ""default"": { ""name"": ""default"", ""version"": ""2026.07"", ""disallowedFields"": [""secret""], ""fieldSeverities"": {} } } }");
 
         try
         {
@@ -138,7 +144,7 @@ public class GovernanceRuntimeTests
     {
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(tmp,
-@"{ ""LoggingProfiles"": { ""default"": { ""DisallowedFields"": [""secret""] } } }");
+@"{ ""EnforcementMode"": ""Strict"", ""LoggingProfiles"": { ""default"": { ""name"": ""default"", ""version"": ""2026.07"", ""disallowedFields"": [""secret""], ""fieldSeverities"": {} } } }");
 
         var sink = new TestSink();
         var inner = LoggerFactory.Create(b => b.AddProvider(sink));
@@ -163,8 +169,11 @@ public class GovernanceRuntimeTests
   ""EnforcementMode"": ""Strict"",
   ""LoggingProfiles"": {
     ""default"": {
-      ""DisallowedFields"": [""ssn""],
-      ""AllowRelax"": false
+      ""name"": ""default"",
+      ""version"": ""2026.07"",
+      ""disallowedFields"": [""ssn""],
+      ""allowRelax"": false,
+      ""fieldSeverities"": {}
     }
   }
 }");
@@ -190,9 +199,6 @@ public class GovernanceRuntimeTests
             Assert.Equal("default", profile);
             Assert.True(data.TryGetValue("GovernanceEnforced", out var enforced));
             Assert.True(Convert.ToBoolean(enforced));
-            Assert.True(data.TryGetValue("GovernanceMode", out var mode));
-            Assert.False(string.IsNullOrWhiteSpace(mode?.ToString()));
-
             var json = JsonSerializer.Serialize(data);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;

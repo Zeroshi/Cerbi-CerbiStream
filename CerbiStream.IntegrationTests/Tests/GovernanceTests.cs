@@ -32,11 +32,13 @@ public static class GovernanceTests
         runner.RunTest("Disallowed fields are redacted", () =>
         {
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""ssn"", ""password""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""ssn"", ""password""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");
@@ -66,11 +68,13 @@ public static class GovernanceTests
         runner.RunTest("Governance violations are tagged", () =>
         {
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""creditCard""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""creditCard""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");
@@ -97,11 +101,13 @@ public static class GovernanceTests
         runner.RunTest("Relaxed mode bypasses redaction", () =>
         {
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""secret""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""secret""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");
@@ -132,11 +138,13 @@ public static class GovernanceTests
             var defaultPiiFields = new[] { "password", "ssn", "creditCard", "secret", "token", "apiKey" };
             
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");
@@ -165,11 +173,13 @@ public static class GovernanceTests
         runner.RunTest("Case-insensitive field matching", () =>
         {
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""SSN""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""SSN""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");
@@ -198,11 +208,13 @@ public static class GovernanceTests
     private static string CreateTempGovernanceConfig(string? content = null)
     {
         content ??= @"{
-            ""Version"": ""1.0"",
+            ""EnforcementMode"": ""Strict"",
             ""LoggingProfiles"": {
                 ""default"": {
-                    ""DisallowedFields"": [],
-                    ""FieldSeverities"": {}
+                    ""name"": ""default"",
+                    ""version"": ""2026.07"",
+                    ""disallowedFields"": [],
+                    ""fieldSeverities"": {}
                 }
             }
         }";

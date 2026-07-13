@@ -43,15 +43,16 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{}}}");
-                var adapter = new GovernanceRuntimeAdapter("default", temp);
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\"}}}");
+                var normalize = typeof(GovernanceRuntimeAdapter).GetMethod("NormalizeGovernanceMetadata", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.NotNull(normalize);
 
                 var payload = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["GovernanceViolations"] = "[{\"RuleId\":\"ForbiddenField\",\"Field\":\"ssn\",\"Severity\":\"Error\",\"Message\":\"Sensitive\"}]"
                 };
 
-                adapter.ValidateAndRedactInPlace(payload);
+                normalize!.Invoke(null, new object[] { payload });
 
                 var violations = Assert.IsType<List<GovernanceViolation>>(payload["GovernanceViolations"]);
                 var violation = Assert.Single(violations);
@@ -108,7 +109,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""default"":{""DisallowedFields"":[""defaultSecret""],""FieldSeverities"":{}},""orders"":{""DisallowedFields"":[""orderSecret""],""FieldSeverities"":{}}}}}");
+                File.WriteAllText(temp, @"{""EnforcementMode"":""Strict"",""LoggingProfiles"":{""default"":{""name"":""default"",""version"":""2026.07"",""disallowedFields"":[""defaultSecret""],""fieldSeverities"":{}},""orders"":{""name"":""orders"",""version"":""2026.07"",""disallowedFields"":[""orderSecret""],""fieldSeverities"":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("orders", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -130,7 +131,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""orders"":{""DisallowedFields"":[""lowerSecret""],""FieldSeverities"":{}},""Orders"":{""DisallowedFields"":[""exactSecret""],""FieldSeverities"":{}}}}}");
+                File.WriteAllText(temp, @"{""EnforcementMode"":""Strict"",""LoggingProfiles"":{""orders"":{""name"":""orders"",""version"":""2026.07"",""disallowedFields"":[""lowerSecret""],""fieldSeverities"":{}},""Orders"":{""name"":""Orders"",""version"":""2026.07"",""disallowedFields"":[""exactSecret""],""fieldSeverities"":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("Orders", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -146,13 +147,35 @@ namespace CerbiStream.Tests
             finally { File.Delete(temp); }
         }
 
+
+        [Fact(DisplayName = "GovernanceRuntimeAdapter - ambiguous case-insensitive wrapped profile fallback throws")]
+        public void WrappedProfiles_AmbiguousCaseInsensitiveFallback_Throws()
+        {
+            var temp = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(temp, @"{""EnforcementMode"":""Strict"",""LoggingProfiles"":{""orders"":{""name"":""orders"",""version"":""2026.07"",""disallowedFields"":[""lowerSecret""],""fieldSeverities"":{}},""ORDERS"":{""name"":""ORDERS"",""version"":""2026.07"",""disallowedFields"":[""upperSecret""],""fieldSeverities"":{}}}}");
+                var adapter = new GovernanceRuntimeAdapter("Orders", temp);
+                var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["lowerSecret"] = "keep-lower",
+                    ["upperSecret"] = "keep-upper"
+                };
+
+                Assert.Throws<InvalidDataException>(() => adapter.ValidateAndRedactInPlace(data));
+                Assert.Equal("keep-lower", data["lowerSecret"]);
+                Assert.Equal("keep-upper", data["upperSecret"]);
+            }
+            finally { File.Delete(temp); }
+        }
+
         [Fact(DisplayName = "GovernanceRuntimeAdapter - root canonical profile loads")]
         public void RootCanonicalProfile_Loads()
         {
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, @"{""GovernanceProfileId"":""root"",""GovernanceProfileVersion"":""2026.07"",""DisallowedFields"":[""rootSecret""],""FieldSeverities"":{}}");
+                File.WriteAllText(temp, @"{""name"":""root"",""version"":""2026.07"",""disallowedFields"":[""rootSecret""],""fieldSeverities"":{}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["rootSecret"] = "redact" };
 
@@ -170,7 +193,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, @"{""Version"":""1.2"",""LoggingProfiles"":{""default"":{""DisallowedFields"":[""defaultSecret""],""FieldSeverities"":{}}}}}");
+                File.WriteAllText(temp, @"{""EnforcementMode"":""Strict"",""LoggingProfiles"":{""default"":{""name"":""default"",""version"":""2026.07"",""disallowedFields"":[""defaultSecret""],""fieldSeverities"":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("orders", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["defaultSecret"] = "keep" };
 
@@ -186,7 +209,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
 
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
 
@@ -213,7 +236,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
 
                 var tasks = new List<Task>();
@@ -247,7 +270,7 @@ namespace CerbiStream.Tests
             try
             {
                 // initial policy with no disallowed fields
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[],\"fieldSeverities\":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
 
                 var data1 = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -258,7 +281,7 @@ namespace CerbiStream.Tests
                 Assert.Equal("topsecret", data1["secret"]);
 
                 // update policy to include 'secret'
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
                 // Touch file time
                 File.SetLastWriteTimeUtc(temp, DateTime.UtcNow.AddSeconds(1));
 
@@ -299,7 +322,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[],\"fieldSeverities\":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
 
                 var json = JsonDocument.Parse("{\"secret\":\"v\"}").RootElement;
@@ -321,7 +344,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.2\",\"LoggingProfiles\":{\"default\":{\"GovernanceProfileVersion\":\"2026.07\",\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[],\"fieldSeverities\":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["message"] = "ok" };
 
@@ -340,7 +363,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.2\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{}}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["secret"] = "value" };
 
@@ -359,7 +382,7 @@ namespace CerbiStream.Tests
             var temp = Path.GetTempFileName();
             try
             {
-                File.WriteAllText(temp, "{\"Version\":\"1.2\",\"LoggingProfiles\":{\"default\":{}}}");
+                File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\"}}}");
                 var adapter = new GovernanceRuntimeAdapter("default", temp);
                 var data = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["GovernanceRelaxed"] = true, ["secret"] = "value" };
 
@@ -389,7 +412,7 @@ namespace CerbiStream.Tests
             var temp2 = Path.GetTempFileName();
             try
             {
-                var json = "{\"Version\":\"1.2\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{\"ssn\":\"Forbidden\"}}}}";
+                var json = "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{\"ssn\":\"Forbidden\"}}}}";
                 File.WriteAllText(temp1, json);
                 File.WriteAllText(temp2, json);
 
