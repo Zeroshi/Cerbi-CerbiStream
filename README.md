@@ -237,6 +237,9 @@ MIT
 - Upgraded OpenTelemetry and OpenTelemetry.Exporter.Console from 1.12.0 to **1.13.0** to resolve a known CVE in OTel 1.12.x.
 - At the time of v2.0.3, 1.13.0 was the highest OTel version that worked with the then-pinned Microsoft.Extensions.* 9.x dependency set.
 
+### v2.0.6 — OpenTelemetry vulnerability remediation
+- Published the package with `OpenTelemetry` / `OpenTelemetry.Exporter.Console` **1.15.3**, which resolves CVE-2026-40894 in the transitive `OpenTelemetry.Api` dependency.
+
 ### v2.0.2 — OTel upgrade attempt (reverted)
 - Initial attempt to upgrade OTel to 1.15.3 introduced restore failures due to Microsoft.Extensions.Configuration 9.0.8 pins. Rolled back in v2.0.3.
 
