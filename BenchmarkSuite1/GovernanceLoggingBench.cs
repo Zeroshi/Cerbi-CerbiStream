@@ -46,7 +46,7 @@ namespace CerbiStream.Benchmarks
             var configPath = Path.Combine(AppContext.BaseDirectory, "cerbi_governance.json");
             if (!File.Exists(configPath))
             {
-                var minimalJson = "{\n \"Version\": \"1.0\",\n \"LoggingProfiles\": {\n \"default\": {\n \"DisallowedFields\": [],\n \"FieldSeverities\": {}\n }\n }\n}";
+                var minimalJson = "{\n \"LoggingProfiles\": {\n \"default\": {\n \"name\": \"default\",\n \"version\": \"1.0\",\n \"disallowedFields\": [],\n \"fieldSeverities\": {}\n }\n }\n}";
                 File.WriteAllText(configPath, minimalJson);
             }
 

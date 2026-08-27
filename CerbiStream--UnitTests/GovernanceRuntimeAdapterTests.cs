@@ -300,6 +300,68 @@ namespace CerbiStream.Tests
             }
         }
 
+        [Fact(DisplayName = "PolicyReload - File deletion clears adapter policy cache")]
+        public void PolicyReload_OnFileDeletion_ClearsAdapterPolicyCache()
+        {
+            var temp = Path.Combine(Path.GetTempPath(), $"cerbi_policy_delete_{Guid.NewGuid():N}.json");
+            try
+            {
+                File.WriteAllText(temp, "{\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"1.0\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
+                var adapter = new GovernanceRuntimeAdapter("default", temp);
+
+                var governed = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["secret"] = "topsecret"
+                };
+                adapter.ValidateAndRedactInPlace(governed);
+                Assert.Equal("***REDACTED***", governed["secret"]);
+
+                File.Delete(temp);
+
+                var getPolicyFields = typeof(GovernanceRuntimeAdapter).GetMethod(
+                    "GetFieldsToRedactFromPolicy",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.NotNull(getPolicyFields);
+
+                var cacheCleared = SpinWait.SpinUntil(() =>
+                {
+                    var fields = Assert.IsAssignableFrom<IReadOnlyCollection<string>>(
+                        getPolicyFields!.Invoke(adapter, null));
+                    return fields.Count == 0;
+                }, TimeSpan.FromSeconds(2));
+
+                Assert.True(cacheCleared, "Deleted governance policy remained in the adapter's local cache.");
+            }
+            finally
+            {
+                if (File.Exists(temp)) File.Delete(temp);
+            }
+        }
+
+        [Fact(DisplayName = "TenantId - Timestamp fallback refreshes when file watching is unavailable")]
+        public async Task TenantId_FallbackRefreshesWithoutWatcher()
+        {
+            var tempDirectory = Path.Combine(Path.GetTempPath(), $"cerbi_tenant_fallback_{Guid.NewGuid():N}");
+            var configPath = Path.Combine(tempDirectory, "cerbi_governance.json");
+            try
+            {
+                var adapter = new GovernanceRuntimeAdapter("default", configPath);
+                Directory.CreateDirectory(tempDirectory);
+                File.WriteAllText(configPath, "{\"TenantId\":\"tenant-a\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+
+                Assert.Equal("tenant-a", adapter.GetTenantId());
+
+                await Task.Delay(TimeSpan.FromMilliseconds(1100));
+                File.WriteAllText(configPath, "{\"TenantId\":\"tenant-b\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[],\"FieldSeverities\":{}}}}");
+
+                Assert.Equal("tenant-b", adapter.GetTenantId());
+            }
+            finally
+            {
+                if (Directory.Exists(tempDirectory)) Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+
         [Fact(DisplayName = "ValidateAndRedactInPlace(JsonElement) returns pooled dictionaries")]
         public void ValidateAndRedactInPlace_JsonElement_ReturnsDictionaryToPool()
         {

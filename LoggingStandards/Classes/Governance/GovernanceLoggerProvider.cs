@@ -63,7 +63,8 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            var message = formatter(state, exception);
+            var shouldSendToScoring = ShouldSendToScoring;
+            var scoringMessage = shouldSendToScoring ? formatter(state, exception) : null;
 
             if (state is IEnumerable<KeyValuePair<string, object>> kvs)
             {
@@ -81,7 +82,8 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                 _inner.Log(logLevel, eventId, (object)dict, exception, (_, e) => formatter(state, e));
 
                 // Send to scoring queue
-                SendToScoringQueue(logLevel, message, dict, exception);
+                if (shouldSendToScoring)
+                    SendToScoringQueue(logLevel, scoringMessage!, dict, exception);
                 return;
             }
 
@@ -96,18 +98,23 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                 _inner.Log(logLevel, eventId, (object)root, exception, (_, e) => formatter(state, e));
 
                 // Send to scoring queue
-                SendToScoringQueue(logLevel, message, null, exception);
+                if (shouldSendToScoring)
+                    SendToScoringQueue(logLevel, scoringMessage!, null, exception);
             }
             catch
             {
                 _inner.Log(logLevel, eventId, state!, exception, formatter);
-                SendToScoringQueue(logLevel, message, null, exception);
+                if (shouldSendToScoring)
+                    SendToScoringQueue(logLevel, scoringMessage!, null, exception);
             }
         }
 
+        private bool ShouldSendToScoring
+            => _ScoringService != null && _options != null && !_options.DisableQueueSending;
+
         private void SendToScoringQueue(LogLevel logLevel, string message, Dictionary<string, object>? data, Exception? exception)
         {
-            if (_ScoringService == null || _options == null || _options.DisableQueueSending)
+            if (!ShouldSendToScoring)
                 return;
 
             try
@@ -119,8 +126,8 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                     logEntry["Exception"] = exception.ToString();
 
                 var logId = Guid.NewGuid().ToString("N");
-                var scoringEvent = ScoringEventTransformer.Transform(logEntry, logId, _options);
-                _ScoringService.Enqueue(scoringEvent);
+                var scoringEvent = ScoringEventTransformer.Transform(logEntry, logId, _options!);
+                _ScoringService!.Enqueue(scoringEvent);
             }
             catch (Exception ex)
             {

@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.2" />
+    <!-- Runtime governance loads profiles through Newtonsoft.Json, which is private in the package project. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <!-- Keep dependencies minimal to avoid restricted-feed resolution issues -->
   </ItemGroup>
 
