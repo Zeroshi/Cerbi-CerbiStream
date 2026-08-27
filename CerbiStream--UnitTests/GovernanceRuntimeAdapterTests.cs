@@ -198,6 +198,42 @@ namespace CerbiStream.Tests
             }
         }
 
+        [Fact(DisplayName = "PolicyReload - File deletion clears cached redaction policy")]
+        public void PolicyReload_OnFileDeletion_ClearsRedaction()
+        {
+            var temp = Path.Combine(Path.GetTempPath(), $"cerbi_policy_delete_{Guid.NewGuid():N}.json");
+            try
+            {
+                File.WriteAllText(temp, "{\"Version\":\"1.0\",\"LoggingProfiles\":{\"default\":{\"DisallowedFields\":[\"secret\"],\"FieldSeverities\":{}}}}");
+                var adapter = new GovernanceRuntimeAdapter("default", temp);
+
+                var governed = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["secret"] = "topsecret"
+                };
+                adapter.ValidateAndRedactInPlace(governed);
+                Assert.Equal("***REDACTED***", governed["secret"]);
+
+                File.Delete(temp);
+
+                var cacheCleared = SpinWait.SpinUntil(() =>
+                {
+                    var afterDelete = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["secret"] = "topsecret"
+                    };
+                    adapter.ValidateAndRedactInPlace(afterDelete);
+                    return Equals(afterDelete["secret"], "topsecret");
+                }, TimeSpan.FromSeconds(2));
+
+                Assert.True(cacheCleared, "Deleted governance policy remained active in the adapter cache.");
+            }
+            finally
+            {
+                if (File.Exists(temp)) File.Delete(temp);
+            }
+        }
+
         [Fact(DisplayName = "ValidateAndRedactInPlace(JsonElement) returns pooled dictionaries")]
         public void ValidateAndRedactInPlace_JsonElement_ReturnsDictionaryToPool()
         {

@@ -139,11 +139,12 @@ public sealed class GovernanceRuntimeAdapter
 
  _policyWatcher = new FileSystemWatcher(dir, name)
  {
- NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.Attributes
+ NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.Attributes | NotifyFilters.FileName
  };
  _policyWatcher.Changed += (_, __) => MarkCachesStale();
  _policyWatcher.Created += (_, __) => MarkCachesStale();
  _policyWatcher.Renamed += (_, __) => MarkCachesStale();
+ _policyWatcher.Deleted += (_, __) => MarkCachesStale();
  _policyWatcher.EnableRaisingEvents = true;
  }
  catch
