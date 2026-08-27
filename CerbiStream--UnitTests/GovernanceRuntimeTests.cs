@@ -213,4 +213,48 @@ public class GovernanceRuntimeTests
             if (File.Exists(tmp)) File.Delete(tmp);
         }
     }
+
+    [Fact(DisplayName = "Governance: Caller metadata and global correlation identity are preserved")]
+    public void Caller_Metadata_And_Global_Correlation_Identity_Are_Preserved()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        File.WriteAllText(tmp,
+@"{ ""LoggingProfiles"": { ""default"": { ""DisallowedFields"": [] } } }");
+
+        try
+        {
+            var sink = new TestSink();
+            using var inner = LoggerFactory.Create(b => b.AddProvider(sink));
+            var adapter = new GovernanceRuntimeAdapter("default", tmp);
+            using var provider = new GovernanceLoggerProvider(inner, adapter);
+            using var loggerFactory = LoggerFactory.Create(b => b.AddProvider(provider));
+            var logger = loggerFactory.CreateLogger("test");
+
+            var state = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CerbiEventId"] = "event-us-0001",
+                ["CorrelationId"] = "order-global-0042",
+                ["TenantId"] = "tenant-7",
+                ["Region"] = "eastus",
+                ["SourceSystem"] = "checkout-api",
+                ["BusinessEntityId"] = "order-0042",
+                ["custom.phase2.dimension"] = "blue"
+            };
+
+            logger.Log(LogLevel.Information, default, state, null, (_, _) => "metadata test");
+
+            var emitted = Assert.IsAssignableFrom<IEnumerable<KeyValuePair<string, object>>>(sink.Events[0].State)
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var expected in state)
+            {
+                Assert.True(emitted.TryGetValue(expected.Key, out var actual), $"Missing metadata key {expected.Key}");
+                Assert.Equal(expected.Value, actual);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+    }
 }

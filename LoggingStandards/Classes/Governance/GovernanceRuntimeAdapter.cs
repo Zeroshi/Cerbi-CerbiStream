@@ -32,16 +32,16 @@ public sealed class GovernanceRuntimeAdapter
 
  // Cache for field aliases (alias → canonical field name)
  private Dictionary<string, string> _aliasReverseMap = new(StringComparer.OrdinalIgnoreCase);
- private DateTime _aliasLoadedUtc;
- private readonly object _aliasLock = new();
-
  // Cache for TenantId from config file
  private string? _cachedTenantId;
  private DateTime _tenantIdLoadedUtc;
  private readonly object _tenantIdLock = new();
 
  // File watcher to avoid checking file timestamp on every validation
- private volatile int _policyStale;
+ private int _policyStale;
+ private int _tenantStale;
+ private int _policyCacheInitialized;
+ private DateTime _nextFallbackPolicyCheckUtc;
  private FileSystemWatcher? _policyWatcher;
 
  // Simple pool for temporary dictionaries to reduce allocations
@@ -84,7 +84,7 @@ public sealed class GovernanceRuntimeAdapter
     return null;
 
    // Check if we need to reload (file changed or not loaded yet)
-   if (_cachedTenantId == null || Interlocked.Exchange(ref _policyStale, 0) == 1)
+   if (_cachedTenantId == null || Interlocked.Exchange(ref _tenantStale, 0) == 1)
    {
     lock (_tenantIdLock)
     {
@@ -141,9 +141,9 @@ public sealed class GovernanceRuntimeAdapter
  {
  NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.Attributes
  };
- _policyWatcher.Changed += (_, __) => Interlocked.Exchange(ref _policyStale,1);
- _policyWatcher.Created += (_, __) => Interlocked.Exchange(ref _policyStale,1);
- _policyWatcher.Renamed += (_, __) => Interlocked.Exchange(ref _policyStale,1);
+ _policyWatcher.Changed += (_, __) => MarkCachesStale();
+ _policyWatcher.Created += (_, __) => MarkCachesStale();
+ _policyWatcher.Renamed += (_, __) => MarkCachesStale();
  _policyWatcher.EnableRaisingEvents = true;
  }
  catch
@@ -177,7 +177,7 @@ public sealed class GovernanceRuntimeAdapter
  _validator.ValidateInPlace(working);
 
  //2b) From policy file (disallowed + forbidden)
- var policyFields = GetFieldsToRedactFromPolicy().ToList();
+ var policyFields = GetFieldsToRedactFromPolicy();
  foreach (var f in policyFields)
  toRedact.Add(f);
 
@@ -401,28 +401,11 @@ public sealed class GovernanceRuntimeAdapter
  string.Equals(code, "ForbiddenField", StringComparison.OrdinalIgnoreCase) ||
  string.Equals(code, "DisallowedFieldPresent", StringComparison.OrdinalIgnoreCase);
 
- private IEnumerable<string> GetFieldsToRedactFromPolicy()
+ private IReadOnlyCollection<string> GetFieldsToRedactFromPolicy()
  {
  try
  {
- if (!File.Exists(_configPath))
- return Array.Empty<string>();
-
- // If watcher signaled or cache empty, reload under lock. This avoids a File.GetLastWriteTimeUtc on every call.
- if (_policyRedactFields.Count ==0 || Interlocked.Exchange(ref _policyStale,0) ==1)
- {
- lock (_policyLock)
- {
- if (_policyRedactFields.Count ==0 || _lastLoadedUtc < File.GetLastWriteTimeUtc(_configPath))
- {
- _policyRedactFields = ParsePolicyRedactFields(_configPath, _profileName);
- _aliasReverseMap = ParseFieldAliasesFromConfig(_configPath, _profileName);
- _lastLoadedUtc = File.GetLastWriteTimeUtc(_configPath);
- _aliasLoadedUtc = _lastLoadedUtc;
- }
- }
- }
-
+ EnsurePolicyCacheFresh();
  return _policyRedactFields;
  }
  catch
@@ -453,27 +436,67 @@ public sealed class GovernanceRuntimeAdapter
  {
  try
  {
- if (!File.Exists(_configPath))
- return _aliasReverseMap;
-
- // Piggyback on the policy reload — if policy was just reloaded, aliases were too
- if (_aliasReverseMap.Count == 0 && _aliasLoadedUtc == default)
- {
- lock (_aliasLock)
- {
- if (_aliasReverseMap.Count == 0 && _aliasLoadedUtc == default)
- {
- _aliasReverseMap = ParseFieldAliasesFromConfig(_configPath, _profileName);
- _aliasLoadedUtc = File.GetLastWriteTimeUtc(_configPath);
- }
- }
- }
-
+ EnsurePolicyCacheFresh();
  return _aliasReverseMap;
  }
  catch
  {
  return _aliasReverseMap;
+ }
+ }
+
+ private void MarkCachesStale()
+ {
+ Interlocked.Exchange(ref _policyStale, 1);
+ Interlocked.Exchange(ref _tenantStale, 1);
+ }
+
+ private void EnsurePolicyCacheFresh()
+ {
+ var initialized = Volatile.Read(ref _policyCacheInitialized) == 1;
+ if (initialized)
+ {
+ if (_policyWatcher != null && Volatile.Read(ref _policyStale) == 0)
+ return;
+
+ if (_policyWatcher == null && DateTime.UtcNow < _nextFallbackPolicyCheckUtc)
+ return;
+ }
+
+ lock (_policyLock)
+ {
+ initialized = Volatile.Read(ref _policyCacheInitialized) == 1;
+ var watcherStale = Interlocked.Exchange(ref _policyStale, 0) == 1;
+
+ if (initialized && _policyWatcher != null && !watcherStale)
+ return;
+
+ if (_policyWatcher == null)
+ {
+ var now = DateTime.UtcNow;
+ if (initialized && now < _nextFallbackPolicyCheckUtc)
+ return;
+
+ _nextFallbackPolicyCheckUtc = now.AddSeconds(1);
+ if (initialized && File.Exists(_configPath) &&
+ _lastLoadedUtc >= File.GetLastWriteTimeUtc(_configPath))
+ return;
+ }
+
+ if (File.Exists(_configPath))
+ {
+ _policyRedactFields = ParsePolicyRedactFields(_configPath, _profileName);
+ _aliasReverseMap = ParseFieldAliasesFromConfig(_configPath, _profileName);
+ _lastLoadedUtc = File.GetLastWriteTimeUtc(_configPath);
+ }
+ else
+ {
+ _policyRedactFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+ _aliasReverseMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+ _lastLoadedUtc = default;
+ }
+
+ Volatile.Write(ref _policyCacheInitialized, 1);
  }
  }
 
