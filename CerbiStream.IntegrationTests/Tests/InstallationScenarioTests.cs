@@ -154,11 +154,13 @@ public static class InstallationScenarioTests
         {
             // Verify that governance metadata (violations, profile, etc.) is included in logs
             var configPath = CreateTempGovernanceConfig(@"{
-                ""Version"": ""1.0"",
+                ""EnforcementMode"": ""Strict"",
                 ""LoggingProfiles"": {
                     ""default"": {
-                        ""DisallowedFields"": [""ssn""],
-                        ""FieldSeverities"": {}
+                        ""name"": ""default"",
+                        ""version"": ""2026.07"",
+                        ""disallowedFields"": [""ssn""],
+                        ""fieldSeverities"": {}
                     }
                 }
             }");

@@ -41,11 +41,13 @@ namespace CerbiStream.Configuration
     {
         private const string DefaultGovernanceFileName = "cerbi_governance.json";
         private const string DefaultGovernanceContent = @"{
-  ""Version"": ""1.0"",
+  ""EnforcementMode"": ""Strict"",
   ""LoggingProfiles"": {
     ""default"": {
-      ""DisallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
-      ""FieldSeverities"": {}
+      ""name"": ""default"",
+      ""version"": ""2026.07"",
+      ""disallowedFields"": [""password"", ""ssn"", ""creditCard"", ""secret"", ""token"", ""apiKey""],
+      ""fieldSeverities"": {}
     }
   }
 }";
@@ -170,7 +172,7 @@ namespace CerbiStream.Configuration
             builder.Services.AddSingleton<RuntimeGovernanceValidator>(sp =>
             {
                 var settings = new RuntimeGovernanceSettings();
-                var source = new FileGovernanceSource(settings.ConfigPath);
+                var source = new FileGovernanceSource(settings.ConfigPath, settings.Profile);
                 return new RuntimeGovernanceValidator(
                     isEnabled: () => settings.Enabled,
                     profileName: settings.Profile,

@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 
@@ -37,6 +38,11 @@ public sealed class GovernanceRuntimeAdapter
  private DateTime _tenantIdLoadedUtc;
  private readonly object _tenantIdLock = new();
 
+ // Cache for policy evidence metadata from config file
+ private GovernancePolicyEvidence _cachedPolicyEvidence = GovernancePolicyEvidence.Empty;
+ private DateTime _policyEvidenceLoadedUtc;
+ private readonly object _policyEvidenceLock = new();
+
  // File watcher to avoid checking file timestamp on every validation
  private int _policyStale;
  private int _tenantStale;
@@ -60,7 +66,7 @@ public sealed class GovernanceRuntimeAdapter
  : (Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH")
  ?? Path.Combine(AppContext.BaseDirectory, "cerbi_governance.json"));
 
- IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath);
+ IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath, _profileName);
 
     // ctor: (isEnabled, profileName, source, plugins)
     _validator = new RuntimeGovernanceValidator(
@@ -80,6 +86,8 @@ public sealed class GovernanceRuntimeAdapter
  {
   try
   {
+   EnsurePolicyCacheFresh();
+
    if (!File.Exists(_configPath))
     return null;
 
@@ -102,6 +110,41 @@ public sealed class GovernanceRuntimeAdapter
   catch
   {
    return null;
+  }
+ }
+
+
+ /// <summary>
+ /// Gets stable policy evidence metadata for the active governance profile.
+ /// Hashing uses the canonical active profile JSON when available, otherwise the full config JSON.
+ /// Returns empty values if the config is missing or malformed.
+ /// </summary>
+ public GovernancePolicyEvidence GetPolicyEvidence()
+ {
+  try
+  {
+   if (!File.Exists(_configPath))
+    return GovernancePolicyEvidence.Empty;
+
+   var lastWrite = File.GetLastWriteTimeUtc(_configPath);
+   if (_policyEvidenceLoadedUtc >= lastWrite && !_cachedPolicyEvidence.IsEmpty)
+    return _cachedPolicyEvidence;
+
+   lock (_policyEvidenceLock)
+   {
+    lastWrite = File.GetLastWriteTimeUtc(_configPath);
+    if (_policyEvidenceLoadedUtc < lastWrite || _cachedPolicyEvidence.IsEmpty)
+    {
+     _cachedPolicyEvidence = ParsePolicyEvidence(_configPath, _profileName);
+     _policyEvidenceLoadedUtc = lastWrite;
+    }
+   }
+
+   return _cachedPolicyEvidence;
+  }
+  catch
+  {
+   return GovernancePolicyEvidence.Empty;
   }
  }
 
@@ -128,6 +171,162 @@ public sealed class GovernanceRuntimeAdapter
   }
  }
 
+
+ private void StampPolicyEvidence(IDictionary<string, object> data)
+ {
+  var evidence = GetPolicyEvidence();
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileId))
+   data["GovernanceProfileId"] = evidence.ProfileId!;
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileVersion))
+   data["GovernanceProfileVersion"] = evidence.ProfileVersion!;
+  if (!string.IsNullOrWhiteSpace(evidence.ProfileHash))
+   data["GovernanceProfileHash"] = evidence.ProfileHash!;
+ }
+
+ private static void StampGovernanceDecision(IDictionary<string, object> data, long redactedCount)
+ {
+  if (IsRelaxed(data))
+  {
+   data["GovernanceDecision"] = "relaxed";
+   data["EnforcementAction"] = "allow";
+   return;
+  }
+
+  if (redactedCount > 0)
+  {
+   data["GovernanceDecision"] = "redacted";
+   data["EnforcementAction"] = "redact";
+   return;
+  }
+
+  var hasViolations = data.TryGetValue("GovernanceViolations", out var raw) && HasAnyViolation(raw);
+  data["GovernanceDecision"] = hasViolations ? "warned" : "allowed";
+  data["EnforcementAction"] = hasViolations ? "warn" : "none";
+ }
+
+ private static bool HasAnyViolation(object? raw)
+ {
+  if (raw is null) return false;
+  if (raw is string s)
+  {
+   if (string.IsNullOrWhiteSpace(s)) return false;
+   try
+   {
+    using var doc = JsonDocument.Parse(s);
+    return doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0;
+   }
+   catch { return false; }
+  }
+  if (raw is JsonElement el)
+  {
+   return el.ValueKind == JsonValueKind.Array && el.GetArrayLength() > 0;
+  }
+  if (raw is IEnumerable enumerable)
+  {
+   foreach (var _ in enumerable) return true;
+  }
+  return false;
+ }
+
+ private static GovernancePolicyEvidence ParsePolicyEvidence(string path, string profileName)
+ {
+  try
+  {
+   using var fs = File.OpenRead(path);
+   using var doc = JsonDocument.Parse(fs);
+   var root = doc.RootElement;
+   var profile = TryGetActiveProfile(root, profileName, out var profileNameFromConfig) ? profileNameFromConfig.Profile : default;
+   var hashElement = profile.ValueKind == JsonValueKind.Object ? profile : root;
+   var hash = ComputeCanonicalJsonHash(hashElement);
+   var id = ExtractStringProperty(profile, "GovernanceProfileId") ?? ExtractStringProperty(profile, "ProfileId") ?? profileNameFromConfig.Name;
+   var version = ExtractStringProperty(profile, "GovernanceProfileVersion") ?? ExtractStringProperty(profile, "Version") ?? ExtractStringProperty(root, "Version");
+   return new GovernancePolicyEvidence(id, version, hash);
+  }
+  catch
+  {
+   return GovernancePolicyEvidence.Empty;
+  }
+ }
+
+ private static bool TryGetActiveProfile(JsonElement root, string profileName, out (string? Name, JsonElement Profile) result)
+ {
+  result = default;
+
+  if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl))
+  {
+   result = (ExtractStringProperty(root, "Name") ?? ExtractStringProperty(root, "ProfileName") ?? profileName, root);
+   return root.ValueKind == JsonValueKind.Object;
+  }
+
+  if (profilesEl.ValueKind != JsonValueKind.Object)
+   throw new InvalidDataException("LoggingProfiles must be a JSON object when present.");
+
+  var caseInsensitiveMatches = new List<JsonProperty>();
+  foreach (var p in profilesEl.EnumerateObject())
+  {
+   if (string.Equals(p.Name, profileName, StringComparison.Ordinal))
+   {
+    result = (p.Name, p.Value);
+    return true;
+   }
+
+   if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
+    caseInsensitiveMatches.Add(p);
+  }
+
+  if (caseInsensitiveMatches.Count == 1)
+  {
+   var match = caseInsensitiveMatches[0];
+   result = (match.Name, match.Value);
+   return true;
+  }
+
+  if (caseInsensitiveMatches.Count > 1)
+   throw new InvalidDataException($"Multiple LoggingProfiles entries match profile '{profileName}' case-insensitively.");
+
+  return false;
+ }
+
+ private static string? ExtractStringProperty(JsonElement element, string name)
+ {
+  if (element.ValueKind != JsonValueKind.Object || !TryGetPropertyCI(element, name, out var value)) return null;
+  return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+ }
+
+ private static string ComputeCanonicalJsonHash(JsonElement element)
+ {
+  using var stream = new MemoryStream();
+  using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
+  {
+   WriteCanonicalJson(writer, element);
+  }
+  return Convert.ToHexString(SHA256.HashData(stream.ToArray())).ToLowerInvariant();
+ }
+
+ private static void WriteCanonicalJson(Utf8JsonWriter writer, JsonElement element)
+ {
+  switch (element.ValueKind)
+  {
+   case JsonValueKind.Object:
+    writer.WriteStartObject();
+    foreach (var prop in element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+    {
+     writer.WritePropertyName(prop.Name);
+     WriteCanonicalJson(writer, prop.Value);
+    }
+    writer.WriteEndObject();
+    break;
+   case JsonValueKind.Array:
+    writer.WriteStartArray();
+    foreach (var item in element.EnumerateArray()) WriteCanonicalJson(writer, item);
+    writer.WriteEndArray();
+    break;
+   default:
+    element.WriteTo(writer);
+    break;
+  }
+ }
+
  private void TryInitWatcher()
  {
  try
@@ -145,6 +344,7 @@ public sealed class GovernanceRuntimeAdapter
  _policyWatcher.Created += (_, __) => MarkCachesStale();
  _policyWatcher.Renamed += (_, __) => MarkCachesStale();
  _policyWatcher.Deleted += (_, __) => MarkCachesStale();
+ _policyWatcher.Error += (_, __) => HandleWatcherError();
  _policyWatcher.EnableRaisingEvents = true;
  }
  catch
@@ -154,6 +354,23 @@ public sealed class GovernanceRuntimeAdapter
  }
  }
 
+ private void HandleWatcherError()
+ {
+  MarkCachesStale();
+  var failedWatcher = Interlocked.Exchange(ref _policyWatcher, null);
+  if (failedWatcher == null) return;
+
+  try
+  {
+   failedWatcher.EnableRaisingEvents = false;
+   failedWatcher.Dispose();
+  }
+  catch
+  {
+   // The timestamp fallback remains active even if watcher cleanup fails.
+  }
+ }
+
  public void ValidateAndRedactInPlace(IDictionary<string, object> data)
  {
  Metrics.IncrementLogsProcessed();
@@ -161,6 +378,8 @@ public sealed class GovernanceRuntimeAdapter
  if (IsRelaxed(data))
  {
  data["GovernanceRelaxed"] = true;
+ StampPolicyEvidence(data);
+ StampGovernanceDecision(data, redactedCount: 0);
  return;
  }
 
@@ -201,6 +420,9 @@ public sealed class GovernanceRuntimeAdapter
  if (RedactIfPresentAndCount(working, field)) redacted++;
  }
  if (redacted >0) Metrics.IncrementRedactions(redacted);
+
+ StampPolicyEvidence(working);
+ StampGovernanceDecision(working, redacted);
 
  //4) Copy changes back into original IDictionary if a different instance was created
  if (!ReferenceEquals(working, data))
@@ -482,6 +704,8 @@ public sealed class GovernanceRuntimeAdapter
  if (initialized && File.Exists(_configPath) &&
  _lastLoadedUtc >= File.GetLastWriteTimeUtc(_configPath))
  return;
+
+ Interlocked.Exchange(ref _tenantStale, 1);
  }
 
  if (File.Exists(_configPath))
@@ -514,18 +738,10 @@ public sealed class GovernanceRuntimeAdapter
  if (TryParseAliasesElement(root, reverseMap))
  return reverseMap;
 
- // Try LoggingProfiles → profileName → fieldAliases
- if (TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) &&
-     profilesEl.ValueKind == JsonValueKind.Object)
+ // Try LoggingProfiles → profileName → fieldAliases. Match exact first, then case-insensitive.
+ if (TryGetActiveProfile(root, profileName, out var activeProfile))
  {
- foreach (var p in profilesEl.EnumerateObject())
- {
- if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
- {
- TryParseAliasesElement(p.Value, reverseMap);
- break;
- }
- }
+ TryParseAliasesElement(activeProfile.Profile, reverseMap);
  }
  }
  catch
@@ -565,61 +781,49 @@ public sealed class GovernanceRuntimeAdapter
  {
  try
  {
- // Parse from stream to avoid allocating a temporary large string
- using var fs = File.OpenRead(path);
- using var doc = JsonDocument.Parse(fs);
- var root = doc.RootElement;
+  // Parse from stream to avoid allocating a temporary large string
+  using var fs = File.OpenRead(path);
+  using var doc = JsonDocument.Parse(fs);
+  var root = doc.RootElement;
+  var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
- // Find LoggingProfiles (case-insensitive)
- if (!TryGetPropertyCI(root, "LoggingProfiles", out var profilesEl) ||
- profilesEl.ValueKind != JsonValueKind.Object)
- return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  if (!TryGetActiveProfile(root, profileName, out var activeProfile) ||
+      activeProfile.Profile.ValueKind != JsonValueKind.Object)
+  {
+   return result;
+  }
 
- // Find the target profile (case-insensitive by key), else first
- JsonElement? profileEl = null;
- foreach (var p in profilesEl.EnumerateObject())
- {
- if (string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase))
- {
- profileEl = p.Value;
- break;
- }
- }
- profileEl ??= profilesEl.EnumerateObject().FirstOrDefault().Value;
+  var profileEl = activeProfile.Profile;
 
- var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
- if (profileEl is null || profileEl.Value.ValueKind != JsonValueKind.Object)
- return result;
+  // DisallowedFields
+  if (TryGetPropertyCI(profileEl, "DisallowedFields", out var dis) &&
+  dis.ValueKind == JsonValueKind.Array)
+  {
+  foreach (var s in dis.EnumerateArray())
+  if (s.ValueKind == JsonValueKind.String)
+  result.Add(s.GetString()!);
+  }
 
- // DisallowedFields
- if (TryGetPropertyCI(profileEl.Value, "DisallowedFields", out var dis) &&
- dis.ValueKind == JsonValueKind.Array)
- {
- foreach (var s in dis.EnumerateArray())
- if (s.ValueKind == JsonValueKind.String)
- result.Add(s.GetString()!);
- }
+  // FieldSeverities: any == "Forbidden"
+  if (TryGetPropertyCI(profileEl, "FieldSeverities", out var sev) &&
+  sev.ValueKind == JsonValueKind.Object)
+  {
+  foreach (var kv in sev.EnumerateObject())
+  {
+  if (kv.Value.ValueKind == JsonValueKind.String &&
+  string.Equals(kv.Value.GetString(), "Forbidden", StringComparison.OrdinalIgnoreCase))
+  {
+  result.Add(kv.Name);
+  }
+  }
+  }
 
- // FieldSeverities: any == "Forbidden"
- if (TryGetPropertyCI(profileEl.Value, "FieldSeverities", out var sev) &&
- sev.ValueKind == JsonValueKind.Object)
- {
- foreach (var kv in sev.EnumerateObject())
- {
- if (kv.Value.ValueKind == JsonValueKind.String &&
- string.Equals(kv.Value.GetString(), "Forbidden", StringComparison.OrdinalIgnoreCase))
- {
- result.Add(kv.Name);
- }
- }
- }
-
- return result;
+  return result;
  }
  catch
  {
- // Malformed JSON or IO error: return empty set rather than throw to keep runtime resilient
- return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  // Malformed JSON or IO error: return empty set rather than throw to keep runtime resilient
+  return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
  }
  }
 
@@ -887,5 +1091,10 @@ public sealed class GovernanceRuntimeAdapter
   }
   data["GovernanceViolations"] = violations;
   }
+ }
+ public sealed record GovernancePolicyEvidence(string? ProfileId, string? ProfileVersion, string? ProfileHash)
+ {
+  public static GovernancePolicyEvidence Empty { get; } = new(null, null, null);
+  public bool IsEmpty => string.IsNullOrWhiteSpace(ProfileId) && string.IsNullOrWhiteSpace(ProfileVersion) && string.IsNullOrWhiteSpace(ProfileHash);
  }
 }

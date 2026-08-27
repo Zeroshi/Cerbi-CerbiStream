@@ -190,3 +190,26 @@ Customize this file to add your own rules. Changes are hot-reloaded automaticall
 ---
 
 **Questions?** Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) or open an issue.
+
+## Governance evidence metadata
+
+When CerbiStream runtime governance is enabled, governed scoring events now carry lightweight evidence metadata alongside existing violation and governance mode fields. The runtime stamps these fields locally after policy validation and redaction; it does not call the control plane or perform remote governance lookup on the logging hot path.
+
+Emitted evidence fields include:
+
+- `GovernanceProfileId` when the active profile id/name can be resolved from `cerbi_governance.json`.
+- `GovernanceProfileVersion` when the active profile or root governance config declares a version.
+- `GovernanceProfileHash`, a stable SHA-256 hash of the canonical active profile JSON. If no active profile can be extracted, CerbiStream hashes the full governance config JSON instead.
+- `GovernanceDecision`:
+  - `allowed` when no violations are present and the event is not relaxed.
+  - `warned` when violations are present but no redaction or blocking action occurred.
+  - `redacted` when one or more policy-governed fields were redacted.
+  - `relaxed` when `GovernanceRelaxed` is true.
+  - `blocked` is reserved for an existing block mode and is not introduced by this runtime update.
+- `EnforcementAction`:
+  - `none` for allowed events.
+  - `warn` for warned events.
+  - `redact` for redacted events.
+  - `allow` for relaxed events, documenting that relaxed mode bypassed enforcement without dropping application flow.
+
+If the governance config is missing or malformed, CerbiStream keeps emitting the scoring event and omits evidence fields it cannot compute. No new required configuration fields are introduced.

@@ -28,7 +28,16 @@ jobs:
 
       - name: Test (with coverage)
         run: |
-          dotnet test "CerbiStream--UnitTests/UnitTests.csproj" -c Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
+          dotnet test "CerbiStream--UnitTests/UnitTests.csproj" \
+            -c Release \
+            --no-build \
+            --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --logger trx \
+            --results-directory "TestResults/unit"
+
+      - name: Integration tests
+        run: dotnet run --project "CerbiStream.IntegrationTests/CerbiStream.IntegrationTests.csproj" -c Release --no-build --framework net8.0
 
       - name: Install reportgenerator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.1.23
@@ -68,12 +77,79 @@ jobs:
               sys.exit(1)
           " "$cov"
 
+      - name: Pack CerbiStream package
+        run: |
+          dotnet pack "LoggingStandards/CerbiStream.csproj" \
+            --configuration Release \
+            --no-build \
+            --output artifacts/nupkgs
+
+      - name: Validate CerbiStream package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(artifacts/nupkgs/CerbiStream*.2.0.6.nupkg)
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one CerbiStream 2.0.6 nupkg, found ${#packages[@]}"
+            printf '%s\n' artifacts/nupkgs/* || true
+            exit 1
+          fi
+
+          package="${packages[0]}"
+          echo "Validating package: $package"
+          mkdir -p artifacts/package-validation
+          unzip -q -o "$package" -d artifacts/package-validation
+          nuspec=$(find artifacts/package-validation -maxdepth 1 -name "*.nuspec" | head -n1)
+          if [ -z "$nuspec" ]; then
+            echo "No nuspec found in $package"
+            exit 1
+          fi
+
+          python3 - "$nuspec" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          nuspec = sys.argv[1]
+          tree = ET.parse(nuspec)
+          root = tree.getroot()
+          ns = {'n': root.tag.split('}')[0].strip('{')} if root.tag.startswith('{') else {}
+          deps = {}
+          for dep in root.findall('.//n:dependency', ns) if ns else root.findall('.//dependency'):
+              deps[dep.attrib.get('id')] = dep.attrib.get('version')
+
+          expected = {
+              'Cerbi.Governance.Runtime': '2.0.43',
+              'Cerbi.Governance.Core': '2.2.37',
+              'CerbiShield.Contracts': '1.3.1',
+          }
+          failures = []
+          for package_id, version in expected.items():
+              actual = deps.get(package_id)
+              if actual != version:
+                  failures.append(f'{package_id}: expected {version}, found {actual}')
+
+          if failures:
+              print('Package dependency validation failed:')
+              for failure in failures:
+                  print(f' - {failure}')
+              sys.exit(1)
+
+          print('Package dependency validation passed.')
+          PY
+
+      - name: Upload CerbiStream package
+        uses: actions/upload-artifact@v4
+        with:
+          name: cerbistream-package
+          path: artifacts/nupkgs/*.nupkg
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: "**/TestResults/*.trx"
+          path: "**/TestResults/**/*.trx"
 
       - name: Upload coverage report
         if: always()
