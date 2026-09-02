@@ -28,7 +28,7 @@ jobs:
           cov=$(find . -type f -name "coverage.cobertura.xml" | head -n1)
           reportgenerator -reports:"$cov" -targetdir:"coverage-report" -reporttypes:Html
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage-report
@@ -48,7 +48,7 @@ jobs:
       - name: Run benchmarks (quick)
         run: dotnet run --project BenchmarkSuite1/BenchmarkSuite1.csproj -c Release --framework net8.0 -- --join --runtimes net8.0
       - name: Upload benchmarks
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmarks
           path: BenchmarkSuite1/bin/Release/net8.0
