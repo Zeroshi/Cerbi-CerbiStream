@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+  release:
+    types: [published]
 
 jobs:
   build-and-publish:
@@ -23,9 +25,17 @@ jobs:
       - name: Set Project Path
         run: echo "PROJECT_PATH=./LoggingStandards/CerbiStream.csproj" >> $GITHUB_ENV
 
-      # Set a build/version number without editing csproj XML
+      # Pushes get a CI-only build version. Published releases use the release tag.
       - name: Set Version
-        run: echo "VERSION=2.0.${{ github.run_number }}" >> $GITHUB_ENV
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="2.0.${{ github.run_number }}"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -74,23 +84,26 @@ jobs:
           args: --org=${{ secrets.SNYK_ORG_ID }} --severity-threshold=high
 
       - name: Pack NuGet Package
+        if: github.event_name == 'release'
         run: dotnet pack "$PROJECT_PATH" --configuration Release --no-build --output "${{ github.workspace }}/nupkgs" /p:PackageVersion=${{ env.VERSION }}
 
       - name: Verify NuGet Package Exists
+        if: github.event_name == 'release'
         run: |
           ls -l "${{ github.workspace }}/nupkgs/"*.nupkg || (echo "No NuGet packages found!" && exit 1)
 
-      # Fail fast if the NuGet API key is missing
+      # Fail fast if the NuGet API key is missing on a release.
       - name: Test NuGet API Key
+        if: github.event_name == 'release'
         run: |
           echo "Testing API Key..."
           if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
-            echo "❌ NuGet API Key is missing!"
+            echo "NuGet API Key is missing!"
             exit 1
           else
-            echo "✅ NuGet API Key found."
+            echo "NuGet API Key found."
           fi
 
       - name: Push to NuGet
-        continue-on-error: true
+        if: github.event_name == 'release'
         run: dotnet nuget push "${{ github.workspace }}/nupkgs/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
