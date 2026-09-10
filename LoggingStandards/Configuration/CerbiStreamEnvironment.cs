@@ -53,6 +53,12 @@ namespace CerbiStream.Logging.Configuration
         /// Path to governance configuration file (already existed as CERBI_GOVERNANCE_PATH)
         /// </summary>
         public const string GOVERNANCE_PATH = "CERBI_GOVERNANCE_PATH";
+        public const string GOVERNANCE_SUMMARY_ENDPOINT = "CERBISTREAM_GOVERNANCE_SUMMARY_ENDPOINT";
+        public const string GOVERNANCE_SUMMARY_API_KEY = "CERBISTREAM_GOVERNANCE_SUMMARY_API_KEY";
+        public const string GOVERNANCE_SUMMARY_TENANT_ID = "CERBISTREAM_GOVERNANCE_SUMMARY_TENANT_ID";
+        public const string GOVERNANCE_SUMMARY_EMITTER_ID = "CERBISTREAM_GOVERNANCE_SUMMARY_EMITTER_ID";
+        public const string GOVERNANCE_SUMMARY_STREAM_ID = "CERBISTREAM_GOVERNANCE_SUMMARY_STREAM_ID";
+        public const string GOVERNANCE_SUMMARY_FLUSH_INTERVAL_SECONDS = "CERBISTREAM_GOVERNANCE_SUMMARY_FLUSH_INTERVAL_SECONDS";
 
         /// <summary>
         /// Enable/disable queue sending (true/false)
@@ -240,6 +246,7 @@ namespace CerbiStream.Logging.Configuration
             return GetMode() != null
                 || GetBool(GOVERNANCE_ENABLED) != null
                 || GetString(GOVERNANCE_PROFILE) != null
+                || GetString(GOVERNANCE_SUMMARY_ENDPOINT) != null
                 || GetBool(QUEUE_ENABLED) != null
                 || GetString(QUEUE_TYPE) != null
                 || GetBool(CONSOLE_OUTPUT) != null
@@ -257,6 +264,8 @@ namespace CerbiStream.Logging.Configuration
             var names = new[]
             {
                 MODE, GOVERNANCE_ENABLED, GOVERNANCE_PROFILE, GOVERNANCE_PATH,
+                GOVERNANCE_SUMMARY_ENDPOINT, GOVERNANCE_SUMMARY_API_KEY, GOVERNANCE_SUMMARY_TENANT_ID,
+                GOVERNANCE_SUMMARY_EMITTER_ID, GOVERNANCE_SUMMARY_STREAM_ID, GOVERNANCE_SUMMARY_FLUSH_INTERVAL_SECONDS,
                 QUEUE_ENABLED, QUEUE_TYPE, QUEUE_CONNECTION, QUEUE_NAME,
                 QUEUE_RETRIES_ENABLED, QUEUE_RETRY_COUNT, QUEUE_RETRY_DELAY_MS,
                 ENCRYPTION_MODE, ENCRYPTION_KEY, ENCRYPTION_IV,

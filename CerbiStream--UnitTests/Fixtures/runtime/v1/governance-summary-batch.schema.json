@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cerbi.io/schemas/runtime/v1/governance-summary-batch.schema.json",
+  "title": "Cerbi Governance Summary Batch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "body",
+        "message",
+        "payload",
+        "logRecord",
+        "rawEvent",
+        "telemetry",
+        "attributeValues",
+        "originalValue",
+        "sourceValue",
+        "exceptionStack"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "tenantId",
+    "runtimeId",
+    "runtimeVersion",
+    "source",
+    "generatedAtUtc",
+    "summaries"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAtUtc": {
+      "$ref": "#/$defs/utcDateTime"
+    },
+    "summaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/governanceSummary"
+      }
+    }
+  },
+  "$defs": {
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "safeObjectPropertyNames": {
+      "not": {
+        "enum": [
+          "body",
+          "message",
+          "payload",
+          "logRecord",
+          "rawEvent",
+          "telemetry",
+          "attributeValues",
+          "originalValue",
+          "sourceValue",
+          "exceptionStack"
+        ]
+      }
+    },
+    "governanceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "$ref": "#/$defs/safeObjectPropertyNames"
+      },
+      "required": [
+        "summaryId",
+        "appName",
+        "environment",
+        "serviceName",
+        "runtime",
+        "emitterId",
+        "streamId",
+        "windowStartUtc",
+        "windowEndUtc",
+        "periodType",
+        "counters",
+        "ruleCounts"
+      ],
+      "properties": {
+        "summaryId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "appName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "serviceName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emitterId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity for the emitting application instance or replica."
+        },
+        "streamId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Process or session generation identity. Must change when a process restarts and could reset cumulative counters."
+        },
+        "windowStartUtc": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "windowEndUtc": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "periodType": {
+          "enum": [
+            "minute",
+            "hourly",
+            "daily"
+          ]
+        },
+        "governanceProfile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "governanceProfileId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "governanceProfileVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "governanceProfileHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "counters": {
+          "$ref": "#/$defs/counters"
+        },
+        "ruleCounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ruleCount"
+          }
+        }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "$ref": "#/$defs/safeObjectPropertyNames"
+      },
+      "required": [
+        "received",
+        "evaluated",
+        "passed",
+        "violating",
+        "redacted",
+        "blocked",
+        "relaxed",
+        "errors",
+        "violations",
+        "detailedEvidence"
+      ],
+      "properties": {
+        "received": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "evaluated": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "passed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "violating": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "redacted": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "blocked": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "relaxed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "errors": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "violations": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "detailedEvidence": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "ruleCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "$ref": "#/$defs/safeObjectPropertyNames"
+      },
+      "required": [
+        "ruleId",
+        "action",
+        "severity",
+        "count"
+      ],
+      "properties": {
+        "ruleId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    }
+  }
+}

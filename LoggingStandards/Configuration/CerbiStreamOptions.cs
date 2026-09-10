@@ -177,6 +177,13 @@ namespace CerbiStream.Logging.Configuration
         public string GovernanceProfileName { get; private set; } = "default";
         public string? GovernanceConfigPath { get; private set; }
         public Func<ILoggerFactory>? InnerFactoryProvider { get; set; }
+        public string? GovernanceSummaryEndpoint { get; private set; }
+        public string? GovernanceSummaryApiKey { get; private set; }
+        public string? GovernanceSummaryTenantId { get; private set; }
+        public string? GovernanceSummaryEmitterId { get; private set; }
+        public string? GovernanceSummaryStreamId { get; private set; }
+        public int GovernanceSummaryFlushIntervalSeconds { get; private set; } = 30;
+        public Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>? GovernanceSummarySendAsync { get; set; }
 
         /// <summary>
         /// Switches the configuration to Minimal Mode.
@@ -399,6 +406,23 @@ namespace CerbiStream.Logging.Configuration
         public CerbiStreamOptions WithInnerFactoryProvider(Func<ILoggerFactory> provider)
         {
             InnerFactoryProvider = provider;
+            return this;
+        }
+
+        public CerbiStreamOptions WithGovernanceSummary(
+            string endpoint,
+            string? tenantId = null,
+            string? apiKey = null,
+            string? emitterId = null,
+            string? streamId = null,
+            int flushIntervalSeconds = 30)
+        {
+            GovernanceSummaryEndpoint = endpoint;
+            GovernanceSummaryTenantId = tenantId;
+            GovernanceSummaryApiKey = apiKey;
+            GovernanceSummaryEmitterId = emitterId;
+            GovernanceSummaryStreamId = streamId;
+            GovernanceSummaryFlushIntervalSeconds = flushIntervalSeconds;
             return this;
         }
 
@@ -729,6 +753,18 @@ namespace CerbiStream.Logging.Configuration
 
             var govPath = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_PATH);
             if (!string.IsNullOrEmpty(govPath)) WithGovernanceConfigPath(govPath);
+
+            var summaryEndpoint = CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_ENDPOINT);
+            if (!string.IsNullOrEmpty(summaryEndpoint))
+            {
+                WithGovernanceSummary(
+                    summaryEndpoint,
+                    CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_TENANT_ID),
+                    CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_API_KEY),
+                    CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_EMITTER_ID),
+                    CerbiStreamEnvironment.GetString(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_STREAM_ID),
+                    CerbiStreamEnvironment.GetInt(CerbiStreamEnvironment.GOVERNANCE_SUMMARY_FLUSH_INTERVAL_SECONDS) ?? GovernanceSummaryFlushIntervalSeconds);
+            }
 
             // Queue
             var queueEnabled = CerbiStreamEnvironment.GetBool(CerbiStreamEnvironment.QUEUE_ENABLED);
