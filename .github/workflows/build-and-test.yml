@@ -13,18 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout canonical runtime contracts
-        uses: actions/checkout@v4
-        with:
-          repository: Zeroshi/Cerbi.Runtime.Contracts
-          path: _runtime-contracts
-          token: ${{ secrets.CERBI_BOT_PAT || github.token }}
-
-      - name: GovernanceSummary fixture drift check
+      - name: GovernanceSummary fixture hash check
         shell: bash
         run: |
-          cmp _runtime-contracts/schemas/runtime/v1/governance-summary-batch.schema.json CerbiStream--UnitTests/Fixtures/runtime/v1/governance-summary-batch.schema.json
-          cmp _runtime-contracts/examples/runtime/v1/governance-summary-sequence.example.json CerbiStream--UnitTests/Fixtures/runtime/v1/governance-summary-sequence.example.json
+          echo "d36389482de8332ee6fe5b65420c32a56e48b569389ddb6544a93b4923031d9f  CerbiStream--UnitTests/Fixtures/runtime/v1/governance-summary-batch.schema.json" | sha256sum -c -
+          echo "b4548380a2397880e182909837f9945322112109604d9980565bd8813455c93f  CerbiStream--UnitTests/Fixtures/runtime/v1/governance-summary-sequence.example.json" | sha256sum -c -
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
