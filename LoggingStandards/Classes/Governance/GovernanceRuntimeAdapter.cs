@@ -20,7 +20,7 @@ namespace CerbiStream.GovernanceRuntime.Governance;
 /// Validates payloads in-place (tags GovernanceViolations / GovernanceRelaxed) and
 /// REDACTS fields that are forbidden/disallowed by either runtime violations or by policy in the profile file.
 /// </summary>
-public sealed class GovernanceRuntimeAdapter
+public sealed class GovernanceRuntimeAdapter : IDisposable
 {
  private readonly RuntimeGovernanceValidator _validator;
  private readonly string _profileName;
@@ -55,10 +55,11 @@ public sealed class GovernanceRuntimeAdapter
 
  // Pool for HashSet<string> used as toRedact to avoid per-call allocations
  private static readonly ConcurrentBag<HashSet<string>> _hashSetPool = new();
+ private readonly IGovernanceSummarySink? _governanceSummarySink;
 
  /// <param name="profileName">Active profile name (e.g., "default", "Orders").</param>
  /// <param name="configPath">Path to cerbi_governance.json; if null, uses env CERBI_GOVERNANCE_PATH or ./cerbi_governance.json.</param>
- public GovernanceRuntimeAdapter(string profileName, string? configPath = null)
+ public GovernanceRuntimeAdapter(string profileName, string? configPath = null, IGovernanceSummarySink? governanceSummarySink = null)
  {
  _profileName = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName;
  _configPath = !string.IsNullOrWhiteSpace(configPath)
@@ -67,6 +68,7 @@ public sealed class GovernanceRuntimeAdapter
  ?? Path.Combine(AppContext.BaseDirectory, "cerbi_governance.json"));
 
  IRuntimeGovernanceSource source = new FileGovernanceSource(_configPath, _profileName);
+ _governanceSummarySink = governanceSummarySink;
 
     // ctor: (isEnabled, profileName, source, plugins)
     _validator = new RuntimeGovernanceValidator(
@@ -76,6 +78,14 @@ public sealed class GovernanceRuntimeAdapter
         plugins: Array.Empty<IRuntimeGovernancePlugin>());
 
  TryInitWatcher();
+ }
+
+ public void Dispose()
+ {
+  if (_governanceSummarySink is IDisposable disposable)
+  {
+   disposable.Dispose();
+  }
  }
 
  /// <summary>
@@ -380,6 +390,7 @@ public sealed class GovernanceRuntimeAdapter
  data["GovernanceRelaxed"] = true;
  StampPolicyEvidence(data);
  StampGovernanceDecision(data, redactedCount: 0);
+ RecordGovernanceSummary(data);
  return;
  }
 
@@ -423,6 +434,7 @@ public sealed class GovernanceRuntimeAdapter
 
  StampPolicyEvidence(working);
  StampGovernanceDecision(working, redacted);
+ RecordGovernanceSummary(working);
 
  //4) Copy changes back into original IDictionary if a different instance was created
  if (!ReferenceEquals(working, data))
@@ -433,6 +445,18 @@ public sealed class GovernanceRuntimeAdapter
  ReturnHashSet(toRedact);
  if (rentedDict)
  ReturnDictionaryToPool(working);
+ }
+ }
+
+ private void RecordGovernanceSummary(IDictionary<string, object> data)
+ {
+ try
+ {
+ _governanceSummarySink?.Record(data);
+ }
+ catch
+ {
+ // Summary evidence is fail-open and must not affect application logging.
  }
  }
 

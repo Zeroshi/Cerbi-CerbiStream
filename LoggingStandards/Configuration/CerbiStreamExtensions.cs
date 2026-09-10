@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Builder;
 using CerbiStream.Encryption; // EncryptionFactory
 using static CerbiStream.Interfaces.IEncryptionTypeProvider;
 using CerbiStream.GovernanceRuntime.Governance;
+using CerbiStream.Services;
 
 namespace CerbiStream.Configuration
 {
@@ -158,7 +159,7 @@ namespace CerbiStream.Configuration
                     var innerFactory = options.InnerFactoryProvider?.Invoke() ?? LoggerFactory.Create(b => { });
                     var profile = string.IsNullOrWhiteSpace(options.GovernanceProfileName) ? "default" : options.GovernanceProfileName;
                     var path = options.GovernanceConfigPath ?? Environment.GetEnvironmentVariable("CERBI_GOVERNANCE_PATH");
-                    var adapter = new GovernanceRuntimeAdapter(profile, path);
+                    var adapter = new GovernanceRuntimeAdapter(profile, path, CreateGovernanceSummarySink(options, tenantIdFromConfig));
                     var ScoringService = sp.GetService<Scoring.IScoringService>();
                     return new GovernanceLoggerProvider(innerFactory, adapter, options, ScoringService);
                 });
@@ -272,6 +273,32 @@ namespace CerbiStream.Configuration
             }
 
             return null;
+        }
+
+        private static IGovernanceSummarySink? CreateGovernanceSummarySink(CerbiStreamOptions options, string? tenantIdFromConfig)
+        {
+            if (string.IsNullOrWhiteSpace(options.GovernanceSummaryEndpoint))
+                return null;
+
+            var tenantId = options.GovernanceSummaryTenantId ?? tenantIdFromConfig ?? options.TenantId;
+            if (string.IsNullOrWhiteSpace(tenantId))
+                return null;
+
+            return new GovernanceSummaryHttpShipper(new GovernanceSummaryHttpOptions
+            {
+                Endpoint = options.GovernanceSummaryEndpoint,
+                ApiKey = options.GovernanceSummaryApiKey,
+                TenantId = tenantId,
+                AppName = options.ServiceName ?? options.ApplicationType ?? "unknown",
+                ServiceName = options.ServiceName ?? options.ApplicationType ?? "unknown",
+                Environment = EnvironmentDetector.Environment,
+                GovernanceProfile = options.GovernanceProfileName,
+                GovernanceProfileId = options.GovernanceProfileName,
+                EmitterId = options.GovernanceSummaryEmitterId,
+                StreamId = options.GovernanceSummaryStreamId,
+                FlushIntervalSeconds = options.GovernanceSummaryFlushIntervalSeconds,
+                SendAsync = options.GovernanceSummarySendAsync
+            });
         }
 
         /// <summary>

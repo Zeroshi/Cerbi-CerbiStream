@@ -39,6 +39,7 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
 
     public void Dispose() 
     {
+        _adapter.Dispose();
         _ScoringService?.Dispose();
     }
 
@@ -81,8 +82,8 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                 // Pass redacted dictionary as structured state. Keep original formatter output by ignoring 'o'
                 _inner.Log(logLevel, eventId, (object)dict, exception, (_, e) => formatter(state, e));
 
-                // Send to scoring queue
-                if (shouldSendToScoring)
+                // Send detailed evidence only when legacy mode is active or the event needs investigation.
+                if (ShouldSendDetailedScoring(dict))
                     SendToScoringQueue(logLevel, scoringMessage!, dict, exception);
                 return;
             }
@@ -97,20 +98,102 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
 
                 _inner.Log(logLevel, eventId, (object)root, exception, (_, e) => formatter(state, e));
 
-                // Send to scoring queue
-                if (shouldSendToScoring)
+                // Preserve detailed scoring for non-dictionary states because the provider cannot prove pass/violation status here.
+                if (ShouldSendDetailedScoring(null))
                     SendToScoringQueue(logLevel, scoringMessage!, null, exception);
             }
             catch
             {
                 _inner.Log(logLevel, eventId, state!, exception, formatter);
-                if (shouldSendToScoring)
+                if (ShouldSendDetailedScoring(null))
                     SendToScoringQueue(logLevel, scoringMessage!, null, exception);
             }
         }
 
         private bool ShouldSendToScoring
             => _ScoringService != null && _options != null && !_options.DisableQueueSending;
+
+        private bool SummaryModeEnabled
+            => !string.IsNullOrWhiteSpace(_options?.GovernanceSummaryEndpoint)
+               && !string.IsNullOrWhiteSpace(_options.GovernanceSummaryTenantId ?? _options.TenantId);
+
+        private bool ShouldSendDetailedScoring(Dictionary<string, object>? data)
+        {
+            if (!ShouldSendToScoring)
+                return false;
+            if (!SummaryModeEnabled)
+                return true;
+            return data is null || !IsHealthyPass(data);
+        }
+
+        private static bool IsHealthyPass(Dictionary<string, object> data)
+        {
+            if (TryGetBool(data, "GovernanceRelaxed"))
+                return false;
+
+            var decision = TryGetString(data, "GovernanceDecision");
+            var action = TryGetString(data, "EnforcementAction");
+            var mode = TryGetString(data, "GovernanceMode");
+
+            if (!string.IsNullOrWhiteSpace(decision)
+                && !decision.Equals("allowed", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (!string.IsNullOrWhiteSpace(action)
+                && !action.Equals("none", StringComparison.OrdinalIgnoreCase)
+                && !action.Equals("allow", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (!string.IsNullOrWhiteSpace(mode)
+                && (mode.Equals("unknown", StringComparison.OrdinalIgnoreCase)
+                    || mode.Equals("invalid", StringComparison.OrdinalIgnoreCase)
+                    || mode.Equals("relax", StringComparison.OrdinalIgnoreCase)
+                    || mode.Equals("relaxed", StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            return !HasAnyViolation(data.TryGetValue("GovernanceViolations", out var rawViolations) ? rawViolations : null)
+                   && !HasAnyViolation(data.TryGetValue("GovernanceViolationsStructured", out var rawStructured) ? rawStructured : null);
+        }
+
+        private static string? TryGetString(Dictionary<string, object> data, string key)
+        {
+            return data.TryGetValue(key, out var value) ? value?.ToString() : null;
+        }
+
+        private static bool TryGetBool(Dictionary<string, object> data, string key)
+        {
+            if (!data.TryGetValue(key, out var value))
+                return false;
+            if (value is bool b)
+                return b;
+            return bool.TryParse(value?.ToString(), out var parsed) && parsed;
+        }
+
+        private static bool HasAnyViolation(object? raw)
+        {
+            if (raw is null)
+                return false;
+            if (raw is string text)
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                    return false;
+                try
+                {
+                    using var doc = JsonDocument.Parse(text);
+                    return doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            if (raw is JsonElement element)
+                return element.ValueKind == JsonValueKind.Array && element.GetArrayLength() > 0;
+            if (raw is System.Collections.IEnumerable enumerable)
+            {
+                foreach (var _ in enumerable)
+                    return true;
+            }
+            return false;
+        }
 
         private void SendToScoringQueue(LogLevel logLevel, string message, Dictionary<string, object>? data, Exception? exception)
         {

@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0",
+  "name": "basic-governance-summary-sequence",
+  "description": "Canonical cross-runtime vector for aggregate-first governed event accounting.",
+  "tenantId": "contoso",
+  "runtimeId": "canonical-runtime",
+  "runtimeVersion": "0.0.0-test",
+  "source": "contract-test",
+  "appName": "orders-api",
+  "environment": "prod",
+  "serviceName": "orders-api",
+  "runtime": "canonical",
+  "emitterId": "orders-api-pod-a",
+  "streamId": "orders-api-pod-a-20260909T142855Z",
+  "periodType": "minute",
+  "windowStartUtc": "2026-09-09T14:29:00Z",
+  "windowEndUtc": "2026-09-09T14:30:00Z",
+  "governanceProfile": "default",
+  "governanceProfileId": "default",
+  "governanceProfileVersion": "2026.09.09",
+  "governanceProfileHash": "6f7584fc2f30dd91507d0f3e127e4da70cbbf81ac728f05e63fdd2820ed75d4f",
+  "events": [
+    {
+      "name": "healthy-pass",
+      "outcome": "passed",
+      "violations": []
+    },
+    {
+      "name": "allowed-schema-violation",
+      "outcome": "violating",
+      "violations": [
+        {
+          "ruleId": "schema.optional",
+          "action": "audit",
+          "severity": "warning"
+        },
+        {
+          "ruleId": "schema.naming",
+          "action": "audit",
+          "severity": "warning"
+        },
+        {
+          "ruleId": "schema.cardinality",
+          "action": "audit",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "forbidden-field-redacted",
+      "outcome": "redacted",
+      "violations": [
+        {
+          "ruleId": "pii.email",
+          "action": "redact",
+          "severity": "warning"
+        },
+        {
+          "ruleId": "pii.phone",
+          "action": "redact",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "secret-blocked",
+      "outcome": "blocked",
+      "violations": [
+        {
+          "ruleId": "secret.token",
+          "action": "block",
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "name": "relaxed-required-field",
+      "outcome": "relaxed",
+      "violations": []
+    },
+    {
+      "name": "evaluation-error",
+      "outcome": "error",
+      "violations": []
+    }
+  ],
+  "expectedSummary": {
+    "counters": {
+      "received": 6,
+      "evaluated": 6,
+      "passed": 1,
+      "violating": 1,
+      "redacted": 1,
+      "blocked": 1,
+      "relaxed": 1,
+      "errors": 1,
+      "violations": 6,
+      "detailedEvidence": 5
+    },
+    "ruleCounts": [
+      {
+        "ruleId": "schema.optional",
+        "action": "audit",
+        "severity": "warning",
+        "count": 1
+      },
+      {
+        "ruleId": "pii.email",
+        "action": "redact",
+        "severity": "warning",
+        "count": 1
+      },
+      {
+        "ruleId": "pii.phone",
+        "action": "redact",
+        "severity": "warning",
+        "count": 1
+      },
+      {
+        "ruleId": "secret.token",
+        "action": "block",
+        "severity": "critical",
+        "count": 1
+      },
+      {
+        "ruleId": "schema.naming",
+        "action": "audit",
+        "severity": "warning",
+        "count": 1
+      },
+      {
+        "ruleId": "schema.cardinality",
+        "action": "audit",
+        "severity": "warning",
+        "count": 1
+      }
+    ]
+  }
+}
