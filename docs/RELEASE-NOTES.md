@@ -2,6 +2,9 @@
 
 Use this file to track changes between releases.
 
+## 2.0.6 - 2026-07-11
+- Republished the package with the remediated OpenTelemetry dependency set (`OpenTelemetry`, `OpenTelemetry.Api`, and `OpenTelemetry.Exporter.Console` 1.15.3), addressing CVE-2026-40894 for downstream consumers and closing issue #31.
+
 ## 2.0.5 - 2026-06-24
 - **Security: Fix OpenTelemetry CVE chain (issues #28-32)** — Resolved NU1605 package downgrade errors caused by OpenTelemetry 1.15.3 pulling in `Microsoft.Extensions.Logging.Configuration 10.0.0`, which requires `Microsoft.Extensions.Configuration.Abstractions >= 10.0.0` and `Microsoft.Extensions.Configuration >= 10.0.0`. Upgraded the following packages from 9.0.8 → 10.0.0:
   - `Microsoft.Extensions.Configuration`
