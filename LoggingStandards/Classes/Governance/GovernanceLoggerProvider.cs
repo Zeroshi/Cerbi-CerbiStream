@@ -65,29 +65,41 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
             Func<TState, Exception?, string> formatter)
         {
             var shouldSendToScoring = ShouldSendToScoring;
-            var scoringMessage = shouldSendToScoring ? formatter(state, exception) : null;
 
             if (state is IEnumerable<KeyValuePair<string, object>> kvs)
             {
                 // Create a fresh dictionary to hold structured state we will validate/redact.
                 var dict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-                foreach (var kv in kvs)
+                var positionalFields = kvs.ToArray();
+                foreach (var kv in positionalFields)
                 {
                     // Preserve last-writer semantics similar to ToDictionary on duplicate keys
                     dict[kv.Key] = kv.Value;
                 }
 
-                _adapter.ValidateAndRedactInPlace(dict);
+                var originalFields = dict.ToArray();
+                var changedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _adapter.ValidateAndRedactInPlace(dict, changedFields);
 
-                // Pass redacted dictionary as structured state. Keep original formatter output by ignoring 'o'
-                _inner.Log(logLevel, eventId, (object)dict, exception, (_, e) => formatter(state, e));
+                // Never call a formatter closing over original values after a field changed.
+                // Unchanged events keep their existing formatter contract. Exceptions and
+                // literal template text are passed through; this is structured-field redaction.
+                changedFields.UnionWith(originalFields.Where(kv =>
+                    !dict.TryGetValue(kv.Key, out var value) || !Equals(kv.Value, value))
+                    .Select(kv => kv.Key));
+                var fieldsChanged = changedFields.Count != 0;
+                var sanitizedMessage = fieldsChanged ? FormatSanitizedState(dict, positionalFields, changedFields) : null;
+                _inner.Log(logLevel, eventId, (object)dict, exception,
+                    (_, e) => fieldsChanged ? sanitizedMessage! : formatter(state, e));
 
                 // Send detailed evidence only when legacy mode is active or the event needs investigation.
                 if (ShouldSendDetailedScoring(dict))
-                    SendToScoringQueue(logLevel, scoringMessage!, dict, exception);
+                    SendToScoringQueue(logLevel,
+                        fieldsChanged ? sanitizedMessage! : formatter(state, exception), dict, exception);
                 return;
             }
 
+            var scoringMessage = shouldSendToScoring ? formatter(state, exception) : null;
             // Fallback: try JSON mapping
             try
             {
@@ -108,6 +120,68 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                 if (ShouldSendDetailedScoring(null))
                     SendToScoringQueue(logLevel, scoringMessage!, null, exception);
             }
+        }
+
+        private static string FormatSanitizedState(Dictionary<string, object> data,
+            KeyValuePair<string, object>[] positionalFields, HashSet<string> changedFields)
+        {
+            if (data.TryGetValue("{OriginalFormat}", out var raw) && raw is string template)
+            {
+                var values = new List<object?>();
+                var occurrences = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var valid = true;
+                for (var i = 0; i < template.Length; i++)
+                {
+                    if (template[i] != '{') continue;
+                    if (i + 1 < template.Length && template[i + 1] == '{') { i++; continue; }
+                    var end = template.IndexOf('}', i + 1);
+                    if (end < 0) { valid = false; break; }
+                    var token = template.Substring(i + 1, end - i - 1);
+                    var separator = token.IndexOfAny(new[] { ',', ':' });
+                    var key = separator < 0 ? token : token.Substring(0, separator);
+                    if (!data.TryGetValue(key, out var value)) { valid = false; break; }
+                    if (!changedFields.Contains(key))
+                    {
+                        occurrences.TryGetValue(key, out var occurrence);
+                        var originals = positionalFields.Where(kv =>
+                            string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase)).ToArray();
+                        if (occurrence < originals.Length) value = originals[occurrence].Value;
+                        occurrences[key] = occurrence + 1;
+                    }
+                    values.Add(value);
+                    i = end;
+                }
+                if (valid)
+                {
+                    try
+                    {
+                        // Use the logging framework's renderer for alignment, format
+                        // specifiers, escaped braces, nulls and enumerable values.
+                        var renderer = new TemplateRenderer();
+                        renderer.LogInformation(template, values.ToArray());
+                        return renderer.Message;
+                    }
+                    catch (Exception ex) when (ex is not OutOfMemoryException) { }
+                }
+            }
+            // Arbitrary TState formatters cannot safely consume a replacement dictionary.
+            // Preserve sanitized structure instead of reusing an unsafe original message.
+            try { return JsonSerializer.Serialize(data); }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Never fall back to the original formatter or expose exception text.
+                // The sink still receives the sanitized structured state and exception.
+                return "[CerbiStream] Sanitized structured event could not be formatted.";
+            }
+        }
+
+        private sealed class TemplateRenderer : ILogger
+        {
+            public string Message { get; private set; } = string.Empty;
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel level) => true;
+            public void Log<TState>(LogLevel level, EventId id, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter) => Message = formatter(state, exception);
         }
 
         private bool ShouldSendToScoring

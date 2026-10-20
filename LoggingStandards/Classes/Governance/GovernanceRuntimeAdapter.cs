@@ -382,6 +382,9 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  }
 
  public void ValidateAndRedactInPlace(IDictionary<string, object> data)
+     => ValidateAndRedactInPlace(data, null);
+
+ internal void ValidateAndRedactInPlace(IDictionary<string, object> data, ISet<string>? redactedFields)
  {
  Metrics.IncrementLogsProcessed();
  //0) Respect Relax tag (bypass checks + redaction)
@@ -428,7 +431,11 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  long redacted =0;
  foreach (var field in toRedact)
  {
- if (RedactIfPresentAndCount(working, field)) redacted++;
+ if (RedactIfPresentAndCount(working, field))
+ {
+ redacted++;
+ redactedFields?.Add(field);
+ }
  }
  if (redacted >0) Metrics.IncrementRedactions(redacted);
 
@@ -504,7 +511,6 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  dict[field] = "***REDACTED***";
  return true;
  }
- return false;
  }
  var hit = data.Keys.FirstOrDefault(k => string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
  if (hit is not null)
@@ -1101,10 +1107,16 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
   ? ToGovernanceViolations(raw)
   : new List<GovernanceViolation>();
 
-  if (violations.Count ==0)
-  {
   foreach (var f in policyFields)
   {
+  if (!data.Keys.Any(key => string.Equals(key, f, StringComparison.OrdinalIgnoreCase)) ||
+      violations.Any(v => v is not null && string.Equals(v.Field, f, StringComparison.OrdinalIgnoreCase) &&
+          (string.Equals(v.RuleId, "PolicyDisallowedField", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(v.Code, "Forbidden", StringComparison.OrdinalIgnoreCase) ||
+           IsForbiddenCode(v.Code) || IsForbiddenCode(v.RuleId) ||
+           string.Equals(v.RuleId, "Forbidden", StringComparison.OrdinalIgnoreCase) ||
+           (v.RuleId?.EndsWith(":Forbidden", StringComparison.OrdinalIgnoreCase) ?? false))))
+      continue;
   violations.Add(new GovernanceViolation
   {
   RuleId = "PolicyDisallowedField",
@@ -1114,7 +1126,6 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
   });
   }
   data["GovernanceViolations"] = violations;
-  }
  }
  public sealed record GovernancePolicyEvidence(string? ProfileId, string? ProfileVersion, string? ProfileHash)
  {
