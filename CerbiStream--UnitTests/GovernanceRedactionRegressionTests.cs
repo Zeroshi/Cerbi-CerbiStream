@@ -38,6 +38,9 @@ public class GovernanceRedactionRegressionTests
         Assert.Equal(42, f.Sink.State["durationMs"]);
         Assert.DoesNotContain(Email, f.Sink.Message);
         Assert.DoesNotContain(Email, JsonSerializer.Serialize(f.Sink.State));
+        using var rendered = JsonDocument.Parse(f.Sink.Message);
+        Assert.Equal("trace-001", rendered.RootElement.GetProperty("traceId").GetString());
+        Assert.Equal(42, rendered.RootElement.GetProperty("durationMs").GetInt32());
         Assert.Equal(LogLevel.Warning, f.Sink.Level);
         Assert.Equal(73, f.Sink.Event.Id);
         Assert.Equal("synthetic", f.Sink.Event.Name);
@@ -124,16 +127,89 @@ public class GovernanceRedactionRegressionTests
         => typeof(GovernanceRuntimeAdapter).GetMethod("EnsurePolicyViolations", BindingFlags.Static | BindingFlags.NonPublic)!
             .Invoke(null, new object[] { data, fields });
 
+    [Fact]
+    public void UnsupportedFallbackValueStillReachesSinkWithoutOriginalFormatter()
+    {
+        using var f = new Fixture();
+        var state = new Dictionary<string, object> {
+            ["email"] = Email, ["traceId"] = "trace-001", ["unsupported"] = typeof(string)
+        };
+        f.Logger.Log(LogLevel.Warning, default, state, null, (_, _) => throw new InvalidOperationException(Email));
+        Assert.Equal("[CerbiStream] Sanitized structured event could not be formatted.", f.Sink.Message);
+        Assert.Equal("***REDACTED***", f.Sink.State["email"]);
+        Assert.Equal("trace-001", f.Sink.State["traceId"]);
+    }
+
+    [Fact]
+    public void ThrowingTemplateValueUsesSanitizedFallback()
+    {
+        using var f = new Fixture();
+        f.Logger.LogInformation("{email} {other}", Email, new ThrowingValue());
+        Assert.DoesNotContain(Email, f.Sink.Message);
+        using var rendered = JsonDocument.Parse(f.Sink.Message);
+        Assert.Equal("***REDACTED***", rendered.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public void CaseSensitiveDictionaryUsesCaseInsensitivePolicyFieldMatch()
+    {
+        using var f = new Fixture();
+        var state = new Dictionary<string, object> { ["Email"] = Email };
+        f.Adapter.ValidateAndRedactInPlace(state);
+        Assert.Equal("***REDACTED***", state["Email"]);
+        Assert.Single(Assert.IsType<List<Violation>>(state["GovernanceViolations"]));
+    }
+
+    [Fact]
+    public void NullAndLegacyViolationsDoNotBreakDeduplication()
+    {
+        foreach (var code in new[] { "ForbiddenField", "DisallowedFieldPresent", "Forbidden" })
+        {
+            var data = new Dictionary<string, object> {
+                ["email"] = Email,
+                ["GovernanceViolations"] = new List<Violation> {
+                    null!, new Violation { RuleId = "OtherRule", Field = "email", Severity = "Warn" }, new Violation { RuleId = code, Code = code, Field = "email", Severity = "Error" }
+                }
+            };
+            Ensure(data, new[] { "email", "absent" });
+            var violations = Assert.IsType<List<Violation>>(data["GovernanceViolations"]);
+            Assert.Equal(2, violations.Count(v => v is not null));
+            Assert.DoesNotContain(violations, v => v?.RuleId == "PolicyDisallowedField");
+        }
+    }
+
+    [Fact]
+    public void CyclicFallbackPreservesStructuredContextAndException()
+    {
+        using var f = new Fixture();
+        var cycle = new Dictionary<string, object>();
+        cycle["self"] = cycle;
+        var state = new Dictionary<string, object> { ["email"] = Email, ["traceId"] = "trace-001", ["cycle"] = cycle };
+        var exception = new InvalidOperationException("synthetic diagnostic");
+        f.Logger.Log(LogLevel.Warning, new EventId(75), state, exception, (_, _) => Email);
+        Assert.Equal("[CerbiStream] Sanitized structured event could not be formatted.", f.Sink.Message);
+        Assert.Equal("***REDACTED***", f.Sink.State["email"]);
+        Assert.Equal("trace-001", f.Sink.State["traceId"]);
+        Assert.Same(exception, f.Sink.Exception);
+        Assert.Equal(75, f.Sink.Event.Id);
+    }
+    private sealed class ThrowingValue
+    {
+        public override string ToString() => throw new InvalidOperationException("synthetic formatter failure");
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly string path = Path.Combine(Path.GetTempPath(), "cerbi-regression-" + Guid.NewGuid() + ".json");
         private readonly GovernanceLoggerProvider provider;
+        public GovernanceRuntimeAdapter Adapter { get; }
         public readonly CaptureFactory Sink = new();
         public ILogger Logger { get; }
         public Fixture()
         {
             File.WriteAllText(path, """{"EnforcementMode":"Strict","LoggingProfiles":{"default":{"name":"default","DisallowedFields":["email"],"AllowRelax":false}}}""");
-            provider = new GovernanceLoggerProvider(Sink, new GovernanceRuntimeAdapter("default", path));
+            Adapter = new GovernanceRuntimeAdapter("default", path);
+            provider = new GovernanceLoggerProvider(Sink, Adapter);
             Logger = provider.CreateLogger("proof-category");
         }
         public void Dispose() { provider.Dispose(); File.Delete(path); }

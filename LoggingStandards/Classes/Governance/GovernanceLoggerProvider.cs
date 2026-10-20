@@ -161,12 +161,18 @@ public sealed class GovernanceLoggerProvider : ILoggerProvider
                         renderer.LogInformation(template, values.ToArray());
                         return renderer.Message;
                     }
-                    catch (FormatException) { }
+                    catch (Exception ex) when (ex is not OutOfMemoryException) { }
                 }
             }
             // Arbitrary TState formatters cannot safely consume a replacement dictionary.
             // Preserve sanitized structure instead of reusing an unsafe original message.
-            return JsonSerializer.Serialize(data);
+            try { return JsonSerializer.Serialize(data); }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Never fall back to the original formatter or expose exception text.
+                // The sink still receives the sanitized structured state and exception.
+                return "[CerbiStream] Sanitized structured event could not be formatted.";
+            }
         }
 
         private sealed class TemplateRenderer : ILogger

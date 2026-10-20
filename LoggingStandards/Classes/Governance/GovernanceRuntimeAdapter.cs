@@ -511,7 +511,6 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  dict[field] = "***REDACTED***";
  return true;
  }
- return false;
  }
  var hit = data.Keys.FirstOrDefault(k => string.Equals(k, field, StringComparison.OrdinalIgnoreCase));
  if (hit is not null)
@@ -1110,10 +1109,12 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
 
   foreach (var f in policyFields)
   {
-  if (!data.ContainsKey(f) ||
-      violations.Any(v => string.Equals(v.Field, f, StringComparison.OrdinalIgnoreCase) &&
+  if (!data.Keys.Any(key => string.Equals(key, f, StringComparison.OrdinalIgnoreCase)) ||
+      violations.Any(v => v is not null && string.Equals(v.Field, f, StringComparison.OrdinalIgnoreCase) &&
           (string.Equals(v.RuleId, "PolicyDisallowedField", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(v.Code, "Forbidden", StringComparison.OrdinalIgnoreCase) ||
+           IsForbiddenCode(v.Code) || IsForbiddenCode(v.RuleId) ||
+           string.Equals(v.RuleId, "Forbidden", StringComparison.OrdinalIgnoreCase) ||
            (v.RuleId?.EndsWith(":Forbidden", StringComparison.OrdinalIgnoreCase) ?? false))))
       continue;
   violations.Add(new GovernanceViolation
