@@ -2,6 +2,11 @@
 
 Use this file to track changes between releases.
 
+## 2.0.127 - 2026-10-20
+- Prevent original-state formatters from reintroducing redacted structured fields into rendered messages. Standard templates retain positional formatting; changed custom states without a usable template render sanitized JSON.
+- Only add disallowed-field violations for fields present in the record, preserving unrelated violations without equivalent duplicates.
+- Add regressions for rendered output, repeated placeholders, clean records, and exception/debugging context. See `structured-redaction-contract.md` for the supported input domain and exclusions.
+
 ## 2.0.5 - 2026-06-24
 - **Security: Fix OpenTelemetry CVE chain (issues #28-32)** — Resolved NU1605 package downgrade errors caused by OpenTelemetry 1.15.3 pulling in `Microsoft.Extensions.Logging.Configuration 10.0.0`, which requires `Microsoft.Extensions.Configuration.Abstractions >= 10.0.0` and `Microsoft.Extensions.Configuration >= 10.0.0`. Upgraded the following packages from 9.0.8 → 10.0.0:
   - `Microsoft.Extensions.Configuration`

@@ -382,6 +382,9 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  }
 
  public void ValidateAndRedactInPlace(IDictionary<string, object> data)
+     => ValidateAndRedactInPlace(data, null);
+
+ internal void ValidateAndRedactInPlace(IDictionary<string, object> data, ISet<string>? redactedFields)
  {
  Metrics.IncrementLogsProcessed();
  //0) Respect Relax tag (bypass checks + redaction)
@@ -428,7 +431,11 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
  long redacted =0;
  foreach (var field in toRedact)
  {
- if (RedactIfPresentAndCount(working, field)) redacted++;
+ if (RedactIfPresentAndCount(working, field))
+ {
+ redacted++;
+ redactedFields?.Add(field);
+ }
  }
  if (redacted >0) Metrics.IncrementRedactions(redacted);
 
@@ -1101,10 +1108,14 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
   ? ToGovernanceViolations(raw)
   : new List<GovernanceViolation>();
 
-  if (violations.Count ==0)
-  {
   foreach (var f in policyFields)
   {
+  if (!data.ContainsKey(f) ||
+      violations.Any(v => string.Equals(v.Field, f, StringComparison.OrdinalIgnoreCase) &&
+          (string.Equals(v.RuleId, "PolicyDisallowedField", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(v.Code, "Forbidden", StringComparison.OrdinalIgnoreCase) ||
+           (v.RuleId?.EndsWith(":Forbidden", StringComparison.OrdinalIgnoreCase) ?? false))))
+      continue;
   violations.Add(new GovernanceViolation
   {
   RuleId = "PolicyDisallowedField",
@@ -1114,7 +1125,6 @@ public sealed class GovernanceRuntimeAdapter : IDisposable
   });
   }
   data["GovernanceViolations"] = violations;
-  }
  }
  public sealed record GovernancePolicyEvidence(string? ProfileId, string? ProfileVersion, string? ProfileHash)
  {
