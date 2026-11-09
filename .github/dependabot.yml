@@ -10,6 +10,8 @@ updates:
       timezone: "America/New_York"
     open-pull-requests-limit: 10
     exclude-paths:
+      # Retired, fully commented project; active tests live in CerbiStream--UnitTests.
+      - "UnitTests/UnitTests.csproj"
       - ".packages/**"
       - "**/bin/**"
       - "**/obj/**"
