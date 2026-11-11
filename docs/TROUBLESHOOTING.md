@@ -18,7 +18,9 @@ This guide lists common issues and resolutions for both developers and operators
  - Violation codes must be "ForbiddenField" or "DisallowedFieldPresent"
 
 - Policy changes not taking effect
- - GovernanceRuntimeAdapter caches fields until file timestamp changes; touch or rewrite the file
+ - GovernanceRuntimeAdapter refreshes its cached fields after an asynchronous file-watcher notification. Rewriting the file does not guarantee that the very next validation uses the new policy.
+ - If file watching is unavailable, validation checks the file timestamp at one-second intervals. Ensure the updated file has a later write timestamp.
+ - Verify the new rule with a synthetic, non-sensitive payload before relying on a newly tightened policy. Tests should wait for the expected behavior with a bounded timeout and use a separate policy file per test process.
 
 - Relaxed logging mode
  - If `GovernanceRelaxed` is true in the payload, validation/redaction are bypassed

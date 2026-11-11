@@ -5,6 +5,7 @@ using CerbiStream.GovernanceRuntime.Governance;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -263,15 +264,25 @@ namespace CerbiStream.Tests
             }
         }
 
-        [Fact(DisplayName = "PolicyReload - File change updates redaction policy")]
-        public void PolicyReload_OnFileChange_UpdatesRedaction()
+        [Theory(DisplayName = "PolicyReload - File change eventually updates redaction policy")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task PolicyReload_OnFileChange_UpdatesRedaction(bool useWatcher)
         {
-            var temp = Path.Combine(Path.GetTempPath(), "cerbi_policy_test.json");
+            // Each framework/test process needs its own policy file.
+            var tempDirectory = Path.Combine(Path.GetTempPath(), $"cerbi_policy_reload_{Guid.NewGuid():N}");
+            var temp = Path.Combine(tempDirectory, "cerbi_governance.json");
+            GovernanceRuntimeAdapter? adapter = null;
             try
             {
+                // A missing directory at construction exercises the timestamp fallback.
+                if (!useWatcher)
+                    adapter = new GovernanceRuntimeAdapter("default", temp);
+
+                Directory.CreateDirectory(tempDirectory);
                 // initial policy with no disallowed fields
                 File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[],\"fieldSeverities\":{}}}}");
-                var adapter = new GovernanceRuntimeAdapter("default", temp);
+                adapter ??= new GovernanceRuntimeAdapter("default", temp);
 
                 var data1 = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -281,22 +292,37 @@ namespace CerbiStream.Tests
                 Assert.Equal("topsecret", data1["secret"]);
 
                 // update policy to include 'secret'
+                var previousWriteTime = File.GetLastWriteTimeUtc(temp);
                 File.WriteAllText(temp, "{\"EnforcementMode\":\"Strict\",\"LoggingProfiles\":{\"default\":{\"name\":\"default\",\"version\":\"2026.07\",\"disallowedFields\":[\"secret\"],\"fieldSeverities\":{}}}}");
-                // Touch file time
-                File.SetLastWriteTimeUtc(temp, DateTime.UtcNow.AddSeconds(1));
+                // Make the change observable even on filesystems with coarse timestamps.
+                File.SetLastWriteTimeUtc(temp, previousWriteTime.AddSeconds(1));
 
-                var data2 = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                // Watcher notifications are asynchronous; without a watcher the adapter
+                // polls at one-second intervals. Wait for behavior, not a fixed sleep.
+                var elapsed = Stopwatch.StartNew();
+                Dictionary<string, object> data2;
+                do
                 {
-                    ["secret"] = "topsecret"
-                };
+                    // Never retry a previously redacted payload: that could hide stale policy.
+                    data2 = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["secret"] = "topsecret",
+                        ["other"] = "untouched"
+                    };
+                    adapter.ValidateAndRedactInPlace(data2);
+                    if (Equals("***REDACTED***", data2["secret"]))
+                        break;
 
-                // Allow some time for watcher to observe change (if watcher available); adapter also checks timestamp on call
-                adapter.ValidateAndRedactInPlace(data2);
+                    await Task.Delay(25);
+                } while (elapsed.Elapsed < TimeSpan.FromSeconds(5));
+
                 Assert.Equal("***REDACTED***", data2["secret"]);
+                Assert.Equal("untouched", data2["other"]);
             }
             finally
             {
-                if (File.Exists(temp)) File.Delete(temp);
+                adapter?.Dispose();
+                if (Directory.Exists(tempDirectory)) Directory.Delete(tempDirectory, recursive: true);
             }
         }
 
