@@ -39,7 +39,7 @@ This walkthrough explains how CerbiStream governance runtime integrates with the
 If the payload contains `GovernanceRelaxed: true`, governance checks and redactions are skipped. Use this intentionally, e.g., for test logs.
 
 ## Adapter internals
-- Caches parsed policy fields and reloads when file write time increases
+- Caches parsed policy fields and reloads after asynchronous file-watcher notifications. When a watcher is unavailable, validation polls for a later file write time at one-second intervals; reload is not synchronous with a file write.
 - Handles violations passed as objects, JsonElements, or JSON strings
 - Uses case-insensitive key matching for field names
 
